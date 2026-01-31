@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Photographer's Companion | ניהול עסק לצלמות</title>
+    <meta name="description" content="מערכת פשוטה וחכמה לניהול לקוחות, הצעות מחיר ולוח צילומים לצלמת המקצועית.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-logo">
+                <i data-lucide="camera" class="logo-icon"></i>
+                <span>Focus.</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-view="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>דשבורד</span>
+                </li>
+                <li data-view="customers">
+                    <i data-lucide="users"></i>
+                    <span>לקוחות</span>
+                </li>
+                <li data-view="calendar">
+                    <i data-lucide="calendar"></i>
+                    <span>לוח צילומים</span>
+                </li>
+                <li data-view="editing">
+                    <i data-lucide="image-plus"></i>
+                    <span>עבודות בעריכה</span>
+                </li>
+                <li data-view="settings">
+                    <i data-lucide="settings"></i>
+                    <span>הגדרות</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="header-info">
+                    <h1 id="view-title">שלום, צלמת! 👋</h1>
+                    <p id="view-subtitle">הנה מה שקורה בעסק שלך היום.</p>
+                </div>
+                <div class="header-actions">
+                    <button id="quick-add-btn" class="btn btn-primary">
+                        <i data-lucide="plus"></i>
+                        לקוח חדש
+                    </button>
+                    <div class="user-profile">
+                        <div class="avatar">📸</div>
+                    </div>
+                </div>
+            </header>
+
+            <section id="view-container" class="view-container">
+                <!-- Dynamic Content Loads Here -->
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for adding/editing customers -->
+    <div id="modal-container" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">לקוח חדש</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="customer-form" class="modal-form">
+                <div class="form-group">
+                    <label for="customer-name">שם הלקוח</label>
+                    <input type="text" id="customer-name" required placeholder="לדוגמה: שרה כהן">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="customer-phone">טלפון</label>
+                        <input type="tel" id="customer-phone" required placeholder="050-0000000">
+                    </div>
+                    <div class="form-group">
+                        <label for="lead-source">מקור פנייה</label>
+                        <select id="lead-source">
+                            <option value="whatsapp">וואטסאפ</option>
+                            <option value="instagram">אינסטגרם</option>
+                            <option value="recommendation">המלצה</option>
+                            <option value="other">אחר</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="shoot-date">תאריך צילום</label>
+                        <input type="date" id="shoot-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="package">חבילה</label>
+                        <select id="package" class="package-select">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="total-price">מחיר כולל (₪)</label>
+                        <input type="number" id="total-price" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="deposit-paid">מקדמה שולמה (₪)</label>
+                        <input type="number" id="deposit-paid" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="customer-status">סטטוס</label>
+                        <select id="customer-status">
+                            <option value="new">פנייה חדשה</option>
+                            <option value="quote">הצעת מחיר</option>
+                            <option value="closed">סגור (נקבע תאריך)</option>
+                            <option value="shooting">בצילום</option>
+                            <option value="editing">בעריכה</option>
+                            <option value="delivered">נמסר</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="payment-status">סטטוס תשלום</label>
+                        <select id="payment-status">
+                            <option value="unpaid">לא שולם</option>
+                            <option value="deposit">שולמה מקדמה</option>
+                            <option value="paid">שולם מלא</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="notes">הערות</label>
+                    <textarea id="notes" placeholder="פרטים נוספים..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="delete-customer-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
+                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמירה</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/store.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
