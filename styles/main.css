@@ -102,6 +102,7 @@ body {
     flex: 1;
     margin-right: 260px;
     padding: 40px;
+    transition: margin-right 0.3s ease, padding 0.3s ease;
 }
 
 .top-bar {
@@ -124,7 +125,11 @@ body {
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
+}
+
+.header-actions .btn span {
+    transition: display 0.2s ease;
 }
 
 .btn {
@@ -254,6 +259,25 @@ body {
 .item-sub {
     font-size: 0.875rem;
     color: var(--text-muted);
+}
+
+.item-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.item-actions .btn i {
+    width: 14px;
+    height: 14px;
+}
+
+.item-actions .whatsapp-btn {
+    color: #25D366;
+}
+
+.item-actions .delete-btn {
+    color: #EF4444;
 }
 
 .badge {
@@ -420,8 +444,68 @@ input:focus, select:focus, textarea:focus {
     color: var(--primary);
 }
 
-/* Responsiveness */
-@media (max-width: 768px) {
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    gap: 16px;
+}
+
+.section-title {
+    margin-bottom: 0px;
+}
+
+.section-desc {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 16px;
+}
+
+/* Mobile Navigation */
+.mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid var(--border);
+    padding: 10px 16px;
+    padding-bottom: env(safe-area-inset-bottom, 10px);
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex: 1;
+}
+
+.mobile-nav-item i {
+    width: 20px;
+    height: 20px;
+}
+
+.mobile-nav-item.active {
+    color: var(--primary);
+}
+
+/* Responsiveness Improvements */
+@media (max-width: 1024px) {
     .sidebar {
         width: 80px;
         padding: 24px 12px;
@@ -429,11 +513,102 @@ input:focus, select:focus, textarea:focus {
     .sidebar-logo span, .nav-links li span {
         display: none;
     }
+    .nav-links li i {
+        margin-left: 0;
+    }
     .main-content {
         margin-right: 80px;
+        padding: 32px;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;
+    }
+    .main-content {
+        margin-right: 0;
+        padding: 24px 16px;
+        padding-bottom: 80px; /* Space for mobile nav */
+    }
+    .mobile-nav {
+        display: flex;
+    }
+    .top-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+    .header-info h1 {
+        font-size: 1.5rem;
+    }
+    .header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .header-actions .btn {
+        flex: 1;
+        justify-content: center;
+        padding: 10px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .list-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .list-item .badge {
+        align-self: flex-start;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .quick-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .quick-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .item-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+    
+    .item-actions .btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .modal {
+        width: 95%;
         padding: 20px;
     }
+    
     .form-row {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-actions .btn span {
+        display: none;
+    }
+    .header-actions .btn i {
+        width: 20px;
+        height: 20px;
     }
 }

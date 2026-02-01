@@ -21,8 +21,8 @@ const UI = {
                 </div>
             </div>
 
-            <h2 class="section-title" style="margin-bottom: 20px;">פעולות מהירות</h2>
-            <div class="quick-actions" style="display: flex; gap: 16px;">
+            <h2 class="section-title">פעולות מהירות</h2>
+            <div class="quick-actions">
                 <button class="btn btn-secondary" onclick="app.openClientModal('לקוח חדש')">
                     <i data-lucide="user-plus"></i> הוספת לקוח
                 </button>
@@ -53,16 +53,16 @@ const UI = {
                                 <span class="item-name">${c.name}</span>
                                 <span class="item-sub">${c.phone} | ${this.getSourceLabel(c.source)}</span>
                             </div>
-                            <div class="item-actions" style="display: flex; align-items: center; gap: 12px;">
-                                <a href="https://wa.me/972${c.phone.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm" style="color:#25D366;">
-                                    <i data-lucide="message-circle" style="width:14px;"></i>
+                            <div class="item-actions">
+                                <a href="https://wa.me/972${c.phone.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm whatsapp-btn">
+                                    <i data-lucide="message-circle"></i>
                                 </a>
                                 <button class="btn btn-secondary btn-sm" onclick="app.viewClient('${c.id}')">
-                                    <i data-lucide="eye" style="width:14px;"></i>
-                                    <span style="margin-right:4px;">צפייה</span>
+                                    <i data-lucide="eye"></i>
+                                    <span>צפייה</span>
                                 </button>
-                                <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="app.directDeleteClient('${c.id}')">
-                                    <i data-lucide="trash-2" style="width:14px;"></i>
+                                <button class="btn btn-secondary btn-sm delete-btn" onclick="app.directDeleteClient('${c.id}')">
+                                    <i data-lucide="trash-2"></i>
                                 </button>
                                 <button class="btn btn-primary btn-sm" onclick="app.openProjectModal('פרויקט חדש', null, '${c.id}')">פרויקט חדש</button>
                             </div>
@@ -99,14 +99,14 @@ const UI = {
                                         ${p.drive_link ? `<a href="${p.drive_link}" target="_blank" style="color:var(--primary); text-decoration:none; font-size:0.8rem; display:flex; align-items:center; gap:4px;"><i data-lucide="external-link" style="width:12px;"></i> גוגל דרייב</a>` : ''}
                                     </div>
                                 </div>
-                                <div class="item-actions" style="display: flex; align-items: center; gap: 12px;">
+                                <div class="item-actions">
                                     <span class="badge ${status.class}">${status.label}</span>
                                     <button class="btn btn-secondary btn-sm" onclick="app.viewProject('${p.id}')">
-                                        <i data-lucide="eye" style="width:14px;"></i>
-                                        <span style="margin-right:4px;">צפייה</span>
+                                        <i data-lucide="eye"></i>
+                                        <span>צפייה</span>
                                     </button>
-                                    <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="app.directDeleteProject('${p.id}')">
-                                        <i data-lucide="trash-2" style="width:14px;"></i>
+                                    <button class="btn btn-secondary btn-sm delete-btn" onclick="app.directDeleteProject('${p.id}')">
+                                        <i data-lucide="trash-2"></i>
                                     </button>
                                 </div>
                             </div>
@@ -159,9 +159,9 @@ const UI = {
         const html = `
             <div class="settings-container">
                 <section class="settings-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <div>
-                            <h2 class="section-title" style="margin-bottom: 8px;">חבילות צילום</h2>
+                    <div class="section-header">
+                        <div class="header-text">
+                            <h2 class="section-title">חבילות צילום</h2>
                             <p class="section-desc">הגדירי את החבילות שלך לשימוש מהיר.</p>
                         </div>
                         <button class="btn btn-primary" onclick="app.openPackageModal('חבילה חדשה')">
@@ -173,9 +173,9 @@ const UI = {
                         ${packages.length === 0 ? '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין חבילות.</div>' : packages.map(p => `
                             <div class="list-item">
                                 <div class="item-info"><span class="item-name">${p.name}</span><span class="item-sub">${p.price} ₪</span></div>
-                                <div class="item-actions" style="display:flex; gap:8px;">
-                                    <button class="btn btn-secondary btn-sm" onclick="app.openPackageModal('עריכת חבילה', '${p.id}')"><i data-lucide="edit-2" style="width:14px;"></i></button>
-                                    <button class="btn btn-secondary btn-sm" onclick="app.deletePackage('${p.id}')"><i data-lucide="trash-2" style="width:14px; color:#EF4444;"></i></button>
+                                <div class="item-actions">
+                                    <button class="btn btn-secondary btn-sm" onclick="app.openPackageModal('עריכת חבילה', '${p.id}')"><i data-lucide="edit-2"></i></button>
+                                    <button class="btn btn-secondary btn-sm delete-btn" onclick="app.deletePackage('${p.id}')"><i data-lucide="trash-2"></i></button>
                                 </div>
                             </div>
                         `).join('')}

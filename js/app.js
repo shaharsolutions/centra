@@ -11,8 +11,9 @@ const app = {
     },
 
     addEventListeners() {
-        // Navigation
-        document.querySelectorAll('.nav-links li').forEach(item => {
+        // Navigation (Desktop & Mobile)
+        const navElements = document.querySelectorAll('.nav-links li, .mobile-nav-item');
+        navElements.forEach(item => {
             item.addEventListener('click', async () => {
                 const view = item.getAttribute('data-view');
                 await this.navigate(view);
@@ -170,7 +171,14 @@ const app = {
 
     async navigate(view) {
         this.currentView = view;
+        
+        // Update Desktop Nav
         document.querySelectorAll('.nav-links li').forEach(item => {
+            item.classList.toggle('active', item.getAttribute('data-view') === view);
+        });
+
+        // Update Mobile Nav
+        document.querySelectorAll('.mobile-nav-item').forEach(item => {
             item.classList.toggle('active', item.getAttribute('data-view') === view);
         });
 
