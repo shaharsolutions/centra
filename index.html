@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Photographer's Companion | ניהול עסק לצלמות</title>
-    <meta name="description" content="מערכת פשוטה וחכמה לניהול לקוחות, הצעות מחיר ולוח צילומים לצלמת המקצועית.">
+    <title>Centra | ניהול עסק לצלמות</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <meta name="description" content="Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לצלמת המקצועית.">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +15,9 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
@@ -22,24 +26,24 @@
         <nav class="sidebar">
             <div class="sidebar-logo">
                 <i data-lucide="camera" class="logo-icon"></i>
-                <span>Focus.</span>
+                <span>Centra</span>
             </div>
             <ul class="nav-links">
                 <li class="active" data-view="dashboard">
                     <i data-lucide="layout-dashboard"></i>
                     <span>דשבורד</span>
                 </li>
-                <li data-view="customers">
+                <li data-view="clients">
                     <i data-lucide="users"></i>
                     <span>לקוחות</span>
+                </li>
+                <li data-view="projects">
+                    <i data-lucide="briefcase"></i>
+                    <span>פרויקטים</span>
                 </li>
                 <li data-view="calendar">
                     <i data-lucide="calendar"></i>
                     <span>לוח צילומים</span>
-                </li>
-                <li data-view="editing">
-                    <i data-lucide="image-plus"></i>
-                    <span>עבודות בעריכה</span>
                 </li>
                 <li data-view="settings">
                     <i data-lucide="settings"></i>
@@ -56,9 +60,13 @@
                     <p id="view-subtitle">הנה מה שקורה בעסק שלך היום.</p>
                 </div>
                 <div class="header-actions">
-                    <button id="quick-add-btn" class="btn btn-primary">
-                        <i data-lucide="plus"></i>
+                    <button id="quick-add-client-btn" class="btn btn-secondary">
+                        <i data-lucide="user-plus"></i>
                         לקוח חדש
+                    </button>
+                    <button id="quick-add-project-btn" class="btn btn-primary">
+                        <i data-lucide="plus"></i>
+                        פרויקט חדש
                     </button>
                     <div class="user-profile">
                         <div class="avatar">📸</div>
@@ -72,26 +80,26 @@
         </main>
     </div>
 
-    <!-- Modal for adding/editing customers -->
-    <div id="modal-container" class="modal-overlay hidden">
+    <!-- Modal for Clients -->
+    <div id="client-modal" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
-                <h3 id="modal-title">לקוח חדש</h3>
+                <h3 id="client-modal-title">לקוח חדש</h3>
                 <button class="close-modal">&times;</button>
             </div>
-            <form id="customer-form" class="modal-form">
+            <form id="client-form" class="modal-form">
                 <div class="form-group">
-                    <label for="customer-name">שם הלקוח</label>
-                    <input type="text" id="customer-name" required placeholder="לדוגמה: שרה כהן">
+                    <label for="client-name">שם הלקוח</label>
+                    <input type="text" id="client-name" required placeholder="לדוגמה: שרה כהן">
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="customer-phone">טלפון</label>
-                        <input type="tel" id="customer-phone" required placeholder="050-0000000">
+                        <label for="client-phone">טלפון</label>
+                        <input type="tel" id="client-phone" required placeholder="050-0000000">
                     </div>
                     <div class="form-group">
-                        <label for="lead-source">מקור פנייה</label>
-                        <select id="lead-source">
+                        <label for="client-source">מקור פנייה</label>
+                        <select id="client-source">
                             <option value="whatsapp">וואטסאפ</option>
                             <option value="instagram">אינסטגרם</option>
                             <option value="recommendation">המלצה</option>
@@ -99,32 +107,46 @@
                         </select>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="shoot-date">תאריך צילום</label>
-                        <input type="date" id="shoot-date">
-                    </div>
-                    <div class="form-group">
-                        <label for="package">חבילה</label>
-                        <select id="package" class="package-select">
-                            <!-- Populated by JS -->
-                        </select>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" id="delete-client-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
+                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמירה</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Projects -->
+    <div id="project-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="project-modal-title">פרטי פרויקט</h3>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" id="edit-project-toggle" class="btn btn-secondary btn-sm" style="display:none;">
+                        <i data-lucide="edit-2" style="width:14px;"></i> עריכה
+                    </button>
+                    <button class="close-modal">&times;</button>
+                </div>
+            </div>
+            <form id="project-form" class="modal-form">
+                <div class="form-group">
+                    <label for="project-client">לקוח</label>
+                    <select id="project-client" required disabled>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="project-name">שם הפרויקט / חבילה</label>
+                    <input type="text" id="project-name" required placeholder="לדוגמה: צילומי משפחה שרה" readonly>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="total-price">מחיר כולל (₪)</label>
-                        <input type="number" id="total-price" placeholder="0">
+                        <label for="project-date">תאריך צילום</label>
+                        <input type="date" id="project-date" readonly>
                     </div>
                     <div class="form-group">
-                        <label for="deposit-paid">מקדמה שולמה (₪)</label>
-                        <input type="number" id="deposit-paid" placeholder="0">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="customer-status">סטטוס</label>
-                        <select id="customer-status">
+                        <label for="project-status">סטטוס</label>
+                        <select id="project-status" disabled>
                             <option value="new">פנייה חדשה</option>
                             <option value="quote">הצעת מחיר</option>
                             <option value="closed">סגור (נקבע תאריך)</option>
@@ -133,25 +155,48 @@
                             <option value="delivered">נמסר</option>
                         </select>
                     </div>
+                </div>
+                <div class="form-row">
                     <div class="form-group">
-                        <label for="payment-status">סטטוס תשלום</label>
-                        <select id="payment-status">
-                            <option value="unpaid">לא שולם</option>
-                            <option value="deposit">שולמה מקדמה</option>
-                            <option value="paid">שולם מלא</option>
-                        </select>
+                        <label for="proj-total-price">מחיר כולל (₪)</label>
+                        <input type="number" id="proj-total-price" placeholder="0" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="proj-deposit-paid">מקדמה שולמה (₪)</label>
+                        <input type="number" id="proj-deposit-paid" placeholder="0" readonly>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="notes">הערות</label>
-                    <textarea id="notes" placeholder="פרטים נוספים..."></textarea>
+                    <label for="project-drive-container">קישור ל-Google Drive</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="url" id="project-drive" placeholder="https://drive.google.com/..." style="flex:1;" readonly>
+                        <a id="project-drive-link" target="_blank" class="btn btn-secondary" style="display:none; align-items:center; justify-content:center; padding:0 12px;">
+                            <i data-lucide="external-link" style="width:18px;"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="project-notes">הערות</label>
+                    <textarea id="project-notes" placeholder="פרטים נוספים..." readonly></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" id="delete-customer-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
+                    <button type="button" id="delete-project-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
                     <button type="button" class="btn btn-secondary close-modal">ביטול</button>
-                    <button type="submit" class="btn btn-primary">שמירה</button>
+                    <button type="submit" id="save-project-btn" class="btn btn-primary" style="display:none;">שמירה</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden" style="z-index: 1100;">
+        <div class="modal" style="max-width: 400px; text-align: center;">
+            <h3 id="confirm-title">האם את בטוחה?</h3>
+            <p id="confirm-desc" style="margin: 15px 0; color: var(--text-muted);"></p>
+            <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;">
+                <button id="confirm-yes-btn" class="btn btn-primary" style="background: #EF4444;">כן, למחוק</button>
+                <button id="confirm-no-btn" class="btn btn-secondary">ביטול</button>
+            </div>
         </div>
     </div>
 

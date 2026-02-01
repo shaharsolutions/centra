@@ -1,12 +1,9 @@
+const supabaseUrl = 'https://qpgceyfsgquhdtvyybwf.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZ2NleWZzZ3F1aGR0dnl5YndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzQ3NjAsImV4cCI6MjA4NTUxMDc2MH0.mM2paucqV5IMyYkB2XE-zRkv3i6XxB80dSzTiCXr_3Q';
+const sb = supabase.createClient(supabaseUrl, supabaseKey);
+
 const Store = {
-    // Default system settings
     defaults: {
-        packages: [
-            { id: 'p1', name: 'סטילס בלבד - שעה', price: 800 },
-            { id: 'p2', name: 'סטילס בלבד - שעתיים', price: 1400 },
-            { id: 'p3', name: 'חבילת משפחה מורחבת', price: 2200 },
-            { id: 'p4', name: 'בוק בת מצווה פרימיום', price: 3500 }
-        ],
         statuses: [
             { id: 'new', label: 'פנייה חדשה', class: 'badge-new' },
             { id: 'quote', label: 'הצעת מחיר', class: 'badge-quote' },
@@ -17,66 +14,111 @@ const Store = {
         ]
     },
 
-    // Get all initial state
-    init() {
-        if (!localStorage.getItem('photographer_customers')) {
-            localStorage.setItem('photographer_customers', JSON.stringify([]));
+    async init() {
+        const { data: packages, error } = await sb.from('packages').select('*');
+        if (error) {
+            console.error('Error connecting to Supabase:', error);
+            return;
         }
-        if (!localStorage.getItem('photographer_packages')) {
-            localStorage.setItem('photographer_packages', JSON.stringify(this.defaults.packages));
+        if (packages && packages.length === 0) {
+            const initialPackages = [
+                { name: 'סטילס בלבד - שעה', price: 800 },
+                { name: 'סטילס בלבד - שעתיים', price: 1400 },
+                { name: 'חבילת משפחה מורחבת', price: 2200 },
+                { name: 'בוק בת מצווה פרימיום', price: 3500 }
+            ];
+            await sb.from('packages').insert(initialPackages);
         }
     },
 
-    // Customers
-    getCustomers() {
-        return JSON.parse(localStorage.getItem('photographer_customers')) || [];
+    // Clients
+    async getClients() {
+        const { data, error } = await sb
+            .from('clients')
+            .select('*')
+            .order('name');
+        if (error) console.error('Error fetching clients:', error);
+        return data || [];
     },
 
-    saveCustomer(customer) {
-        const customers = this.getCustomers();
-        if (customer.id) {
-            const index = customers.findIndex(c => c.id === customer.id);
-            customers[index] = { ...customers[index], ...customer };
+    async saveClient(client) {
+        const dbClient = {
+            name: client.name,
+            phone: client.phone,
+            source: client.source
+        };
+
+        if (client.id) {
+            const { error } = await sb.from('clients').update(dbClient).eq('id', client.id);
+            if (error) throw error;
         } else {
-            customer.id = 'c' + Date.now();
-            customer.createdAt = new Date().toISOString();
-            customer.status = customer.status || 'new';
-            if (!customer.payments) {
-                customer.payments = { total: 0, deposit: 0, status: 'unpaid' };
-            }
-            customers.push(customer);
+            const { error } = await sb.from('clients').insert([dbClient]);
+            if (error) throw error;
         }
-        localStorage.setItem('photographer_customers', JSON.stringify(customers));
-        return customer;
     },
 
-    deleteCustomer(id) {
-        const customers = this.getCustomers().filter(c => c.id !== id);
-        localStorage.setItem('photographer_customers', JSON.stringify(customers));
+    async deleteClient(id) {
+        const { error } = await sb.from('clients').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // Projects
+    async getProjects(clientId = null) {
+        let query = sb.from('projects').select('*, clients(name)');
+        if (clientId) {
+            query = query.eq('client_id', clientId);
+        }
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) console.error('Error fetching projects:', error);
+        return data || [];
+    },
+
+    async saveProject(project) {
+        const dbProject = {
+            client_id: project.clientId,
+            name: project.name,
+            shoot_date: project.shootDate || null,
+            status: project.status || 'new',
+            payments: project.payments,
+            drive_link: project.driveLink,
+            notes: project.notes
+        };
+
+        if (project.id) {
+            const { error } = await sb.from('projects').update(dbProject).eq('id', project.id);
+            if (error) throw error;
+        } else {
+            const { error } = await sb.from('projects').insert([dbProject]);
+            if (error) throw error;
+        }
+    },
+
+    async deleteProject(id) {
+        const { error } = await sb.from('projects').delete().eq('id', id);
+        if (error) throw error;
     },
 
     // Packages
-    getPackages() {
-        return JSON.parse(localStorage.getItem('photographer_packages')) || this.defaults.packages;
+    async getPackages() {
+        const { data, error } = await sb.from('packages').select('*').order('name');
+        return data || [];
     },
 
-    savePackage(pkg) {
-        const packages = this.getPackages();
+    async savePackage(pkg) {
         if (pkg.id) {
-            const index = packages.findIndex(p => p.id === pkg.id);
-            packages[index] = pkg;
+            await sb.from('packages').update({ name: pkg.name, price: pkg.price }).eq('id', pkg.id);
         } else {
-            pkg.id = 'p' + Date.now();
-            packages.push(pkg);
+            await sb.from('packages').insert([{ name: pkg.name, price: pkg.price }]);
         }
-        localStorage.setItem('photographer_packages', JSON.stringify(packages));
     },
 
-    // Utils
+    async deletePackage(id) {
+        await sb.from('packages').delete().eq('id', id);
+    },
+
     getStatusInfo(statusId) {
         return this.defaults.statuses.find(s => s.id === statusId) || this.defaults.statuses[0];
     }
 };
 
-Store.init();
 window.Store = Store;

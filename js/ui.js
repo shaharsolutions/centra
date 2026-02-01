@@ -1,14 +1,14 @@
 const UI = {
-    renderDashboard() {
-        const customers = Store.getCustomers();
-        const openJobs = customers.filter(c => ['closed', 'shooting', 'editing'].includes(c.status)).length;
-        const waitingPayment = customers.filter(c => c.payments?.status !== 'paid' && c.payments?.total > 0).length;
-        const inEditing = customers.filter(c => c.status === 'editing').length;
+    async renderDashboard() {
+        const projects = await Store.getProjects();
+        const openJobs = projects.filter(p => ['closed', 'shooting', 'editing'].includes(p.status)).length;
+        const waitingPayment = projects.filter(p => (p.payments?.total || 0) > (p.payments?.deposit || 0) && p.status !== 'delivered').length;
+        const inEditing = projects.filter(p => p.status === 'editing').length;
 
         const html = `
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="icon-label"><i data-lucide="briefcase"></i> עבודות פתוחות</div>
+                    <div class="icon-label"><i data-lucide="briefcase"></i> פרויקטים פתוחים</div>
                     <div class="value">${openJobs}</div>
                 </div>
                 <div class="stat-card">
@@ -23,51 +23,88 @@ const UI = {
 
             <h2 class="section-title" style="margin-bottom: 20px;">פעולות מהירות</h2>
             <div class="quick-actions" style="display: flex; gap: 16px;">
-                <button class="btn btn-secondary" onclick="document.getElementById('quick-add-btn').click()">
+                <button class="btn btn-secondary" onclick="app.openClientModal('לקוח חדש')">
                     <i data-lucide="user-plus"></i> הוספת לקוח
                 </button>
-                <button class="btn btn-secondary" onclick="app.navigate('calendar')">
-                    <i data-lucide="calendar"></i> הלו״ז שלי
+                <button class="btn btn-primary" onclick="app.openProjectModal('פרויקט חדש')">
+                    <i data-lucide="plus"></i> פרויקט חדש
                 </button>
             </div>
         `;
         
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'הדשבורד שלך';
-        document.getElementById('view-subtitle').innerText = 'מבט מהיר על העסק.';
-        lucide.createIcons();
+        document.getElementById('view-subtitle').innerText = 'מבט מהיר על Centra.';
+        if (window.lucide) lucide.createIcons();
     },
 
-    renderCustomers() {
-        const customers = Store.getCustomers();
+    async renderClients() {
+        const clients = await Store.getClients();
         let listHtml = '';
 
-        if (customers.length === 0) {
-            listHtml = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין לקוחות. קדימה, צלמי משהו! 📸</div>';
+        if (clients.length === 0) {
+            listHtml = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין לקוחות.</div>';
         } else {
             listHtml = `
                 <div class="card-list">
-                    ${customers.map(c => {
-                        const status = Store.getStatusInfo(c.status);
-                        const pStatus = c.payments?.status || 'unpaid';
-                        const pLabel = pStatus === 'paid' ? 'שולם' : (pStatus === 'deposit' ? 'מקדמה' : 'לא שולם');
-                        const pClass = pStatus === 'paid' ? 'badge-closed' : (pStatus === 'deposit' ? 'badge-quote' : 'badge-new');
-                        
+                    ${clients.map(c => `
+                        <div class="list-item">
+                            <div class="item-info">
+                                <span class="item-name">${c.name}</span>
+                                <span class="item-sub">${c.phone} | ${this.getSourceLabel(c.source)}</span>
+                            </div>
+                            <div class="item-actions" style="display: flex; align-items: center; gap: 12px;">
+                                <a href="https://wa.me/972${c.phone.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm" style="color:#25D366;">
+                                    <i data-lucide="message-circle" style="width:14px;"></i>
+                                </a>
+                                <button class="btn btn-secondary btn-sm" onclick="app.editClient('${c.id}')"><i data-lucide="edit-2" style="width:14px;"></i></button>
+                                <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="app.directDeleteClient('${c.id}')">
+                                    <i data-lucide="trash-2" style="width:14px;"></i>
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="app.openProjectModal('פרויקט חדש', null, '${c.id}')">פרויקט חדש</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        document.getElementById('view-container').innerHTML = listHtml;
+        document.getElementById('view-title').innerText = 'ניהול לקוחות';
+        document.getElementById('view-subtitle').innerText = 'כל הלקוחות במקום אחד.';
+        if (window.lucide) lucide.createIcons();
+    },
+
+    async renderProjects() {
+        const projects = await Store.getProjects();
+        let listHtml = '';
+
+        if (projects.length === 0) {
+            listHtml = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין פרויקטים.</div>';
+        } else {
+            listHtml = `
+                <div class="card-list">
+                    ${projects.map(p => {
+                        const status = Store.getStatusInfo(p.status);
+                        const clientName = p.clients?.name || 'לקוח לא ידוע';
                         return `
                             <div class="list-item">
                                 <div class="item-info">
-                                    <span class="item-name">${c.name}</span>
+                                    <span class="item-name">${p.name} <span style="font-weight:400; color:var(--text-muted); font-size:0.9rem;">(${clientName})</span></span>
                                     <div style="display:flex; gap:8px; align-items:center;">
-                                        <span class="item-sub">${c.phone} | ${this.getSourceLabel(c.source)}</span>
-                                        <span class="badge ${pClass}" style="font-size: 10px; padding: 2px 8px;">${pLabel}</span>
+                                        <span class="item-sub">${p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : 'ללא תאריך'}</span>
+                                        ${p.drive_link ? `<a href="${p.drive_link}" target="_blank" style="color:var(--primary); text-decoration:none; font-size:0.8rem; display:flex; align-items:center; gap:4px;"><i data-lucide="external-link" style="width:12px;"></i> גוגל דרייב</a>` : ''}
                                     </div>
                                 </div>
                                 <div class="item-actions" style="display: flex; align-items: center; gap: 12px;">
-                                    <a href="https://wa.me/972${c.phone.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm" style="color:#25D366;">
-                                        <i data-lucide="message-circle" style="width:14px;"></i>
-                                    </a>
                                     <span class="badge ${status.class}">${status.label}</span>
-                                    <button class="btn btn-secondary btn-sm" onclick="app.editCustomer('${c.id}')"><i data-lucide="edit-2" style="width:14px;"></i></button>
+                                    <button class="btn btn-secondary btn-sm" onclick="app.viewProject('${p.id}')">
+                                        <i data-lucide="eye" style="width:14px;"></i>
+                                        <span style="margin-right:4px;">צפייה</span>
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="app.directDeleteProject('${p.id}')">
+                                        <i data-lucide="trash-2" style="width:14px;"></i>
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -77,30 +114,30 @@ const UI = {
         }
 
         document.getElementById('view-container').innerHTML = listHtml;
-        document.getElementById('view-title').innerText = 'ניהול לקוחות';
-        document.getElementById('view-subtitle').innerText = 'כל הלקוחות שלך במקום אחד.';
-        lucide.createIcons();
+        document.getElementById('view-title').innerText = 'פרויקטים';
+        document.getElementById('view-subtitle').innerText = 'ניהול עבודות פתוחות וסגורות.';
+        if (window.lucide) lucide.createIcons();
     },
 
-    renderCalendar() {
-        const customers = Store.getCustomers()
-            .filter(c => c.shootDate)
-            .sort((a, b) => new Date(a.shootDate) - new Date(b.shootDate));
+    async renderCalendar() {
+        const projects = (await Store.getProjects())
+            .filter(p => p.shoot_date)
+            .sort((a, b) => new Date(a.shoot_date) - new Date(b.shoot_date));
 
         let html = '';
-        if (customers.length === 0) {
-            html = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">אין צילומים מתוכננים. שיהיה לו״ז עמוס בקרוב! 🙏</div>';
+        if (projects.length === 0) {
+            html = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">אין צילומים מתוכננים.</div>';
         } else {
             html = `
                 <div class="card-list">
-                    ${customers.map(c => `
+                    ${projects.map(p => `
                         <div class="list-item">
                             <div class="item-info">
-                                <span class="item-name">${c.name}</span>
-                                <span class="item-sub">${new Date(c.shootDate).toLocaleDateString('he-IL')} בשעה ${c.shootTime || '--:--'}</span>
+                                <span class="item-name">${p.name}</span>
+                                <span class="item-sub">${new Date(p.shoot_date).toLocaleDateString('he-IL')} | ${p.clients?.name}</span>
                             </div>
                             <div class="item-actions">
-                                <button class="btn btn-secondary" onclick="app.editCustomer('${c.id}')">פרטים</button>
+                                <button class="btn btn-secondary" onclick="app.editProject('${p.id}')">פרטים</button>
                             </div>
                         </div>
                     `).join('')}
@@ -110,115 +147,49 @@ const UI = {
 
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'לוח צילומים';
-        document.getElementById('view-subtitle').innerText = 'הצילומים הקרובים שלך.';
-        lucide.createIcons();
+        document.getElementById('view-subtitle').innerText = 'כל התאריכים שלך.';
+        if (window.lucide) lucide.createIcons();
     },
 
-    renderEditing() {
-        const customers = Store.getCustomers().filter(c => c.status === 'editing');
-        let html = '';
-
-        if (customers.length === 0) {
-            html = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">אין עבודות בעריכה. איזה כיף, חופש! 🥤</div>';
-        } else {
-            html = `
-                <div class="card-list">
-                    ${customers.map(c => `
-                        <div class="list-item">
-                            <div class="item-info">
-                                <span class="item-name">${c.name}</span>
-                                <span class="item-sub">ממתין למסירה</span>
-                            </div>
-                            <div class="item-actions">
-                                <button class="btn btn-primary btn-sm" onclick="app.updateStatus('${c.id}', 'delivered')">סומן כנמסר ✅</button>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        document.getElementById('view-container').innerHTML = html;
-        document.getElementById('view-title').innerText = 'עבודות בעריכה';
-        document.getElementById('view-subtitle').innerText = 'אל תשכחי לשלוח ללקוחות!';
-        lucide.createIcons();
-    },
-
-    renderSettings() {
-        const packages = Store.getPackages();
+    async renderSettings() {
+        const packages = await Store.getPackages();
         const html = `
             <div class="settings-container">
                 <section class="settings-section">
                     <h2 class="section-title">חבילות צילום</h2>
-                    <p class="section-desc">הגדירי את החבילות שאת מציעה ללקוחות.</p>
-                    
+                    <p class="section-desc">הגדירי את החבילות שלך לשימוש מהיר.</p>
                     <div class="card-list" style="margin-top: 20px;">
                         ${packages.map(p => `
                             <div class="list-item">
-                                <div class="item-info">
-                                    <span class="item-name">${p.name}</span>
-                                    <span class="item-sub">${p.price} ₪</span>
-                                </div>
+                                <div class="item-info"><span class="item-name">${p.name}</span><span class="item-sub">${p.price} ₪</span></div>
                                 <div class="item-actions" style="display:flex; gap:8px;">
-                                    <button class="btn btn-secondary btn-sm" onclick="app.editPackage('${p.id}')">
-                                        <i data-lucide="edit-2" style="width:14px;"></i>
-                                    </button>
-                                    <button class="btn btn-secondary btn-sm" onclick="app.deletePackage('${p.id}')">
-                                        <i data-lucide="trash-2" style="width:14px; color:#EF4444;"></i>
-                                    </button>
+                                    <button class="btn btn-secondary btn-sm" onclick="app.editPackage('${p.id}')"><i data-lucide="edit-2" style="width:14px;"></i></button>
+                                    <button class="btn btn-secondary btn-sm" onclick="app.deletePackage('${p.id}')"><i data-lucide="trash-2" style="width:14px; color:#EF4444;"></i></button>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
-
-                    <div id="package-form-container" style="margin-top:20px; padding:20px; background:white; border-radius:var(--radius-lg); border:1px solid var(--border);">
-                        <h3 id="package-form-title" style="margin-bottom:15px; font-size:1rem;">הוספת חבילה חדשה</h3>
-                        <div class="form-row" style="margin-bottom:0; align-items: flex-end;">
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label>שם החבילה</label>
-                                <input type="text" id="new-pkg-name" placeholder="לדוגמה: צילומי תדמית">
-                            </div>
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label>מחיר (₪)</label>
-                                <input type="number" id="new-pkg-price" placeholder="0">
-                            </div>
-                            <div style="display:flex; gap:8px;">
-                                <button id="add-pkg-btn" class="btn btn-primary" onclick="app.savePackage()">הוספה</button>
-                                <button id="cancel-pkg-btn" class="btn btn-secondary" style="display:none;" onclick="app.clearPackageForm()">ביטול</button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="settings-section" style="margin-top:40px; padding-top:40px; border-top:1px solid var(--border);">
-                    <h2 class="section-title" style="color:#EF4444;">ניהול נתונים</h2>
-                    <p class="section-desc">זהירות: פעולות אלו אינן ניתנות לביטול.</p>
-                    <button class="btn btn-secondary" style="margin-top:15px; color:#EF4444; border-color:#FECACA;" onclick="app.resetData()">
-                        מחיקת כל הנתונים והתחלה מחדש
-                    </button>
                 </section>
             </div>
         `;
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'הגדרות';
-        document.getElementById('view-subtitle').innerText = 'התאמת המערכת לעסק שלך.';
-        lucide.createIcons();
+        document.getElementById('view-subtitle').innerText = 'התאמת המערכת.';
+        if (window.lucide) lucide.createIcons();
     },
 
     getSourceLabel(source) {
-        const sources = {
-            'whatsapp': 'וואטסאפ',
-            'instagram': 'אינסטגרם',
-            'recommendation': 'המלצה',
-            'other': 'אחר'
-        };
+        const sources = {'whatsapp': 'וואטסאפ', 'instagram': 'אינסטגרם', 'recommendation': 'המלצה', 'other': 'אחר'};
         return sources[source] || source;
     },
 
-    populatePackages() {
-        const pkgs = Store.getPackages();
-        const select = document.getElementById('package');
-        select.innerHTML = pkgs.map(p => `<option value="${p.id}">${p.name} (${p.price} ₪)</option>`).join('');
+    async populateClientsDropdown(selectedClientId = null) {
+        const clients = await Store.getClients();
+        const select = document.getElementById('project-client');
+        if (select) {
+            select.innerHTML = '<option value="">בחרי לקוח...</option>' + 
+                clients.map(c => `<option value="${c.id}" ${c.id === selectedClientId ? 'selected' : ''}>${c.name}</option>`).join('');
+        }
     }
 };
 
