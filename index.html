@@ -69,7 +69,6 @@
                         פרויקט חדש
                     </button>
                     <div class="user-profile">
-                        <div class="avatar">📸</div>
                     </div>
                 </div>
             </header>
@@ -85,32 +84,61 @@
         <div class="modal">
             <div class="modal-header">
                 <h3 id="client-modal-title">לקוח חדש</h3>
-                <button class="close-modal">&times;</button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" id="edit-client-toggle" class="btn btn-secondary btn-sm" style="display:none;">
+                        <i data-lucide="edit-2" style="width:14px;"></i> עריכה
+                    </button>
+                    <button type="button" id="cancel-edit-client" class="btn btn-secondary btn-sm" style="display:none;">
+                        ביטול עריכה
+                    </button>
+                    <button class="close-modal">&times;</button>
+                </div>
             </div>
             <form id="client-form" class="modal-form">
                 <div class="form-group">
                     <label for="client-name">שם הלקוח</label>
-                    <input type="text" id="client-name" required placeholder="לדוגמה: שרה כהן">
+                    <div class="view-group">
+                        <input type="text" id="client-name" required placeholder="לדוגמה: שרה כהן" readonly>
+                        <span id="client-name-view" class="view-text hidden"></span>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="client-phone">טלפון</label>
-                        <input type="tel" id="client-phone" required placeholder="050-0000000">
+                        <div class="view-group">
+                            <input type="tel" id="client-phone" required placeholder="050-0000000" readonly>
+                            <span id="client-phone-view" class="view-text hidden"></span>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="client-source">מקור פנייה</label>
-                        <select id="client-source">
-                            <option value="whatsapp">וואטסאפ</option>
-                            <option value="instagram">אינסטגרם</option>
-                            <option value="recommendation">המלצה</option>
-                            <option value="other">אחר</option>
-                        </select>
+                        <div class="view-group">
+                            <select id="client-source" disabled>
+                                <option value="whatsapp">וואטסאפ</option>
+                                <option value="instagram">אינסטגרם</option>
+                                <option value="recommendation">המלצה</option>
+                                <option value="other">אחר</option>
+                            </select>
+                            <span id="client-source-view" class="view-text hidden"></span>
+                        </div>
                     </div>
                 </div>
+
+                <div class="notes-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
+                    <label>הערות ועדכונים</label>
+                    <div id="client-notes-list" class="notes-timeline">
+                        <!-- Notes will be loaded here -->
+                    </div>
+                    <div class="add-note-box" style="margin-top:12px; display:flex; gap:8px;">
+                        <input type="text" id="new-client-note" placeholder="הוסיפי הערה חדשה..." style="flex:1;">
+                        <button type="button" class="btn btn-secondary" onclick="app.addNote(event, 'client')">הוספה</button>
+                    </div>
+                </div>
+
                 <div class="modal-footer">
                     <button type="button" id="delete-client-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
-                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
-                    <button type="submit" class="btn btn-primary">שמירה</button>
+                    <button type="button" id="client-cancel-btn" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="submit" id="save-client-btn" class="btn btn-primary" style="display:none;">שמירה</button>
                 </div>
             </form>
         </div>
@@ -125,6 +153,9 @@
                     <button type="button" id="edit-project-toggle" class="btn btn-secondary btn-sm" style="display:none;">
                         <i data-lucide="edit-2" style="width:14px;"></i> עריכה
                     </button>
+                    <button type="button" id="cancel-edit-project" class="btn btn-secondary btn-sm" style="display:none;">
+                        ביטול עריכה
+                    </button>
                     <button class="close-modal">&times;</button>
                 </div>
             </div>
@@ -137,16 +168,25 @@
                 </div>
                 <div class="form-group">
                     <label for="project-name">שם הפרויקט / חבילה</label>
-                    <input type="text" id="project-name" required placeholder="לדוגמה: צילומי משפחה שרה" readonly>
+                    <div class="view-group">
+                        <input type="text" id="project-name" list="packages-list" required placeholder="בחרי חבילה או הקלידי שם..." readonly>
+                        <datalist id="packages-list">
+                            <!-- Populated by JS -->
+                        </datalist>
+                        <span id="project-name-view" class="view-text hidden"></span>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="project-date">תאריך צילום</label>
-                        <input type="date" id="project-date" readonly>
+                        <div class="view-group">
+                            <input type="date" id="project-date" readonly>
+                            <span id="project-date-view" class="view-text hidden"></span>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="project-status">סטטוס</label>
-                        <select id="project-status" disabled>
+                        <select id="project-status">
                             <option value="new">פנייה חדשה</option>
                             <option value="quote">הצעת מחיר</option>
                             <option value="closed">סגור (נקבע תאריך)</option>
@@ -159,30 +199,70 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="proj-total-price">מחיר כולל (₪)</label>
-                        <input type="number" id="proj-total-price" placeholder="0" readonly>
+                        <div class="view-group">
+                            <input type="number" id="proj-total-price" placeholder="0" readonly>
+                            <span id="proj-total-price-view" class="view-text hidden"></span>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="proj-deposit-paid">מקדמה שולמה (₪)</label>
-                        <input type="number" id="proj-deposit-paid" placeholder="0" readonly>
+                        <div class="view-group">
+                            <input type="number" id="proj-deposit-paid" placeholder="0" readonly>
+                            <span id="proj-deposit-paid-view" class="view-text hidden"></span>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="project-drive-container">קישור ל-Google Drive</label>
-                    <div style="display:flex; gap:8px;">
-                        <input type="url" id="project-drive" placeholder="https://drive.google.com/..." style="flex:1;" readonly>
-                        <a id="project-drive-link" target="_blank" class="btn btn-secondary" style="display:none; align-items:center; justify-content:center; padding:0 12px;">
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <div class="view-group" style="flex:1;">
+                            <input type="url" id="project-drive" placeholder="https://drive.google.com/..." readonly>
+                            <span id="project-drive-view" class="view-text hidden"></span>
+                        </div>
+                        <a id="project-drive-link" target="_blank" class="btn btn-secondary" style="display:none; align-items:center; justify-content:center; padding:8px 12px; height:46px;">
                             <i data-lucide="external-link" style="width:18px;"></i>
                         </a>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="project-notes">הערות</label>
-                    <textarea id="project-notes" placeholder="פרטים נוספים..." readonly></textarea>
+                <div class="notes-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
+                    <label>הערות ועדכונים</label>
+                    <div id="project-notes-list" class="notes-timeline">
+                        <!-- Notes will be loaded here -->
+                    </div>
+                    <div class="add-note-box" id="project-add-note-box" style="margin-top:12px; display:flex; gap:8px;">
+                        <input type="text" id="new-project-note" placeholder="הוסיפי הערה חדשה..." style="flex:1;">
+                        <button type="button" class="btn btn-secondary" onclick="app.addNote(event, 'project')">הוספה</button>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" id="delete-project-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
-                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="button" id="project-cancel-btn" class="btn btn-secondary close-modal">ביטול</button>
                     <button type="submit" id="save-project-btn" class="btn btn-primary" style="display:none;">שמירה</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Package Modal -->
+    <div id="package-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="package-modal-title">חבילה חדשה</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="package-form" class="modal-form">
+                <div class="form-group">
+                    <label for="package-name">שם החבילה</label>
+                    <input type="text" id="package-name" required placeholder="לדוגמה: חבילת בת מצווה">
+                </div>
+                <div class="form-group">
+                    <label for="package-price">מחיר (₪)</label>
+                    <input type="number" id="package-price" required placeholder="0">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="delete-package-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
+                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמירה</button>
                 </div>
             </form>
         </div>

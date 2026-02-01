@@ -116,6 +116,37 @@ const Store = {
         await sb.from('packages').delete().eq('id', id);
     },
 
+    // Notes (Journal)
+    async getNotes(clientId = null, projectId = null) {
+        let query = sb.from('notes').select('*');
+        if (clientId) query = query.eq('client_id', clientId);
+        if (projectId) query = query.eq('project_id', projectId);
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) console.error('Error fetching notes:', error);
+        return data || [];
+    },
+
+    async addNote(content, clientId = null, projectId = null) {
+        const dbNote = {
+            content,
+            client_id: clientId,
+            project_id: projectId
+        };
+        const { error } = await sb.from('notes').insert([dbNote]);
+        if (error) throw error;
+    },
+
+    async updateNote(id, content) {
+        const { error } = await sb.from('notes').update({ content }).eq('id', id);
+        if (error) throw error;
+    },
+
+    async deleteNote(id) {
+        const { error } = await sb.from('notes').delete().eq('id', id);
+        if (error) throw error;
+    },
+
     getStatusInfo(statusId) {
         return this.defaults.statuses.find(s => s.id === statusId) || this.defaults.statuses[0];
     }

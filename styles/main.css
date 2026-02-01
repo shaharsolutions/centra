@@ -295,12 +295,14 @@ body {
     background: white;
     width: 90%;
     max-width: 600px;
+    max-height: 90vh;
     border-radius: var(--radius-lg);
     padding: 32px;
     box-shadow: var(--shadow-hover);
     position: relative;
     transform: translateY(0);
     transition: transform 0.3s ease;
+    overflow-y: auto;
 }
 
 .modal-overlay.hidden .modal {
@@ -358,6 +360,64 @@ input:focus, select:focus, textarea:focus {
     justify-content: flex-end;
     gap: 12px;
     margin-top: 32px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.view-text {
+    display: block;
+    padding: 8px 0;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: var(--text-main);
+    min-height: 40px;
+}
+
+.notes-timeline {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+    padding-left: 4px;
+}
+
+.note-item {
+    padding: 10px;
+    border-radius: var(--radius-md);
+    background: var(--bg-main);
+    margin-bottom: 8px;
+    border-right: 3px solid var(--primary);
+}
+
+.note-time {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.note-content {
+    font-size: 0.9rem;
+    color: var(--text-main);
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+}
+
+.btn-icon:hover {
+    background: var(--border);
+    color: var(--primary);
 }
 
 /* Responsiveness */

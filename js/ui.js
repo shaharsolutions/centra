@@ -57,7 +57,10 @@ const UI = {
                                 <a href="https://wa.me/972${c.phone.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm" style="color:#25D366;">
                                     <i data-lucide="message-circle" style="width:14px;"></i>
                                 </a>
-                                <button class="btn btn-secondary btn-sm" onclick="app.editClient('${c.id}')"><i data-lucide="edit-2" style="width:14px;"></i></button>
+                                <button class="btn btn-secondary btn-sm" onclick="app.viewClient('${c.id}')">
+                                    <i data-lucide="eye" style="width:14px;"></i>
+                                    <span style="margin-right:4px;">צפייה</span>
+                                </button>
                                 <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="app.directDeleteClient('${c.id}')">
                                     <i data-lucide="trash-2" style="width:14px;"></i>
                                 </button>
@@ -156,14 +159,22 @@ const UI = {
         const html = `
             <div class="settings-container">
                 <section class="settings-section">
-                    <h2 class="section-title">חבילות צילום</h2>
-                    <p class="section-desc">הגדירי את החבילות שלך לשימוש מהיר.</p>
-                    <div class="card-list" style="margin-top: 20px;">
-                        ${packages.map(p => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div>
+                            <h2 class="section-title" style="margin-bottom: 8px;">חבילות צילום</h2>
+                            <p class="section-desc">הגדירי את החבילות שלך לשימוש מהיר.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="app.openPackageModal('חבילה חדשה')">
+                            <i data-lucide="plus"></i> הוספת חבילה
+                        </button>
+                    </div>
+
+                    <div class="card-list">
+                        ${packages.length === 0 ? '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין חבילות.</div>' : packages.map(p => `
                             <div class="list-item">
                                 <div class="item-info"><span class="item-name">${p.name}</span><span class="item-sub">${p.price} ₪</span></div>
                                 <div class="item-actions" style="display:flex; gap:8px;">
-                                    <button class="btn btn-secondary btn-sm" onclick="app.editPackage('${p.id}')"><i data-lucide="edit-2" style="width:14px;"></i></button>
+                                    <button class="btn btn-secondary btn-sm" onclick="app.openPackageModal('עריכת חבילה', '${p.id}')"><i data-lucide="edit-2" style="width:14px;"></i></button>
                                     <button class="btn btn-secondary btn-sm" onclick="app.deletePackage('${p.id}')"><i data-lucide="trash-2" style="width:14px; color:#EF4444;"></i></button>
                                 </div>
                             </div>
@@ -188,8 +199,43 @@ const UI = {
         const select = document.getElementById('project-client');
         if (select) {
             select.innerHTML = '<option value="">בחרי לקוח...</option>' + 
-                clients.map(c => `<option value="${c.id}" ${c.id === selectedClientId ? 'selected' : ''}>${c.name}</option>`).join('');
+                clients.map(c => `<option value="${c.id}" ${c.id === selectedClientId ? 'selected' : ''}>${c.name} (${c.phone})</option>`).join('');
         }
+    },
+
+    async populatePackagesDatalist() {
+        const packages = await Store.getPackages();
+        const datalist = document.getElementById('packages-list');
+        if (datalist) {
+            datalist.innerHTML = packages.map(p => `<option value="${p.name}">${p.name} - ${p.price} ₪</option>`).join('');
+        }
+    },
+
+    async renderNotes(clientId = null, projectId = null) {
+        const notes = await Store.getNotes(clientId, projectId);
+        const containerId = clientId ? 'client-notes-list' : 'project-notes-list';
+        const container = document.getElementById(containerId);
+        
+        if (!container) return;
+
+        if (notes.length === 0) {
+            container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding:10px;">עדיין אין הערות.</div>';
+            return;
+        }
+
+        container.innerHTML = notes.map(n => `
+            <div class="note-item" id="note-${n.id}">
+                <div class="note-header" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+                    <span class="note-time">${new Date(n.created_at).toLocaleString('he-IL', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}</span>
+                    <div class="note-actions" style="display:flex; gap:8px;">
+                        <button class="btn-icon" onclick="app.editNote(event, '${n.id}', '${clientId ? 'client' : 'project'}')"><i data-lucide="edit-2" style="width:12px;"></i></button>
+                        <button class="btn-icon" style="color:#EF4444;" onclick="app.deleteNote(event, '${n.id}', '${clientId ? 'client' : 'project'}')"><i data-lucide="trash-2" style="width:12px;"></i></button>
+                    </div>
+                </div>
+                <div class="note-content" id="note-content-${n.id}">${n.content}</div>
+            </div>
+        `).join('');
+        if (window.lucide) lucide.createIcons();
     }
 };
 
