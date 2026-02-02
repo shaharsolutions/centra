@@ -11,7 +11,8 @@ const Store = {
             { id: 'not_closed', label: 'לא נסגר', class: 'badge-not-closed' },
             { id: 'shooting', label: 'בצילום', class: 'badge-shooting' },
             { id: 'editing', label: 'בעריכה', class: 'badge-editing' },
-            { id: 'delivered', label: 'נמסר', class: 'badge-delivered' }
+            { id: 'delivered', label: 'נמסר', class: 'badge-delivered' },
+            { id: 'published', label: 'פורסם', class: 'badge-published' }
         ],
         locations: [
             { id: 1, title: 'יפו העתיקה', region: 'center', type: 'urban', description: 'סמטאות אבן ציוריות, נמל עתיק ומבני אבן היסטוריים. מושלם לצילומי זוגות ואופנה.' },
@@ -650,6 +651,61 @@ const Store = {
 
     getStatusInfo(statusId) {
         return this.defaults.statuses.find(s => s.id === statusId) || this.defaults.statuses[0];
+    },
+
+    // Locations
+    async getLocations() {
+        try {
+            const { data, error } = await sb.from('locations').select('*').order('title');
+            if (error) {
+                // If table doesn't exist, return defaults
+                if (error.code === '42P01') {
+                    return this.defaults.locations;
+                }
+                throw error;
+            }
+            // Merge custom locations with defaults
+            return [...this.defaults.locations, ...(data || [])];
+        } catch (e) {
+            console.warn('Error fetching locations, using defaults:', e);
+            return this.defaults.locations;
+        }
+    },
+
+    async saveLocation(location) {
+        const dbLocation = {
+            title: location.title,
+            region: location.region,
+            type: location.type,
+            description: location.description
+        };
+
+        try {
+            if (location.id && location.id > 15) { // Only edit custom locations (id > 15 are custom)
+                const { error } = await sb.from('locations').update(dbLocation).eq('id', location.id);
+                if (error) throw error;
+            } else {
+                const { error } = await sb.from('locations').insert([dbLocation]);
+                if (error) throw error;
+            }
+        } catch (e) {
+            console.error('Error saving location:', e);
+            throw e;
+        }
+    },
+
+    async deleteLocation(id) {
+        // Only allow deleting custom locations (id > 15)
+        if (id <= 15) {
+            throw new Error('לא ניתן למחוק לוקיישנים מובנים');
+        }
+        try {
+            const { error } = await sb.from('locations').delete().eq('id', id);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error deleting location:', e);
+            throw e;
+        }
     }
 };
 

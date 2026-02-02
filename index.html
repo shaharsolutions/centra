@@ -349,6 +349,7 @@
                             <option value="shooting">בצילום</option>
                             <option value="editing">בעריכה</option>
                             <option value="delivered">נמסר</option>
+                            <option value="published">פורסם</option>
                         </select>
                     </div>
                 </div>
@@ -506,6 +507,57 @@
 
                 <div class="modal-footer">
                     <button type="button" id="delete-task-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA;">מחיקה</button>
+                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמירה</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Location Modal -->
+    <div id="location-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="location-modal-title">לוקיישן חדש</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="location-form" class="modal-form">
+                <div class="form-group">
+                    <label for="location-title">שם הלוקיישן</label>
+                    <input type="text" id="location-title" required placeholder="לדוגמה: יפו העתיקה">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="location-region">אזור</label>
+                        <select id="location-region" required>
+                            <option value="">בחרי אזור...</option>
+                            <option value="center">מרכז</option>
+                            <option value="north">צפון</option>
+                            <option value="south">דרום</option>
+                            <option value="jerusalem">ירושלים</option>
+                            <option value="sharon">שרון</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="location-type">סוג</label>
+                        <select id="location-type" required>
+                            <option value="">בחרי סוג...</option>
+                            <option value="urban">אורבני</option>
+                            <option value="nature">טבע</option>
+                            <option value="beach">ים</option>
+                            <option value="village">כפרי</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="location-description">תיאור</label>
+                    <textarea id="location-description" rows="4" required placeholder="תארי את הלוקיישן - מה יש בו, למה הוא מתאים, באיזה עונה הכי יפה..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" id="delete-location-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
                     <button type="button" class="btn btn-secondary close-modal">ביטול</button>
                     <button type="submit" class="btn btn-primary">שמירה</button>
                 </div>

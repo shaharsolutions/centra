@@ -62,17 +62,17 @@ const UI = {
         });
 
         let contentHtml = `
-            <div class="filters-bar" style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; background: white; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); align-items: center;">
+            <div class="filters-bar" style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; background: white; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); align-items: center;">
                 <div style="flex: 1; min-width: 200px; position: relative;">
-                    <i data-lucide="search" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 16px; color: var(--text-muted); pointer-events: none;"></i>
+                    <i data-lucide="search" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 14px; color: var(--text-muted); pointer-events: none;"></i>
                     <input type="text" id="client-search" placeholder="חיפוש לפי שם או טלפון..." 
                         value="${searchQuery}"
-                        style="width: 100%; padding: 10px 40px 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.95rem;"
+                        style="width: 100%; padding: 6px 32px 6px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.9rem;"
                         oninput="UI.renderClients(this.value, document.getElementById('client-filter-source').value, document.getElementById('client-sort').value, document.getElementById('client-filter-city').value)"
                     >
                 </div>
-                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                    <select id="client-filter-source" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 130px; font-size: 0.9rem; cursor: pointer;"
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <select id="client-filter-source" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 120px; font-size: 0.85rem; cursor: pointer;"
                         onchange="UI.renderClients(document.getElementById('client-search').value, this.value, document.getElementById('client-sort').value, document.getElementById('client-filter-city').value)"
                     >
                         <option value="all">כל המקורות</option>
@@ -83,14 +83,14 @@ const UI = {
                         <option value="other" ${filterSource === 'other' ? 'selected' : ''}>אחר</option>
                     </select>
 
-                    <select id="client-filter-city" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 130px; font-size: 0.9rem; cursor: pointer;"
+                    <select id="client-filter-city" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 120px; font-size: 0.85rem; cursor: pointer;"
                         onchange="UI.renderClients(document.getElementById('client-search').value, document.getElementById('client-filter-source').value, document.getElementById('client-sort').value, this.value)"
                     >
                         <option value="all">כל הערים</option>
                         ${cities.map(city => `<option value="${city}" ${filterCity === city ? 'selected' : ''}>${city}</option>`).join('')}
                     </select>
 
-                    <select id="client-sort" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 130px; font-size: 0.9rem; cursor: pointer;"
+                    <select id="client-sort" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 120px; font-size: 0.85rem; cursor: pointer;"
                         onchange="UI.renderClients(document.getElementById('client-search').value, document.getElementById('client-filter-source').value, this.value, document.getElementById('client-filter-city').value)"
                     >
                         <option value="name-asc" ${sortBy === 'name-asc' ? 'selected' : ''}>שם (א-ת)</option>
@@ -99,7 +99,7 @@ const UI = {
                         <option value="city-desc" ${sortBy === 'city-desc' ? 'selected' : ''}>עיר (ת-א)</option>
                     </select>
                 </div>
-                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">
                     ${filteredClients.length} לקוחות
                 </div>
             </div>
@@ -117,17 +117,16 @@ const UI = {
                                 <span class="item-sub">${c.phone} | ${this.getSourceLabel(c.source)}${c.city ? ' | ' + c.city : ''}</span>
                             </div>
                             <div class="item-actions">
-                                <a href="https://wa.me/972${c.phone?.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm whatsapp-btn">
-                                    <i data-lucide="message-circle"></i>
+                                <a href="https://wa.me/972${c.phone?.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm whatsapp-btn" title="שליחת וואטסאפ" style="padding: 4px 8px;">
+                                    <img src="assets/whatsapp.png" alt="WhatsApp" style="width: 16px; height: 16px;">
                                 </a>
-                                <button class="btn btn-secondary btn-sm" onclick="app.viewClient('${c.id}')">
+                                <button class="btn btn-secondary btn-sm" onclick="app.viewClient('${c.id}')" title="צפייה בלקוח" style="padding: 4px 8px;">
                                     <i data-lucide="eye"></i>
-                                    <span>צפייה</span>
                                 </button>
-                                <button class="btn btn-secondary btn-sm delete-btn" onclick="app.directDeleteClient('${c.id}')">
+                                <button class="btn btn-secondary btn-sm delete-btn" onclick="app.directDeleteClient('${c.id}')" title="מחיקת לקוח" style="padding: 4px 8px;">
                                     <i data-lucide="trash-2"></i>
                                 </button>
-                                <button class="btn btn-primary btn-sm" onclick="app.openProjectModal('פרויקט חדש', null, '${c.id}')">פרויקט חדש</button>
+                                <button class="btn btn-primary btn-sm" onclick="app.openProjectModal('פרויקט חדש', null, '${c.id}')" title="פרויקט חדש" style="font-size: 0.8rem;">+ פרויקט</button>
                             </div>
                         </div>
                     `).join('')}
@@ -276,7 +275,8 @@ const UI = {
             'closed': 'calendar-check',
             'shooting': 'camera',
             'editing': 'pen-tool',
-            'delivered': 'check-circle'
+            'delivered': 'check-circle',
+            'published': 'share-2'
         };
         return icons[statusId] || 'circle';
     },
@@ -640,7 +640,7 @@ const UI = {
     },
 
     async renderLocations(filterRegion = 'all') {
-        const locations = Store.defaults.locations;
+        const locations = await Store.getLocations();
         const regions = {
             'center': 'מרכז',
             'north': 'צפון',
@@ -654,11 +654,17 @@ const UI = {
             : locations.filter(l => l.region === filterRegion);
 
         let html = `
-            <div class="filters-bar" style="margin-bottom: 24px; display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;">
-                <button class="btn ${filterRegion === 'all' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="app.filterLocations('all')">הכל</button>
-                ${Object.entries(regions).map(([id, label]) => `
-                    <button class="btn ${filterRegion === id ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="app.filterLocations('${id}')">${label}</button>
-                `).join('')}
+            <div class="filters-bar" style="margin-bottom: 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+                <div style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; flex: 1;">
+                    <button class="btn ${filterRegion === 'all' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="app.filterLocations('all')">הכל</button>
+                    ${Object.entries(regions).map(([id, label]) => `
+                        <button class="btn ${filterRegion === id ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="app.filterLocations('${id}')">${label}</button>
+                    `).join('')}
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="app.openLocationModal()" style="flex-shrink: 0;">
+                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                    לוקיישן חדש
+                </button>
             </div>
 
             <div class="locations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
@@ -685,6 +691,16 @@ const UI = {
                                     <i data-lucide="map" style="width: 14px; height: 14px;"></i>
                                     ניווט למקום
                                 </button>
+                                ${loc.id > 15 ? `
+                                    <button class="btn btn-secondary btn-sm" style="gap: 8px; justify-content: center;" onclick="app.openLocationModal('${loc.id}')">
+                                        <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i>
+                                        עריכה
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm delete-btn" style="gap: 8px; justify-content: center;" onclick="app.deleteLocation('${loc.id}')">
+                                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                        מחיקה
+                                    </button>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
