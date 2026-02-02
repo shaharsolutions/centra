@@ -222,6 +222,68 @@ const app = {
         await UI.renderLocations(region);
     },
 
+    // Location Modal
+    async openLocationModal(locationId = null) {
+        this.editingLocationId = locationId;
+        const modal = document.getElementById('location-modal');
+        const deleteBtn = document.getElementById('delete-location-btn');
+        
+        if (locationId) {
+            document.getElementById('location-modal-title').innerText = 'עריכת לוקיישן';
+            deleteBtn.style.display = 'block';
+            
+            const locations = await Store.getLocations();
+            const loc = locations.find(l => l.id == locationId);
+            if (loc) {
+                document.getElementById('location-title').value = loc.title;
+                document.getElementById('location-region').value = loc.region;
+                document.getElementById('location-type').value = loc.type;
+                document.getElementById('location-description').value = loc.description;
+            }
+        } else {
+            document.getElementById('location-modal-title').innerText = 'לוקיישן חדש';
+            document.getElementById('location-form').reset();
+            deleteBtn.style.display = 'none';
+        }
+        
+        modal.classList.remove('hidden');
+    },
+
+    async handleLocationSubmit() {
+        const location = {
+            id: this.editingLocationId,
+            title: document.getElementById('location-title').value,
+            region: document.getElementById('location-region').value,
+            type: document.getElementById('location-type').value,
+            description: document.getElementById('location-description').value
+        };
+        
+        try {
+            await Store.saveLocation(location);
+            this.closeModal();
+            await UI.renderLocations();
+        } catch (error) {
+            console.error('Save location error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בשמירת הלוקיישן. אנא נסי שוב.', null, true);
+        }
+    },
+
+    async deleteLocation(id) {
+        this.confirmAction(
+            'מחיקת לוקיישן',
+            'האם את בטוחה שברצונך למחוק את הלוקיישן?',
+            async () => {
+                try {
+                    await Store.deleteLocation(id);
+                    await UI.renderLocations();
+                } catch (error) {
+                    console.error('Delete location error:', error);
+                    this.confirmAction('שגיאה', error.message || 'חלה שגיאה במחיקת הלוקיישן.', null, true);
+                }
+            }
+        );
+    },
+
     // Client Modal
     openClientModal(title, clientId = null) {
         this.editingClientId = clientId;
