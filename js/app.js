@@ -3,10 +3,16 @@ const app = {
     editingClientId: null,
     editingProjectId: null,
     editingPackageId: null,
+    editingTaskId: null,
+    currentCalendarDate: new Date(),
 
     async init() {
         await Store.init();
         this.addEventListeners();
+        
+        // Fix any legacy tasks with [object Object] in their names
+        Store.fixLegacyTaskNames().catch(e => console.warn('Could not fix legacy tasks:', e));
+        
         await this.navigate('dashboard');
     },
 
@@ -121,6 +127,19 @@ const app = {
             }
         });
 
+        document.getElementById('task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleTaskSubmit();
+        });
+
+        document.getElementById('delete-task-btn').addEventListener('click', () => {
+            this.confirmAction('מחיקת משימה', 'בטוחה שברצונך למחוק משימה זו?', async () => {
+                await Store.deleteChecklistItem(this.editingTaskId);
+                this.closeModal();
+                if (this.currentView === 'tasks') await UI.renderTasks();
+            });
+        });
+
         // Confirmation Modal Buttons
         document.getElementById('confirm-no-btn').addEventListener('click', () => {
             document.getElementById('confirm-modal').classList.add('hidden');
@@ -186,7 +205,10 @@ const app = {
             case 'dashboard': await UI.renderDashboard(); break;
             case 'clients': await UI.renderClients(); break;
             case 'projects': await UI.renderProjects(); break;
+            case 'tasks': await UI.renderTasks(); break;
             case 'calendar': await UI.renderCalendar(); break;
+            case 'shoots': await UI.renderShoots(); break;
+            case 'payments': await UI.renderPayments(); break;
             case 'settings': await UI.renderSettings(); break;
         }
     },
@@ -282,9 +304,11 @@ const app = {
             const projects = await Store.getProjects();
             const p = projects.find(proj => proj.id === projectId);
             if (p) {
+                this.editingProjectPaymentStatus = p.payment_status || 'not_paid';
                 document.getElementById('project-client').value = p.client_id;
                 document.getElementById('project-name').value = p.name;
                 document.getElementById('project-date').value = p.shoot_date || '';
+                document.getElementById('project-location').value = p.location || '';
                 document.getElementById('project-status').value = p.status || 'new';
                 document.getElementById('proj-total-price').value = p.payments?.total || '';
                 document.getElementById('proj-deposit-paid').value = p.payments?.deposit || '';
@@ -300,12 +324,20 @@ const app = {
                 // Populate view spans
                 document.getElementById('project-name-view').innerText = p.name;
                 document.getElementById('project-date-view').innerText = p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : 'ללא תאריך';
+                document.getElementById('project-location-view').innerText = p.location || 'לא הוגדר מיקום';
                 document.getElementById('proj-total-price-view').innerText = (p.payments?.total || 0) + ' ₪';
                 document.getElementById('proj-deposit-paid-view').innerText = (p.payments?.deposit || 0) + ' ₪';
                 document.getElementById('project-drive-view').innerText = p.drive_link || 'אין קישור';
+
+                if (p.location && p.shoot_date) {
+                    this.fetchWeatherForProject();
+                } else {
+                    document.getElementById('project-weather-container').classList.add('hidden');
+                }
             }
             this.setProjectEditMode(false);
             UI.renderNotes(null, projectId);
+            UI.renderChecklist(projectId);
             deleteBtn.style.display = 'block';
         } else {
             editToggle.style.display = 'none';
@@ -313,6 +345,7 @@ const app = {
             document.getElementById('project-form').reset();
             document.getElementById('project-notes-list').innerHTML = '';
             if (selectedClientId) document.getElementById('project-client').value = selectedClientId;
+            this.editingProjectPaymentStatus = 'not_paid';
             this.setProjectEditMode(true);
             deleteBtn.style.display = 'none';
         }
@@ -353,19 +386,23 @@ const app = {
         if (this.editingProjectId) {
             editToggle.style.display = isEdit ? 'none' : 'flex';
             cancelEditBtn.style.display = isEdit ? 'flex' : 'none';
-            footerCancelBtn.style.display = isEdit ? 'none' : 'block';
+            footerCancelBtn.style.display = isEdit ? 'none' : '';
         } else {
             // New project mode - always edit, no view/cancel-edit toggle
             editToggle.style.display = 'none';
             cancelEditBtn.style.display = 'none';
-            footerCancelBtn.style.display = 'block';
+            footerCancelBtn.style.display = '';
         }
     },
+
 
     closeModal() {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
         this.editingClientId = null;
         this.editingProjectId = null;
+        this.editingProjectPaymentStatus = null;
+        this.editingPackageId = null;
+        this.editingTaskId = null;
     },
 
     async handleClientSubmit() {
@@ -381,21 +418,60 @@ const app = {
     },
 
     async handleProjectSubmit() {
+        const isNew = !this.editingProjectId;
+        
+        let paymentStatus = this.editingProjectPaymentStatus || 'not_paid';
+        const deposit = parseFloat(document.getElementById('proj-deposit-paid').value) || 0;
+        const total = parseFloat(document.getElementById('proj-total-price').value) || 0;
+        
+        // Auto-update to 'deposit' if a deposit is entered and status is 'not_paid'
+        if (deposit > 0 && paymentStatus === 'not_paid') {
+            paymentStatus = 'deposit';
+        }
+
         const project = {
             id: this.editingProjectId,
             clientId: document.getElementById('project-client').value,
             name: document.getElementById('project-name').value,
             shootDate: document.getElementById('project-date').value,
             status: document.getElementById('project-status').value,
+            paymentStatus: paymentStatus,
             payments: {
-                total: parseFloat(document.getElementById('proj-total-price').value) || 0,
-                deposit: parseFloat(document.getElementById('proj-deposit-paid').value) || 0
+                total: total,
+                deposit: deposit
             },
-            driveLink: document.getElementById('project-drive').value
+            driveLink: document.getElementById('project-drive').value,
+            location: document.getElementById('project-location').value
         };
-        await Store.saveProject(project);
+        const savedProject = await Store.saveProject(project);
+        
+        if (isNew && savedProject) {
+            await Store.addDefaultsToProject(savedProject.id, savedProject.shoot_date);
+        }
+
         this.closeModal();
         await this.navigate(this.currentView);
+    },
+
+
+    // Checklist Defaults Actions
+    addChecklistDefault(category) {
+        const inputId = `new-default-${category}`;
+        const input = document.getElementById(inputId);
+        const content = input.value.trim();
+        if (!content) return;
+
+        const defaults = Store.getChecklistDefaults();
+        defaults[category].push(content);
+        Store.saveChecklistDefaults(defaults);
+        UI.renderSettings();
+    },
+
+    deleteChecklistDefault(category, index) {
+        const defaults = Store.getChecklistDefaults();
+        defaults[category].splice(index, 1);
+        Store.saveChecklistDefaults(defaults);
+        UI.renderSettings();
     },
 
     editClient(id) { 
@@ -407,8 +483,15 @@ const app = {
         this.openClientModal('פרטי לקוח', id);
     },
 
-    viewProject(id) { 
+    async viewProject(id) {
         this.openProjectModal('פרטי פרויקט', id);
+    },
+
+    async viewTask(id) {
+        const task = await Store.getTaskById(id);
+        if (task) {
+            this.openTaskModal(task);
+        }
     },
 
     editProject(id) { 
@@ -542,12 +625,33 @@ const app = {
     },
 
     async updateStatus(id, newStatus) {
-        const projects = await Store.getProjects();
-        const p = projects.find(proj => proj.id === id);
-        if (p) {
-            p.status = newStatus;
-            await Store.saveProject({ ...p, clientId: p.client_id, driveLink: p.drive_link, shootDate: p.shoot_date });
-            await this.navigate(this.currentView);
+        try {
+            await Store.updateProjectStatus(id, newStatus);
+            if (this.currentView === 'projects') await UI.renderProjects();
+            if (this.currentView === 'calendar') await UI.renderCalendar();
+            else await this.navigate(this.currentView);
+        } catch (error) {
+            console.error('Update status error:', error);
+        }
+    },
+
+    handleCardDragStart(event, projectId) {
+        event.dataTransfer.setData('projectId', projectId);
+        setTimeout(() => {
+            const card = event.target.closest('.kanban-card');
+            if (card) card.classList.add('dragging');
+        }, 0);
+    },
+
+    async handleCardDrop(event, newStatus) {
+        event.preventDefault();
+        const projectId = event.dataTransfer.getData('projectId');
+        
+        // Remove dragging class from all cards
+        document.querySelectorAll('.kanban-card.dragging').forEach(c => c.classList.remove('dragging'));
+        
+        if (projectId) {
+            await this.updateStatus(projectId, newStatus);
         }
     },
 
@@ -589,6 +693,264 @@ const app = {
             await Store.deletePackage(id);
             await this.navigate('settings');
         });
+    },
+
+    // Checklist Actions
+    async addChecklistItem(category, projectId) {
+        const inputId = `new-${category}-item`;
+        const input = document.getElementById(inputId);
+        const content = input.value.trim();
+        
+        if (!content) return;
+
+        try {
+            await Store.saveChecklistItem({
+                projectId,
+                content,
+                category,
+                isCompleted: false
+            });
+            input.value = '';
+            UI.renderChecklist(projectId);
+        } catch (error) {
+            console.error('Add checklist item error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בהוספת הפריט.', null, true);
+        }
+    },
+
+    async toggleChecklistItem(id, isCompleted, projectId) {
+        try {
+            await Store.toggleChecklistItem(id, isCompleted);
+            UI.renderChecklist(projectId);
+        } catch (error) {
+            console.error('Toggle checklist item error:', error);
+        }
+    },
+
+    async deleteChecklistItem(id, projectId) {
+        try {
+            await Store.deleteChecklistItem(id);
+            if (projectId) UI.renderChecklist(projectId);
+        } catch (error) {
+            console.error('Delete checklist item error:', error);
+        }
+    },
+
+    async addGlobalTask() {
+        const input = document.getElementById('new-global-task-input');
+        const content = input.value?.trim();
+        if (!content) return;
+
+        try {
+            await Store.saveChecklistItem({
+                projectId: null,
+                content,
+                category: 'task',
+                isCompleted: false
+            });
+            input.value = '';
+            UI.renderTasks();
+        } catch (error) {
+            console.error('Add global task error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בהוספת המשימה.', null, true);
+        }
+    },
+
+    openTaskModal(task) {
+        this.editingTaskId = task.id;
+        document.getElementById('task-content').value = task.content;
+        document.getElementById('task-due-date').value = task.due_date ? task.due_date.split('T')[0] : '';
+        document.getElementById('task-completed-checkbox').checked = task.is_completed;
+        document.getElementById('task-notes').value = task.notes || '';
+        
+        const projectInfo = document.getElementById('task-project-info');
+        if (task.projects) {
+            projectInfo.innerText = `משויך לפרויקט: ${task.projects.name}`;
+            projectInfo.style.display = 'block';
+        } else {
+            projectInfo.style.display = 'none';
+        }
+
+        document.getElementById('task-modal').classList.remove('hidden');
+    },
+
+    async handleTaskSubmit() {
+        const task = await Store.getTaskById(this.editingTaskId);
+        const updatedTask = {
+            ...task,
+            content: document.getElementById('task-content').value,
+            dueDate: document.getElementById('task-due-date').value,
+            isCompleted: document.getElementById('task-completed-checkbox').checked,
+            notes: document.getElementById('task-notes').value
+        };
+
+        try {
+            await Store.saveChecklistItem(updatedTask);
+            this.closeModal();
+            if (this.currentView === 'tasks') await UI.renderTasks();
+            if (task.project_id) UI.renderChecklist(task.project_id);
+        } catch (error) {
+            console.error('Save task error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בשמירת המשימה.', null, true);
+        }
+    },
+
+    updateChecklistDisplayMode(mode) {
+        Store.setChecklistDisplayMode(mode);
+        UI.renderSettings();
+    },
+
+    async handleCalendarDrop(event, newDate) {
+        event.preventDefault();
+        const taskId = event.dataTransfer.getData('taskId');
+        const projectId = event.dataTransfer.getData('projectId');
+        
+        if (!taskId && !projectId) return;
+
+        try {
+            if (taskId) {
+                const task = await Store.getTaskById(taskId);
+                if (!task) return;
+                const updatedTask = {
+                    ...task,
+                    dueDate: newDate,
+                    isCompleted: task.is_completed,
+                    projectId: task.project_id
+                };
+                await Store.saveChecklistItem(updatedTask);
+            } else if (projectId) {
+                const projects = await Store.getProjects();
+                const project = projects.find(p => p.id === projectId);
+                if (!project) return;
+                
+                const updatedProject = {
+                    ...project,
+                    shootDate: newDate,
+                    // Map back to camelCase for the saveProject function which uses properties like clientId
+                    clientId: project.client_id,
+                    driveLink: project.drive_link,
+                    payments: project.payments
+                };
+                await Store.saveProject(updatedProject);
+                
+                // Also update any reminder tasks associated with this project that depend on the shoot date
+                const tasks = await Store.getChecklistItems(projectId);
+                for (const t of tasks) {
+                    if (t.content.includes('תזכורת')) {
+                        const date = new Date(newDate);
+                        date.setDate(date.getDate() - 1);
+                        const newDueDate = date.toISOString().split('T')[0];
+                        await Store.saveChecklistItem({
+                            ...t,
+                            dueDate: newDueDate,
+                            isCompleted: t.is_completed,
+                            projectId: t.project_id
+                        });
+                    }
+                }
+            }
+            UI.renderCalendar();
+        } catch (error) {
+            console.error('Calendar drag drop error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בעדכון התאריך.', null, true);
+        }
+    },
+
+    async handlePaymentDrop(event, newPaymentStatus) {
+        event.preventDefault();
+        const projectId = event.dataTransfer.getData('projectId');
+        const dragType = event.dataTransfer.getData('dragType');
+        
+        // Only handle payment drops here
+        if (dragType !== 'payment' || !projectId) return;
+
+        try {
+            const projects = await Store.getProjects();
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+            
+            const updatedProject = {
+                ...project,
+                paymentStatus: newPaymentStatus,
+                clientId: project.client_id,
+                shootDate: project.shoot_date,
+                driveLink: project.drive_link,
+                payments: project.payments
+            };
+            
+            await Store.saveProject(updatedProject);
+            UI.renderPayments();
+        } catch (error) {
+            console.error('Payment status update error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בעדכון סטטוס התשלום.', null, true);
+        }
+    },
+
+    changeMonth(delta) {
+        this.currentCalendarDate.setMonth(this.currentCalendarDate.getMonth() + delta);
+        UI.renderCalendar();
+    },
+
+    async loadProjectDefaults(projectId) {
+        const projects = await Store.getProjects();
+        const project = projects.find(p => p.id === projectId);
+        await Store.addDefaultsToProject(projectId, project?.shoot_date);
+        UI.renderChecklist(projectId);
+    },
+
+    async fetchWeatherForProject() {
+        const location = document.getElementById('project-location').value;
+        const dateStr = document.getElementById('project-date').value;
+        const container = document.getElementById('project-weather-container');
+
+        if (!location || !dateStr) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        try {
+            container.classList.remove('hidden');
+            container.innerHTML = '<div style="font-size:0.9rem; color:var(--text-muted);">טוען מזג אוויר...</div>';
+            
+            // 1. Geocode
+            const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=he&format=json`);
+            const geoData = await geoRes.json();
+            
+            if (!geoData.results || geoData.results.length === 0) {
+                container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted);">לא נמצא מיקום מדויק לתחזית</div>';
+                return;
+            }
+
+            const { latitude, longitude, name: geoName } = geoData.results[0];
+            const shootDate = new Date(dateStr);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            
+            const diffDays = Math.ceil((shootDate - today) / (1000 * 60 * 60 * 24));
+            
+            let weatherData;
+            if (diffDays >= 0 && diffDays <= 14) {
+                // Forecast API
+                const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`);
+                weatherData = await weatherRes.json();
+            } else if (diffDays < 0) {
+                // Archive API for past dates
+                const weatherRes = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${dateStr}&end_date=${dateStr}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto`);
+                weatherData = await weatherRes.json();
+            } else {
+                container.innerHTML = `<div style="font-size:0.85rem; color:var(--text-muted); text-align:center; width:100%;">התאריך רחוק מדי לתחזית מדויקת (זמין עד 14 יום קדימה).</div>`;
+                return;
+            }
+
+            if (weatherData && weatherData.daily) {
+                UI.renderWeather(weatherData.daily, geoName);
+            } else {
+                throw new Error('No weather data');
+            }
+        } catch (error) {
+            console.error('Weather fetch error:', error);
+            container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted);">תקלה בטעינת מזג האוויר</div>';
+        }
     }
 };
 

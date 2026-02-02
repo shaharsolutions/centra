@@ -41,9 +41,21 @@
                     <i data-lucide="briefcase"></i>
                     <span>פרויקטים</span>
                 </li>
+                <li data-view="tasks">
+                    <i data-lucide="check-square"></i>
+                    <span>משימות</span>
+                </li>
+                <li data-view="shoots">
+                    <i data-lucide="camera"></i>
+                    <span>לוח צילומים</span>
+                </li>
+                <li data-view="payments">
+                    <i data-lucide="dollar-sign"></i>
+                    <span>גבייה</span>
+                </li>
                 <li data-view="calendar">
                     <i data-lucide="calendar"></i>
-                    <span>לוח צילומים</span>
+                    <span>לוח שנה</span>
                 </li>
                 <li data-view="settings">
                     <i data-lucide="settings"></i>
@@ -65,9 +77,21 @@
                 <i data-lucide="briefcase"></i>
                 <span>פרויקטים</span>
             </div>
+            <div class="mobile-nav-item" data-view="tasks">
+                <i data-lucide="check-square"></i>
+                <span>משימות</span>
+            </div>
+            <div class="mobile-nav-item" data-view="shoots">
+                <i data-lucide="camera"></i>
+                <span>צילומים</span>
+            </div>
+            <div class="mobile-nav-item" data-view="payments">
+                <i data-lucide="dollar-sign"></i>
+                <span>גבייה</span>
+            </div>
             <div class="mobile-nav-item" data-view="calendar">
                 <i data-lucide="calendar"></i>
-                <span>לוח צילומים</span>
+                <span>לוח שנה</span>
             </div>
             <div class="mobile-nav-item" data-view="settings">
                 <i data-lucide="settings"></i>
@@ -79,7 +103,7 @@
         <main class="main-content">
             <header class="top-bar">
                 <div class="header-info">
-                    <h1 id="view-title">שלום, צלמת! 👋</h1>
+                    <h1 id="view-title">שלום צלמת! 👋</h1>
                     <p id="view-subtitle">הנה מה שקורה בעסק שלך היום.</p>
                 </div>
                 <div class="header-actions">
@@ -203,10 +227,22 @@
                     <div class="form-group">
                         <label for="project-date">תאריך צילום</label>
                         <div class="view-group">
-                            <input type="date" id="project-date" readonly>
+                            <input type="date" id="project-date" readonly onchange="app.fetchWeatherForProject()">
                             <span id="project-date-view" class="view-text hidden"></span>
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label for="project-location">מיקום (לוקיישן)</label>
+                        <div class="view-group">
+                            <input type="text" id="project-location" placeholder="הזיני מיקום..." readonly onblur="app.fetchWeatherForProject()">
+                            <span id="project-location-view" class="view-text hidden"></span>
+                        </div>
+                    </div>
+                </div>
+                <div id="project-weather-container" class="weather-widget hidden">
+                    <!-- Weather info will be loaded here -->
+                </div>
+                <div class="form-row">
                     <div class="form-group">
                         <label for="project-status">סטטוס</label>
                         <select id="project-status">
@@ -247,6 +283,30 @@
                         </a>
                     </div>
                 </div>
+                <div class="project-checklists" id="project-checklists-container" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
+                    <div class="checklist-section">
+                        <label><i data-lucide="list-checks" style="width:16px; margin-left:4px;"></i> דברים שאסור לשכוח</label>
+                        <div id="checklist-shoot" class="checklist-items">
+                            <!-- Items loaded via JS -->
+                        </div>
+                        <div class="add-checklist-box">
+                            <input type="text" id="new-shoot-item" placeholder="הוסיפי משהו חשוב...">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="app.addChecklistItem('shoot', app.editingProjectId)">הוספה</button>
+                        </div>
+                    </div>
+
+                    <div class="checklist-section" style="margin-top:20px;">
+                        <label><i data-lucide="camera" style="width:16px; margin-left:4px;"></i> ציוד ליום צילום</label>
+                        <div id="checklist-equipment" class="checklist-items">
+                            <!-- Items loaded via JS -->
+                        </div>
+                        <div class="add-checklist-box">
+                            <input type="text" id="new-equipment-item" placeholder="הוסיפי ציוד שצריך לקחת...">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="app.addChecklistItem('equipment', app.editingProjectId)">הוספה</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="notes-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
                     <label>הערות ועדכונים</label>
                     <div id="project-notes-list" class="notes-timeline">
@@ -259,7 +319,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" id="delete-project-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
-                    <button type="button" id="project-cancel-btn" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="button" id="project-cancel-btn" class="btn btn-secondary close-modal">סגירה</button>
                     <button type="submit" id="save-project-btn" class="btn btn-primary" style="display:none;">שמירה</button>
                 </div>
             </form>
@@ -300,6 +360,51 @@
                 <button id="confirm-yes-btn" class="btn btn-primary" style="background: #EF4444;">כן, למחוק</button>
                 <button id="confirm-no-btn" class="btn btn-secondary">ביטול</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div id="task-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="task-modal-title">פרטי משימה</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="task-form" class="modal-form">
+                <div class="form-group">
+                    <label for="task-content">תיאור המשימה</label>
+                    <input type="text" id="task-content" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="task-due-date">תאריך יעד</label>
+                        <input type="date" id="task-due-date">
+                    </div>
+                    <div class="form-group">
+                        <label>סטטוס</label>
+                        <div style="display:flex; align-items:center; gap:8px; height:46px;">
+                            <input type="checkbox" id="task-completed-checkbox" style="width:20px; height:20px;">
+                            <span>בוצע</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="task-notes">הערות ועדכונים</label>
+                    <textarea id="task-notes" rows="4" placeholder="הוסיפי הערות או עדכונים לגבי המשימה..."></textarea>
+                </div>
+
+                <div id="task-project-info" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
+                    <!-- Project info if linked -->
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" id="delete-task-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA;">מחיקה</button>
+                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמירה</button>
+                </div>
+            </form>
         </div>
     </div>
 
