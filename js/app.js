@@ -54,6 +54,10 @@ const app = {
             e.preventDefault();
             await this.handlePackageSubmit();
         });
+        document.getElementById('location-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleLocationSubmit();
+        });
 
         // Delete Buttons (Using Custom Confirmation)
         document.getElementById('delete-client-btn').addEventListener('click', (e) => {
@@ -517,6 +521,7 @@ const app = {
         this.editingProjectPaymentStatus = null;
         this.editingPackageId = null;
         this.editingTaskId = null;
+        this.editingLocationId = null;
     },
 
     async handleClientSubmit() {
