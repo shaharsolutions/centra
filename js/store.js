@@ -7,10 +7,28 @@ const Store = {
         statuses: [
             { id: 'new', label: 'פנייה חדשה', class: 'badge-new' },
             { id: 'quote', label: 'הצעת מחיר', class: 'badge-quote' },
-            { id: 'closed', label: 'סגור', class: 'badge-closed' },
+            { id: 'closed', label: 'נסגר', class: 'badge-closed' },
+            { id: 'not_closed', label: 'לא נסגר', class: 'badge-not-closed' },
             { id: 'shooting', label: 'בצילום', class: 'badge-shooting' },
             { id: 'editing', label: 'בעריכה', class: 'badge-editing' },
             { id: 'delivered', label: 'נמסר', class: 'badge-delivered' }
+        ],
+        locations: [
+            { id: 1, title: 'יפו העתיקה', region: 'center', type: 'urban', description: 'סמטאות אבן ציוריות, נמל עתיק ומבני אבן היסטוריים. מושלם לצילומי זוגות ואופנה.' },
+            { id: 2, title: 'נחל השופט', region: 'north', type: 'nature', description: 'מסלול הליכה נגיש עם זרימת מים כל השנה, צמחייה עשירה וגשרים מעץ. מומלץ לצילומי משפחה.' },
+            { id: 3, title: 'משכנות שאננים', region: 'jerusalem', type: 'urban', description: 'טחנת הרוח המפורסמת, בתי המושבה הראשונה ונוף לחומות העיר העתיקה. אווירה קסומה ומיוחדת.' },
+            { id: 4, title: 'חוף פלמחים', region: 'center', type: 'beach', description: 'צוקי כורכר מרשימים, חול זהוב ושקיעות מרהיבות. המקום האידיאלי לצילומי הריון וזוגות.' },
+            { id: 5, title: 'מכתש רמון', region: 'south', type: 'nature', description: 'נוף מדברי עוצר נשימה, תצורות סלע ייחודיות ומרחבים אינסופיים. לצילומים עם אווירה פראית.' },
+            { id: 6, title: 'נווה צדק', region: 'center', type: 'urban', description: 'השכונה היהודית הראשונה מחוץ ליפו. בתי מידות משופצים, חנויות בוטיק וקירות צבעוניים.' },
+            { id: 7, title: 'עין כרם', region: 'jerusalem', type: 'village', description: 'כפר ציורי בלב ירושלים. כנסיות, מנזרים ונופים ירוקים. אווירה אירופאית בלב הרי ירושלים.' },
+            { id: 8, title: 'שדות הקיבוצים (שרון)', region: 'sharon', type: 'nature', description: 'שדות חיטה נובטים, פריחות עונתיות וטרקטורים ישנים. קלאסי לצילומי ילדים בטבע.' },
+            { id: 9, title: 'מתחם התחנה (תל אביב)', region: 'center', type: 'urban', description: 'תחנת הרכבת הישנה של יפו. קרונות עץ, מבנים טמפלרים משוחזרים ואווירה של פעם.' },
+            { id: 10, title: 'סטלה מאריס (חיפה)', region: 'north', type: 'nature', description: 'תצפית פנורמית מרהיבת על מפרץ חיפה והים, מנזר עתיק ומערת אליהו. מזכיר את איי יוון.' },
+            { id: 11, title: 'מערות בית גוברין', region: 'south', type: 'nature', description: 'מערות פעמון ענקיות עם משחקי אור וצל טבעיים ומרשימים. חוויה צילומית ייחודית מתחת לאדמה.' },
+            { id: 12, title: 'שפך נחל שורק', region: 'center', type: 'nature', description: 'דיונות חול, צמחיית נחל עשירה וגשר עץ מעל המים. מקום שקט עם תאורה טבעית מדהימה בשקיעה.' },
+            { id: 13, title: 'גבעת התורמוסים', region: 'jerusalem', type: 'nature', description: 'פריחת תורמוסים כחולה וסגולה בתוך עמק האלה. מרהיב במיוחד בחודשים פברואר-מרץ.' },
+            { id: 14, title: 'חוף האקוודוקט (קיסריה)', region: 'sharon', type: 'beach', description: 'קשתות אבן רומיות עתיקות על קו המים. שילוב מושלם של היסטוריה, ים וארכיטקטורה.' },
+            { id: 15, title: 'ים המלח (הפטריות)', region: 'south', type: 'nature', description: 'התגבשויות מלח בצורת פטריות בתוך המים הכחולים. אחד הלוקיישנים הסוריאליסטיים והיפים בעולם.' }
         ]
     },
 
@@ -58,7 +76,18 @@ const Store = {
             .select('*')
             .order('name');
         if (error) console.error('Error fetching clients:', error);
-        return data || [];
+        
+        const clients = data || [];
+        const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
+        
+        return clients.map(c => ({
+            ...c,
+            city: localExtras[c.id]?.city || c.city,
+            email: localExtras[c.id]?.email || c.email,
+            instagram: localExtras[c.id]?.instagram || c.instagram,
+            facebook: localExtras[c.id]?.facebook || c.facebook,
+            website: localExtras[c.id]?.website || c.website
+        }));
     },
 
     async saveClient(client) {
@@ -71,9 +100,33 @@ const Store = {
         if (client.id) {
             const { error } = await sb.from('clients').update(dbClient).eq('id', client.id);
             if (error) throw error;
+            
+            // Save extras
+            const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
+            localExtras[client.id] = {
+                city: client.city,
+                email: client.email,
+                instagram: client.instagram,
+                facebook: client.facebook,
+                website: client.website
+            };
+            localStorage.setItem('local_client_extras', JSON.stringify(localExtras));
         } else {
-            const { error } = await sb.from('clients').insert([dbClient]);
+            const { data, error } = await sb.from('clients').insert([dbClient]).select();
             if (error) throw error;
+            
+            if (data && data[0]) {
+                const newId = data[0].id;
+                const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
+                localExtras[newId] = {
+                    city: client.city,
+                    email: client.email,
+                    instagram: client.instagram,
+                    facebook: client.facebook,
+                    website: client.website
+                };
+                localStorage.setItem('local_client_extras', JSON.stringify(localExtras));
+            }
         }
     },
 
@@ -108,7 +161,12 @@ const Store = {
                 ...p,
                 clients: normalizedClients,
                 location: p.location || localLocations[p.id] || '',
-                payment_status: p.payment_status || localPaymentStatuses[p.id] || 'not_paid'
+                payment_status: p.payment_status || localPaymentStatuses[p.id] || 'not_paid',
+                not_closed_reason: p.not_closed_reason || JSON.parse(localStorage.getItem('local_project_reasons') || '{}')[p.id] || '',
+                subjects_count: p.subjects_count || JSON.parse(localStorage.getItem('local_project_subjects') || '{}')[p.id]?.count || '',
+                subjects_details: p.subjects_details || JSON.parse(localStorage.getItem('local_project_subjects') || '{}')[p.id]?.details || '',
+                shoot_time: p.shoot_time || JSON.parse(localStorage.getItem('local_project_times') || '{}')[p.id] || '',
+                styling_call: p.styling_call || JSON.parse(localStorage.getItem('local_project_styling') || '{}')[p.id] || 'none'
             };
         });
     },
@@ -123,7 +181,12 @@ const Store = {
             payments: project.payments,
             drive_link: project.driveLink,
             notes: project.notes,
-            location: project.location
+            location: project.location,
+            not_closed_reason: project.notClosedReason,
+            subjects_count: project.subjectsCount,
+            subjects_details: project.subjectsDetails,
+            shoot_time: project.shootTime,
+            styling_call: project.stylingCall
         };
 
         try {
@@ -148,6 +211,16 @@ const Store = {
             const fallbackProject = { ...dbProject };
             delete fallbackProject.location;
             delete fallbackProject.payment_status;
+            delete fallbackProject.not_closed_reason;
+            delete fallbackProject.subjects_count;
+            delete fallbackProject.subjects_details;
+            delete fallbackProject.shoot_time;
+            delete fallbackProject.styling_call;
+            
+            const localReasons = JSON.parse(localStorage.getItem('local_project_reasons') || '{}');
+            const localSubjects = JSON.parse(localStorage.getItem('local_project_subjects') || '{}');
+            const localTimes = JSON.parse(localStorage.getItem('local_project_times') || '{}');
+            const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
 
             let result;
             if (project.id) {
@@ -164,11 +237,31 @@ const Store = {
                     localLocations[result.id] = project.location;
                 }
                 localPaymentStatuses[result.id] = project.paymentStatus || 'not_paid';
+                localSubjects[result.id] = { count: project.subjectsCount, details: project.subjectsDetails };
+                if (project.shootTime) {
+                    localTimes[result.id] = project.shootTime;
+                }
+                if (project.stylingCall) {
+                    localStyling[result.id] = project.stylingCall;
+                }
             }
             
             localStorage.setItem('local_project_locations', JSON.stringify(localLocations));
             localStorage.setItem('local_project_payment_statuses', JSON.stringify(localPaymentStatuses));
-            return { ...result, location: project.location, payment_status: project.paymentStatus || 'not_paid' };
+            localStorage.setItem('local_project_reasons', JSON.stringify(localReasons));
+            localStorage.setItem('local_project_subjects', JSON.stringify(localSubjects));
+            localStorage.setItem('local_project_times', JSON.stringify(localTimes));
+            localStorage.setItem('local_project_styling', JSON.stringify(localStyling));
+            return { 
+                ...result, 
+                location: project.location, 
+                payment_status: project.paymentStatus || 'not_paid', 
+                not_closed_reason: project.notClosedReason,
+                subjects_count: project.subjectsCount,
+                subjects_details: project.subjectsDetails,
+                shoot_time: project.shootTime,
+                styling_call: project.stylingCall
+            };
         }
     },
 
@@ -417,6 +510,10 @@ const Store = {
         if (!projectId) return;
         
         let clientName = '';
+        let projects = await this.getProjects();
+        let currentProjectResource = projects.find(p => p.id === projectId);
+        let stylingCall = currentProjectResource?.styling_call || 'none';
+
         try {
             const { data, error } = await sb.from('projects').select('clients(name)').eq('id', projectId).single();
             if (data?.clients?.name) {
@@ -446,11 +543,24 @@ const Store = {
                 return { projectId, content: finalContent, category: 'shoot', dueDate };
             }),
             ...defaults.equipment.map(content => ({ projectId, content, category: 'equipment' }))
-        ].filter(defItem => !existingItems.some(existing => existing.content === defItem.content && existing.category === defItem.category));
+        ];
 
-        if (itemsToSave.length === 0) return;
+        if (stylingCall !== 'none' && shootDate) {
+            const weeks = stylingCall === '1_week' ? 1 : 2;
+            const stylingDate = this._calculateStylingDate(shootDate, weeks);
+            itemsToSave.push({
+                projectId,
+                content: `שיחת סטיילינג ${clientName ? '(' + clientName + ')' : ''}`,
+                category: 'shoot',
+                dueDate: stylingDate
+            });
+        }
 
-        for (const item of itemsToSave) {
+        const finalItemsToSave = itemsToSave.filter(defItem => !existingItems.some(existing => existing.content === defItem.content && existing.category === defItem.category));
+
+        if (finalItemsToSave.length === 0) return;
+
+        for (const item of finalItemsToSave) {
             try {
                 await this.saveChecklistItem(item);
             } catch (err) {
@@ -498,6 +608,44 @@ const Store = {
         }
         
         return tasksToFix.length;
+    },
+
+    _calculateStylingDate(shootDate, weeks) {
+        const date = new Date(shootDate);
+        date.setDate(date.getDate() - (weeks * 7));
+        
+        // If lands on Saturday (6), move to Friday (5)
+        if (date.getDay() === 6) {
+            date.setDate(date.getDate() - 1);
+        }
+        
+        return date.toISOString().split('T')[0];
+    },
+
+    _holidayCache: {},
+    async getJewishHolidays(year, month) {
+        const cacheKey = `${year}-${month}`;
+        if (this._holidayCache[cacheKey]) return this._holidayCache[cacheKey];
+
+        try {
+            const url = `https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&nx=on&year=${year}&month=${month}&ss=on&mf=on&c=on&geo=city&city=IL-Tel+Aviv&m=50&lg=sh`;
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            // Map items by date for easy lookup
+            const holidays = {};
+            data.items.forEach(item => {
+                const date = item.date.split('T')[0];
+                if (!holidays[date]) holidays[date] = [];
+                holidays[date].push(item);
+            });
+            
+            this._holidayCache[cacheKey] = holidays;
+            return holidays;
+        } catch (e) {
+            console.error('Error fetching Jewish holidays:', e);
+            return {};
+        }
     },
 
     getStatusInfo(statusId) {

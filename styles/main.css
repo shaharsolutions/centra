@@ -293,6 +293,7 @@ body {
 .badge-shooting { background: #F3E8FF; color: #6B21A8; }
 .badge-editing { background: #FFEDD5; color: #9A3412; }
 .badge-delivered { background: #E0F2FE; color: #075985; }
+.badge-not-closed { background: #FEE2E2; color: #991B1B; }
 
 /* Modal Styles */
 .modal-overlay {

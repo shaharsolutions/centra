@@ -57,6 +57,10 @@
                     <i data-lucide="calendar"></i>
                     <span>לוח שנה</span>
                 </li>
+                <li data-view="locations">
+                    <i data-lucide="map-pin"></i>
+                    <span>לוקיישנים</span>
+                </li>
                 <li data-view="settings">
                     <i data-lucide="settings"></i>
                     <span>הגדרות</span>
@@ -92,6 +96,10 @@
             <div class="mobile-nav-item" data-view="calendar">
                 <i data-lucide="calendar"></i>
                 <span>לוח שנה</span>
+            </div>
+            <div class="mobile-nav-item" data-view="locations">
+                <i data-lucide="map-pin"></i>
+                <span>לוקיישנים</span>
             </div>
             <div class="mobile-nav-item" data-view="settings">
                 <i data-lucide="settings"></i>
@@ -163,11 +171,62 @@
                             <select id="client-source" disabled>
                                 <option value="whatsapp">וואטסאפ</option>
                                 <option value="instagram">אינסטגרם</option>
+                                <option value="facebook">פייסבוק</option>
                                 <option value="recommendation">המלצה</option>
                                 <option value="other">אחר</option>
                             </select>
                             <span id="client-source-view" class="view-text hidden"></span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="client-city">עיר מגורים</label>
+                    <div class="view-group">
+                        <input type="text" id="client-city" placeholder="לדוגמה: תל אביב" readonly>
+                        <span id="client-city-view" class="view-text hidden"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="client-email">אימייל</label>
+                    <div class="view-group">
+                        <input type="email" id="client-email" placeholder="example@email.com" readonly>
+                        <span id="client-email-view" class="view-text hidden"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>רשתות חברתיות</label>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="view-group" style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="instagram" style="width: 16px; color: #E1306C;"></i>
+                            <div style="flex: 1;">
+                                <input type="text" id="client-instagram" placeholder="שם משתמש אינסטגרם" readonly>
+                                <span id="client-instagram-view" class="view-text hidden"></span>
+                            </div>
+                        </div>
+                        <div class="view-group" style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="facebook" style="width: 16px; color: #1877F2;"></i>
+                            <div style="flex: 1;">
+                                <input type="text" id="client-facebook" placeholder="קישור לפייסבוק" readonly>
+                                <span id="client-facebook-view" class="view-text hidden"></span>
+                            </div>
+                        </div>
+                        <div class="view-group" style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="globe" style="width: 16px; color: var(--text-muted);"></i>
+                            <div style="flex: 1;">
+                                <input type="text" id="client-website" placeholder="אתר אינטרנט" readonly>
+                                <span id="client-website-view" class="view-text hidden"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="projects-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
+                    <label>פרויקטים של הלקוח</label>
+                    <div id="client-projects-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+                        <!-- Projects will be loaded here -->
                     </div>
                 </div>
 
@@ -223,6 +282,23 @@
                         <span id="project-name-view" class="view-text hidden"></span>
                     </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="project-subjects-count">מספר מצולמים</label>
+                        <div class="view-group">
+                            <input type="number" id="project-subjects-count" placeholder="0" readonly>
+                            <span id="project-subjects-count-view" class="view-text hidden"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-subjects-details">פירוט מצולמים (טקסט חופשי)</label>
+                        <div class="view-group">
+                            <input type="text" id="project-subjects-details" placeholder="למשל: זוג הורים ו-3 ילדים" readonly>
+                            <span id="project-subjects-details-view" class="view-text hidden"></span>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="project-date">תאריך צילום</label>
@@ -232,10 +308,30 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label for="project-time">שעת צילום</label>
+                        <div class="view-group">
+                            <input type="time" id="project-time" readonly>
+                            <span id="project-time-view" class="view-text hidden"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label for="project-location">מיקום (לוקיישן)</label>
                         <div class="view-group">
                             <input type="text" id="project-location" placeholder="הזיני מיקום..." readonly onblur="app.fetchWeatherForProject()">
                             <span id="project-location-view" class="view-text hidden"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-styling-call">שיחת סטיילינג</label>
+                        <div class="view-group">
+                            <select id="project-styling-call" disabled>
+                                <option value="none">ללא</option>
+                                <option value="1_week">שבוע לפני</option>
+                                <option value="2_weeks">שבועיים לפני</option>
+                            </select>
+                            <span id="project-styling-call-view" class="view-text hidden"></span>
                         </div>
                     </div>
                 </div>
@@ -248,11 +344,20 @@
                         <select id="project-status">
                             <option value="new">פנייה חדשה</option>
                             <option value="quote">הצעת מחיר</option>
-                            <option value="closed">סגור (נקבע תאריך)</option>
+                            <option value="closed">נסגר (נקבע תאריך)</option>
+                            <option value="not_closed">לא נסגר</option>
                             <option value="shooting">בצילום</option>
                             <option value="editing">בעריכה</option>
                             <option value="delivered">נמסר</option>
                         </select>
+                    </div>
+                </div>
+
+                <div id="not-closed-reason-container" class="form-group hidden" style="margin-top: 12px;">
+                    <label for="not-closed-reason">סיבת אי סגירה</label>
+                    <div class="view-group">
+                        <textarea id="not-closed-reason" placeholder="למה הלקוח לא סגר? (למשל: מחיר יקר מדי, לא זמינה בתאריך...)" readonly style="width:100%; min-height:80px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-md); font-family:inherit;"></textarea>
+                        <span id="not-closed-reason-view" class="view-text hidden"></span>
                     </div>
                 </div>
                 <div class="form-row">

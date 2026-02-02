@@ -100,6 +100,10 @@ const app = {
             this.setProjectEditMode(false);
         });
 
+        document.getElementById('project-status').addEventListener('change', (e) => {
+            this.toggleNotClosedReason(e.target.value);
+        });
+
         document.getElementById('edit-client-toggle').addEventListener('click', () => {
             this.setClientEditMode(true);
         });
@@ -209,8 +213,13 @@ const app = {
             case 'calendar': await UI.renderCalendar(); break;
             case 'shoots': await UI.renderShoots(); break;
             case 'payments': await UI.renderPayments(); break;
+            case 'locations': await UI.renderLocations(); break;
             case 'settings': await UI.renderSettings(); break;
         }
+    },
+
+    async filterLocations(region) {
+        await UI.renderLocations(region);
     },
 
     // Client Modal
@@ -231,10 +240,22 @@ const app = {
                     document.getElementById('client-phone').value = c.phone;
                     document.getElementById('client-source').value = c.source;
 
+                    document.getElementById('client-city').value = c.city || '';
+                    document.getElementById('client-email').value = c.email || '';
+                    document.getElementById('client-instagram').value = c.instagram || '';
+                    document.getElementById('client-facebook').value = c.facebook || '';
+                    document.getElementById('client-website').value = c.website || '';
+
                     // Populate view spans
                     document.getElementById('client-name-view').innerText = c.name;
                     document.getElementById('client-phone-view').innerText = c.phone;
                     document.getElementById('client-source-view').innerText = UI.getSourceLabel(c.source);
+                    UI.renderClientProjects(clientId);
+                    document.getElementById('client-city-view').innerText = c.city || 'לא צוין';
+                    document.getElementById('client-email-view').innerText = c.email || '---';
+                    document.getElementById('client-instagram-view').innerText = c.instagram || '---';
+                    document.getElementById('client-facebook-view').innerText = c.facebook || '---';
+                    document.getElementById('client-website-view').innerText = c.website || '---';
                 }
             });
             this.setClientEditMode(false);
@@ -308,8 +329,15 @@ const app = {
                 document.getElementById('project-client').value = p.client_id;
                 document.getElementById('project-name').value = p.name;
                 document.getElementById('project-date').value = p.shoot_date || '';
+                document.getElementById('project-time').value = p.shoot_time || '';
                 document.getElementById('project-location').value = p.location || '';
+                document.getElementById('project-subjects-count').value = p.subjects_count || '';
+                document.getElementById('project-subjects-details').value = p.subjects_details || '';
+                document.getElementById('project-styling-call').value = p.styling_call || 'none';
                 document.getElementById('project-status').value = p.status || 'new';
+                document.getElementById('not-closed-reason').value = p.not_closed_reason || '';
+                this.toggleNotClosedReason(p.status || 'new');
+                
                 document.getElementById('proj-total-price').value = p.payments?.total || '';
                 document.getElementById('proj-deposit-paid').value = p.payments?.deposit || '';
                 document.getElementById('project-drive').value = p.drive_link || '';
@@ -324,10 +352,18 @@ const app = {
                 // Populate view spans
                 document.getElementById('project-name-view').innerText = p.name;
                 document.getElementById('project-date-view').innerText = p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : 'ללא תאריך';
+                document.getElementById('project-time-view').innerText = p.shoot_time || '--:--';
                 document.getElementById('project-location-view').innerText = p.location || 'לא הוגדר מיקום';
+                document.getElementById('project-subjects-count-view').innerText = p.subjects_count || '0';
+                document.getElementById('project-subjects-details-view').innerText = p.subjects_details || 'ללא פירוט';
+                
+                const stylingLabel = p.styling_call === '1_week' ? 'שבוע לפני' : (p.styling_call === '2_weeks' ? 'שבועיים לפני' : 'ללא');
+                document.getElementById('project-styling-call-view').innerText = stylingLabel;
+
                 document.getElementById('proj-total-price-view').innerText = (p.payments?.total || 0) + ' ₪';
                 document.getElementById('proj-deposit-paid-view').innerText = (p.payments?.deposit || 0) + ' ₪';
                 document.getElementById('project-drive-view').innerText = p.drive_link || 'אין קישור';
+                document.getElementById('not-closed-reason-view').innerText = p.not_closed_reason || 'לא צוינה סיבה';
 
                 if (p.location && p.shoot_date) {
                     this.fetchWeatherForProject();
@@ -346,7 +382,9 @@ const app = {
             document.getElementById('project-notes-list').innerHTML = '';
             if (selectedClientId) document.getElementById('project-client').value = selectedClientId;
             this.editingProjectPaymentStatus = 'not_paid';
+            this.toggleNotClosedReason('new');
             this.setProjectEditMode(true);
+            UI.renderChecklist(null);
             deleteBtn.style.display = 'none';
         }
         if (window.lucide) lucide.createIcons();
@@ -358,6 +396,9 @@ const app = {
         const editToggle = document.getElementById('edit-project-toggle');
         const cancelEditBtn = document.getElementById('cancel-edit-project');
         const footerCancelBtn = document.getElementById('project-cancel-btn');
+        
+        const status = document.getElementById('project-status').value;
+        this.toggleNotClosedReason(status);
 
         // Toggle visibility of inputs and spans
         form.querySelectorAll('.view-group').forEach(group => {
@@ -395,6 +436,17 @@ const app = {
         }
     },
 
+    toggleNotClosedReason(status) {
+        const container = document.getElementById('not-closed-reason-container');
+        if (container) {
+            if (status === 'not_closed') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+    },
+
 
     closeModal() {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
@@ -410,7 +462,12 @@ const app = {
             id: this.editingClientId,
             name: document.getElementById('client-name').value,
             phone: document.getElementById('client-phone').value,
-            source: document.getElementById('client-source').value
+            source: document.getElementById('client-source').value,
+            city: document.getElementById('client-city').value,
+            email: document.getElementById('client-email').value,
+            instagram: document.getElementById('client-instagram').value,
+            facebook: document.getElementById('client-facebook').value,
+            website: document.getElementById('client-website').value
         };
         await Store.saveClient(client);
         this.closeModal();
@@ -434,7 +491,12 @@ const app = {
             clientId: document.getElementById('project-client').value,
             name: document.getElementById('project-name').value,
             shootDate: document.getElementById('project-date').value,
+            shootTime: document.getElementById('project-time').value,
             status: document.getElementById('project-status').value,
+            notClosedReason: document.getElementById('not-closed-reason').value,
+            subjectsCount: document.getElementById('project-subjects-count').value,
+            subjectsDetails: document.getElementById('project-subjects-details').value,
+            stylingCall: document.getElementById('project-styling-call').value,
             paymentStatus: paymentStatus,
             payments: {
                 total: total,

@@ -38,23 +38,86 @@ const UI = {
         if (window.lucide) lucide.createIcons();
     },
 
-    async renderClients() {
+    async renderClients(searchQuery = '', filterSource = 'all', sortBy = 'name-asc', filterCity = 'all') {
         const clients = await Store.getClients();
-        let listHtml = '';
+        
+        // Get unique cities for filter
+        const cities = [...new Set(clients.map(c => c.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
 
-        if (clients.length === 0) {
-            listHtml = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין לקוחות.</div>';
+        let filteredClients = clients.filter(c => {
+            const matchesSearch = (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                  (c.phone || '').includes(searchQuery);
+            const matchesSource = filterSource === 'all' || c.source === filterSource;
+            const matchesCity = filterCity === 'all' || c.city === filterCity;
+            return matchesSearch && matchesSource && matchesCity;
+        });
+
+        // Sort
+        filteredClients.sort((a, b) => {
+            if (sortBy === 'name-asc') return (a.name || '').localeCompare(b.name || '', 'he');
+            if (sortBy === 'name-desc') return (b.name || '').localeCompare(a.name || '', 'he');
+            if (sortBy === 'city-asc') return (a.city || '').localeCompare(b.city || '', 'he');
+            if (sortBy === 'city-desc') return (b.city || '').localeCompare(a.city || '', 'he');
+            return 0;
+        });
+
+        let contentHtml = `
+            <div class="filters-bar" style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; background: white; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); align-items: center;">
+                <div style="flex: 1; min-width: 200px; position: relative;">
+                    <i data-lucide="search" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 16px; color: var(--text-muted); pointer-events: none;"></i>
+                    <input type="text" id="client-search" placeholder="חיפוש לפי שם או טלפון..." 
+                        value="${searchQuery}"
+                        style="width: 100%; padding: 10px 40px 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.95rem;"
+                        oninput="UI.renderClients(this.value, document.getElementById('client-filter-source').value, document.getElementById('client-sort').value, document.getElementById('client-filter-city').value)"
+                    >
+                </div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <select id="client-filter-source" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 130px; font-size: 0.9rem; cursor: pointer;"
+                        onchange="UI.renderClients(document.getElementById('client-search').value, this.value, document.getElementById('client-sort').value, document.getElementById('client-filter-city').value)"
+                    >
+                        <option value="all">כל המקורות</option>
+                        <option value="whatsapp" ${filterSource === 'whatsapp' ? 'selected' : ''}>וואטסאפ</option>
+                        <option value="instagram" ${filterSource === 'instagram' ? 'selected' : ''}>אינסטגרם</option>
+                        <option value="facebook" ${filterSource === 'facebook' ? 'selected' : ''}>פייסבוק</option>
+                        <option value="recommendation" ${filterSource === 'recommendation' ? 'selected' : ''}>המלצה</option>
+                        <option value="other" ${filterSource === 'other' ? 'selected' : ''}>אחר</option>
+                    </select>
+
+                    <select id="client-filter-city" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 130px; font-size: 0.9rem; cursor: pointer;"
+                        onchange="UI.renderClients(document.getElementById('client-search').value, document.getElementById('client-filter-source').value, document.getElementById('client-sort').value, this.value)"
+                    >
+                        <option value="all">כל הערים</option>
+                        ${cities.map(city => `<option value="${city}" ${filterCity === city ? 'selected' : ''}>${city}</option>`).join('')}
+                    </select>
+
+                    <select id="client-sort" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 130px; font-size: 0.9rem; cursor: pointer;"
+                        onchange="UI.renderClients(document.getElementById('client-search').value, document.getElementById('client-filter-source').value, this.value, document.getElementById('client-filter-city').value)"
+                    >
+                        <option value="name-asc" ${sortBy === 'name-asc' ? 'selected' : ''}>שם (א-ת)</option>
+                        <option value="name-desc" ${sortBy === 'name-desc' ? 'selected' : ''}>שם (ת-א)</option>
+                        <option value="city-asc" ${sortBy === 'city-asc' ? 'selected' : ''}>עיר (א-ת)</option>
+                        <option value="city-desc" ${sortBy === 'city-desc' ? 'selected' : ''}>עיר (ת-א)</option>
+                    </select>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                    ${filteredClients.length} לקוחות
+                </div>
+            </div>
+        `;
+
+        if (filteredClients.length === 0) {
+            contentHtml += `<div style="padding: 40px; text-align: center; color: var(--text-muted); background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border);">לא נמצאו לקוחות מתאימים.</div>`;
         } else {
-            listHtml = `
+            contentHtml += `
                 <div class="card-list">
-                    ${clients.map(c => `
+                    ${filteredClients.map(c => `
                         <div class="list-item">
                             <div class="item-info">
                                 <span class="item-name">${c.name}</span>
-                                <span class="item-sub">${c.phone} | ${this.getSourceLabel(c.source)}</span>
+                                <span class="item-sub">${c.phone} | ${this.getSourceLabel(c.source)}${c.city ? ' | ' + c.city : ''}</span>
                             </div>
                             <div class="item-actions">
-                                <a href="https://wa.me/972${c.phone.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm whatsapp-btn">
+                                <a href="https://wa.me/972${c.phone?.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm whatsapp-btn">
                                     <i data-lucide="message-circle"></i>
                                 </a>
                                 <button class="btn btn-secondary btn-sm" onclick="app.viewClient('${c.id}')">
@@ -72,9 +135,17 @@ const UI = {
             `;
         }
 
-        document.getElementById('view-container').innerHTML = listHtml;
+        document.getElementById('view-container').innerHTML = contentHtml;
         document.getElementById('view-title').innerText = 'ניהול לקוחות';
         document.getElementById('view-subtitle').innerText = 'כל הלקוחות במקום אחד.';
+        
+        // Focus search input and put cursor at end if it was focused
+        const searchInput = document.getElementById('client-search');
+        if (searchQuery) {
+            searchInput.focus();
+            searchInput.setSelectionRange(searchQuery.length, searchQuery.length);
+        }
+
         if (window.lucide) lucide.createIcons();
     },
 
@@ -215,6 +286,9 @@ const UI = {
         const tasks = await Store.getAllTasks();
         const currentMonth = app.currentCalendarDate.getMonth();
         const currentYear = app.currentCalendarDate.getFullYear();
+        
+        // Fetch Jewish Holidays
+        const holidays = await Store.getJewishHolidays(currentYear, currentMonth + 1);
 
         const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
         const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -241,6 +315,7 @@ const UI = {
                         
                         const dayProjects = projects.filter(p => p.shoot_date === dateStr);
                         const dayTasks = tasks.filter(t => t.due_date === dateStr);
+                        const dayHolidays = holidays[dateStr] || [];
                         const isToday = new Date().toISOString().split('T')[0] === dateStr;
 
                         return `
@@ -252,7 +327,27 @@ const UI = {
                             ondrop="app.handleCalendarDrop(event, '${dateStr}')"
                             style="background: ${isToday ? '#F5F3FF' : 'white'}; min-height:120px; padding:8px; border: 0.5px solid var(--border); overflow-y: auto; transition: background 0.2s;"
                         >
-                            <div style="font-size:0.85rem; font-weight:${isToday ? '700' : '500'}; color:${isToday ? 'var(--primary)' : 'var(--text-main)'}; margin-bottom:4px;">${day}</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                <div style="font-size:0.85rem; font-weight:${isToday ? '700' : '500'}; color:${isToday ? 'var(--primary)' : 'var(--text-main)'};">${day}</div>
+                                ${dayHolidays.filter(h => h.category === 'holiday').map(h => `
+                                    <div style="font-size:0.65rem; color:#B45309; font-weight:600; background:#FEF3C7; padding:1px 4px; border-radius:30px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80%;" title="${h.hebrew}">${h.hebrew}</div>
+                                `).join('')}
+                            </div>
+                            
+                            <!-- Shabbat Times (Candles/Havdalah) -->
+                            <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:4px;">
+                                ${dayHolidays.filter(h => h.category === 'candles' || h.category === 'havdalah').map(h => {
+                                    const time = new Date(h.date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                                    const label = h.category === 'candles' ? 'כניסה:' : 'יציאה:';
+                                    return `
+                                        <div style="font-size:0.6rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;">
+                                            <i data-lucide="${h.category === 'candles' ? 'flame' : 'moon'}" style="width:8px; height:8px;"></i>
+                                            <strong>${label} ${time}</strong>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+
                             <div class="calendar-events" style="display:flex; flex-direction:column; gap:4px;">
                                 ${dayProjects.map(p => {
                                      const clientName = p.clients?.name || '';
@@ -360,7 +455,7 @@ const UI = {
         ];
 
         const html = `
-            <div class="kanban-board" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; padding: 20px 0;">
+            <div class="kanban-board" style="display: flex; gap: 20px; padding: 20px 0; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
                 ${paymentStatuses.map(status => {
                     const statusProjects = projects.filter(p => (p.payment_status || 'not_paid') === status.id);
                     return `
@@ -369,7 +464,7 @@ const UI = {
                             ondragover="event.preventDefault(); this.style.background='#F9FAFB';"
                             ondragleave="this.style.background='white';"
                             ondrop="app.handlePaymentDrop(event, '${status.id}')"
-                            style="background: white; border-radius: var(--radius-lg); border: 2px solid var(--border); padding: 16px; min-height: 400px; transition: background 0.2s;"
+                            style="background: white; border-radius: var(--radius-lg); border: 2px solid var(--border); padding: 16px; min-height: 400px; transition: background 0.2s; min-width: 300px; flex: 0 0 300px; scroll-snap-align: start;"
                         >
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
                                 <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">${status.label}</h3>
@@ -432,14 +527,9 @@ const UI = {
                     cursor: grabbing;
                     opacity: 0.7;
                 }
-                @media (max-width: 768px) {
-                    .kanban-board {
-                        grid-template-columns: 1fr !important;
-                    }
-                }
             </style>
         `;
-
+        
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'גבייה';
         document.getElementById('view-subtitle').innerText = 'מעקב אחר סטטוס תשלומים של פרויקטים.';
@@ -549,8 +639,74 @@ const UI = {
         if (window.lucide) lucide.createIcons();
     },
 
+    async renderLocations(filterRegion = 'all') {
+        const locations = Store.defaults.locations;
+        const regions = {
+            'center': 'מרכז',
+            'north': 'צפון',
+            'south': 'דרום',
+            'jerusalem': 'ירושלים',
+            'sharon': 'שרון'
+        };
+
+        const filteredLocations = filterRegion === 'all' 
+            ? locations 
+            : locations.filter(l => l.region === filterRegion);
+
+        let html = `
+            <div class="filters-bar" style="margin-bottom: 24px; display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;">
+                <button class="btn ${filterRegion === 'all' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="app.filterLocations('all')">הכל</button>
+                ${Object.entries(regions).map(([id, label]) => `
+                    <button class="btn ${filterRegion === id ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="app.filterLocations('${id}')">${label}</button>
+                `).join('')}
+            </div>
+
+            <div class="locations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
+                ${filteredLocations.map(loc => `
+                    <div class="location-card" style="background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border); transition: transform 0.2s; display: flex; flex-direction: column;">
+                        <div style="padding: 20px; flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <h3 style="font-size: 1.1rem; font-weight: 700;">${loc.title}</h3>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;">
+                                    <span class="badge" style="background: var(--bg-main); color: var(--text-main); font-size: 0.65rem; border: 1px solid var(--border);">${regions[loc.region]}</span>
+                                    <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.65rem;">
+                                        ${loc.type === 'urban' ? 'אורבני' : loc.type === 'nature' ? 'טבע' : loc.type === 'beach' ? 'ים' : loc.type === 'village' ? 'כפרי' : loc.type}
+                                    </span>
+                                </div>
+                            </div>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px;">${loc.description}</p>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <button class="btn btn-secondary btn-sm" style="gap: 8px; justify-content: center;" onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(loc.title + ' צילומים')}', '_blank')">
+                                    <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                                    חיפוש תמונות
+                                </button>
+                                <button class="btn btn-secondary btn-sm" style="gap: 8px; justify-content: center;" onclick="window.open('https://www.google.com/maps/search/${encodeURIComponent(loc.title)}', '_blank')">
+                                    <i data-lucide="map" style="width: 14px; height: 14px;"></i>
+                                    ניווט למקום
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <style>
+                .location-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: var(--shadow-lg);
+                }
+            </style>
+        `;
+
+        document.getElementById('view-container').innerHTML = html;
+        document.getElementById('view-title').innerText = 'לוקיישנים לצילומים';
+        document.getElementById('view-subtitle').innerText = 'גלי לוקיישנים מומלצים לצילומים לפי אזורים בארץ.';
+        if (window.lucide) lucide.createIcons();
+    },
+
     getSourceLabel(source) {
-        const sources = {'whatsapp': 'וואטסאפ', 'instagram': 'אינסטגרם', 'recommendation': 'המלצה', 'other': 'אחר'};
+        const sources = {'whatsapp': 'וואטסאפ', 'instagram': 'אינסטגרם', 'facebook': 'פייסבוק', 'recommendation': 'המלצה', 'other': 'אחר'};
         return sources[source] || source;
     },
 
@@ -569,6 +725,35 @@ const UI = {
         if (datalist) {
             datalist.innerHTML = packages.map(p => `<option value="${p.name}">${p.name} - ${p.price} ₪</option>`).join('');
         }
+    },
+
+    async renderClientProjects(clientId) {
+        const container = document.getElementById('client-projects-list');
+        if (!container) return;
+        
+        const projects = await Store.getProjects(clientId);
+        
+        if (projects.length === 0) {
+            container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding:10px; border:1px dashed var(--border); border-radius:var(--radius-md);">עדיין אין פרויקטים ללקוח זה.</div>';
+            return;
+        }
+
+        container.innerHTML = projects.map(p => {
+            const statusObj = Store.defaults.statuses.find(s => s.id === p.status);
+            return `
+                <div class="list-item" style="padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius-md); transition: all 0.2s;" onclick="app.viewProject('${p.id}')">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.9rem;">${p.name}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                                ${p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
+                            </div>
+                        </div>
+                        <span class="badge ${statusObj?.class || ''}" style="font-size: 0.7rem;">${statusObj?.label || p.status}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
     },
 
     async renderNotes(clientId = null, projectId = null) {
@@ -637,7 +822,17 @@ const UI = {
     },
 
     async renderChecklist(projectId) {
-        const items = await Store.getChecklistItems(projectId);
+        let items = [];
+        if (projectId) {
+            items = await Store.getChecklistItems(projectId);
+        } else {
+            const defaults = Store.getChecklistDefaults();
+            items = [
+                ...defaults.shoot.map(c => ({ id: null, content: c, category: 'shoot', is_completed: false })),
+                ...defaults.equipment.map(c => ({ id: null, content: c, category: 'equipment', is_completed: false }))
+            ];
+        }
+        
         const displayMode = Store.getChecklistDisplayMode();
         const shootItems = items.filter(i => i.category === 'shoot');
         const equipmentItems = items.filter(i => i.category === 'equipment');
@@ -647,13 +842,15 @@ const UI = {
             return itemList.map(item => `
                 <div class="checklist-item ${item.is_completed ? 'completed' : ''} mode-${displayMode}" data-id="${item.id}">
                     ${displayMode === 'checkbox' ? 
-                        `<input type="checkbox" ${item.is_completed ? 'checked' : ''} onclick="app.toggleChecklistItem('${item.id}', this.checked, '${projectId}')">` : 
+                        `<input type="checkbox" ${item.is_completed ? 'checked' : ''} ${!item.id ? 'disabled' : ''} onclick="app.toggleChecklistItem('${item.id}', this.checked, '${projectId}')">` : 
                         `<i data-lucide="circle" style="width:8px; height:8px; fill:var(--primary); color:var(--primary);"></i>`
                     }
-                    <span class="checklist-text" onclick="app.editChecklistItem('${item.id}', '${item.content}', '${category}', '${projectId}')">${item.content}</span>
-                    <button type="button" class="btn-icon delete-btn" onclick="app.deleteChecklistItem('${item.id}', '${projectId}')">
-                        <i data-lucide="x"></i>
-                    </button>
+                    <span class="checklist-text" ${item.id ? `onclick="app.editChecklistItem('${item.id}', '${item.content}', '${category}', '${projectId}')"` : ''}>${item.content}</span>
+                    ${item.id ? `
+                        <button type="button" class="btn-icon delete-btn" onclick="app.deleteChecklistItem('${item.id}', '${projectId}')">
+                            <i data-lucide="x"></i>
+                        </button>
+                    ` : ''}
                 </div>
             `).join('');
         };
