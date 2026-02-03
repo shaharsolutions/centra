@@ -345,6 +345,7 @@ body {
 .badge-delivered { background: #E0F2FE; color: #075985; }
 .badge-published { background: #CCFBFE; color: #0891B2; }
 .badge-not-closed { background: #FEE2E2; color: #991B1B; }
+.badge-archived { background: #F1F5F9; color: #475569; }
 
 /* Modal Styles */
 .modal-overlay {

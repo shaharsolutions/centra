@@ -10,8 +10,8 @@ const app = {
         await Store.init();
         this.addEventListeners();
         
-        // Fix any legacy tasks with [object Object] in their names
-        Store.fixLegacyTaskNames().catch(e => console.warn('Could not fix legacy tasks:', e));
+        // Auto-archive projects that were delivered/published more than a week ago
+        await Store.autoArchiveProjects().catch(e => console.error('Auto-archived failed:', e));
         
         await this.navigate('dashboard');
     },
@@ -213,6 +213,7 @@ const app = {
             case 'dashboard': await UI.renderDashboard(); break;
             case 'clients': await UI.renderClients(); break;
             case 'projects': await UI.renderProjects(); break;
+            case 'archive': await UI.renderArchive(); break;
             case 'tasks': await UI.renderTasks(); break;
             case 'calendar': await UI.renderCalendar(); break;
             case 'shoots': await UI.renderShoots(); break;
@@ -401,6 +402,7 @@ const app = {
                 document.getElementById('project-subjects-details').value = p.subjects_details || '';
                 document.getElementById('project-styling-call').value = p.styling_call || 'none';
                 document.getElementById('project-status').value = p.status || 'new';
+                document.getElementById('project-payment-status').value = p.payment_status || 'not_paid';
                 document.getElementById('not-closed-reason').value = p.not_closed_reason || '';
                 this.toggleNotClosedReason(p.status || 'new');
                 
@@ -446,8 +448,8 @@ const app = {
             driveLink.style.display = 'none';
             document.getElementById('project-form').reset();
             document.getElementById('project-notes-list').innerHTML = '';
-            if (selectedClientId) document.getElementById('project-client').value = selectedClientId;
-            this.editingProjectPaymentStatus = 'not_paid';
+            document.getElementById('project-status').value = 'new';
+            document.getElementById('project-payment-status').value = 'not_paid';
             this.toggleNotClosedReason('new');
             this.setProjectEditMode(true);
             UI.renderChecklist(null);
@@ -564,7 +566,7 @@ const app = {
             subjectsCount: document.getElementById('project-subjects-count').value,
             subjectsDetails: document.getElementById('project-subjects-details').value,
             stylingCall: document.getElementById('project-styling-call').value,
-            paymentStatus: paymentStatus,
+            paymentStatus: document.getElementById('project-payment-status').value, // Use explicit value from select
             payments: {
                 total: total,
                 deposit: deposit
@@ -574,12 +576,31 @@ const app = {
         };
         const savedProject = await Store.saveProject(project);
         
-        if (isNew && savedProject) {
-            await Store.addDefaultsToProject(savedProject.id, savedProject.shoot_date);
-        }
-
         this.closeModal();
         await this.navigate(this.currentView);
+    },
+
+    async importDefaults(category) {
+        if (!this.editingProjectId) {
+            this.confirmAction('שימי לב', 'יש לשמור את הפרויקט בפעם הראשונה לפני שניתן לייבא רשימות נוספות.', null, true);
+            return;
+        }
+        
+        try {
+            const projects = await Store.getProjects();
+            const project = projects.find(p => String(p.id) === String(this.editingProjectId));
+            
+            const imported = await Store.importCategoryDefaults(this.editingProjectId, category, project?.shoot_date, project);
+            
+            if (imported && imported.length > 0) {
+                await UI.renderChecklist(this.editingProjectId);
+            } else {
+                this.confirmAction('מידע', 'כל פריטי ברירת המחדל כבר קיימים ברשימה.', null, true);
+            }
+        } catch (error) {
+            console.error('Import defaults error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בייבוא הרשימה.', null, true);
+        }
     },
 
 
@@ -756,11 +777,37 @@ const app = {
     async updateStatus(id, newStatus) {
         try {
             await Store.updateProjectStatus(id, newStatus);
+            
+            // Sync modal if open for this project
+            if (this.editingProjectId === id) {
+                const statusSelect = document.getElementById('project-status');
+                if (statusSelect) statusSelect.value = newStatus;
+                this.toggleNotClosedReason(newStatus);
+            }
+
             if (this.currentView === 'projects') await UI.renderProjects();
             if (this.currentView === 'calendar') await UI.renderCalendar();
             else await this.navigate(this.currentView);
         } catch (error) {
             console.error('Update status error:', error);
+        }
+    },
+
+    async updatePaymentStatus(id, newStatus) {
+        try {
+            await Store.updateProjectPaymentStatus(id, newStatus);
+
+            // Sync modal if open for this project
+            if (this.editingProjectId === id) {
+                const paymentSelect = document.getElementById('project-payment-status');
+                if (paymentSelect) paymentSelect.value = newStatus;
+            }
+
+            if (this.currentView === 'projects') await UI.renderProjects();
+            if (this.currentView === 'payments') await UI.renderPayments();
+            else await this.navigate(this.currentView);
+        } catch (error) {
+            console.error('Update payment status error:', error);
         }
     },
 

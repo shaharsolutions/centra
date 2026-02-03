@@ -34,23 +34,30 @@ const Store = {
     },
 
     async init() {
-        // Silently check if checklist table exists and cache it in localStorage
-        if (localStorage.getItem('sb_checklists_missing') === 'true') {
-            this._checklistTableExists = false;
-        } else {
+        // Silently check if checklist table exists and other limitations
+        this._checklistTableExists = localStorage.getItem('sb_checklists_missing') !== 'true';
+        this._notesColumnExists = localStorage.getItem('sb_checklists_notes_missing') !== 'true';
+        this._rlsChecklistEnabled = localStorage.getItem('sb_checklists_rls_blocked') !== 'true';
+
+        if (this._checklistTableExists && this._rlsChecklistEnabled) {
             try {
-                const { error } = await sb.from('project_checklists').select('count', { count: 'exact', head: true }).limit(1);
-                if (error && (error.code === '42P01' || error.status === 404)) {
-                    this._checklistTableExists = false;
-                    localStorage.setItem('sb_checklists_missing', 'true');
-                } else {
-                    this._checklistTableExists = true;
-                    localStorage.removeItem('sb_checklists_missing');
+                // Test the table with a simple request - check for RLS and existence
+                const { error } = await sb.from('project_checklists').select('id').limit(1);
+                if (error) {
+                    if (error.code === '42P01' || error.status === 404) {
+                        this._checklistTableExists = false;
+                        localStorage.setItem('sb_checklists_missing', 'true');
+                    } else if (error.code === '42501' || error.status === 401 || error.message?.includes('policy')) {
+                        this._rlsChecklistEnabled = false;
+                        localStorage.setItem('sb_checklists_rls_blocked', 'true');
+                        console.warn('Supabase RLS blocking checklists, staying local');
+                    }
                 }
-            } catch (e) {
-                this._checklistTableExists = false;
-            }
+            } catch (e) {}
         }
+
+        // Clean up any existing duplicates in local storage
+        this.cleanupDuplicates();
 
         const { data: packages, error } = await sb.from('packages').select('*');
         if (error) {
@@ -69,6 +76,8 @@ const Store = {
     },
 
     _checklistTableExists: null,
+    _notesColumnExists: null,
+    _rlsChecklistEnabled: null,
 
     // Clients
     async getClients() {
@@ -186,20 +195,23 @@ const Store = {
             not_closed_reason: project.notClosedReason,
             subjects_count: project.subjectsCount,
             subjects_details: project.subjectsDetails,
-            shoot_time: project.shootTime,
+            shoot_time: project.shootTime || null,
             styling_call: project.stylingCall
         };
 
         try {
+            let result;
             if (project.id) {
                 const { data, error } = await sb.from('projects').update(dbProject).eq('id', project.id).select('*, clients(name)');
                 if (error) throw error;
-                return data[0];
+                result = data[0];
             } else {
                 const { data, error } = await sb.from('projects').insert([dbProject]).select('*, clients(name)');
                 if (error) throw error;
-                return data[0];
+                result = data[0];
             }
+            await this.addDefaultsToProject(result.id, result.shoot_date, { ...result, styling_call: project.stylingCall });
+            return result;
         } catch (e) {
             // If column is missing (400 or specifically "location" or "payment_status" not found)
             console.warn('Supabase column save failed, storing locally:', e.message);
@@ -253,7 +265,8 @@ const Store = {
             localStorage.setItem('local_project_subjects', JSON.stringify(localSubjects));
             localStorage.setItem('local_project_times', JSON.stringify(localTimes));
             localStorage.setItem('local_project_styling', JSON.stringify(localStyling));
-            return { 
+            
+            const finalProject = { 
                 ...result, 
                 location: project.location, 
                 payment_status: project.paymentStatus || 'not_paid', 
@@ -263,12 +276,43 @@ const Store = {
                 shoot_time: project.shootTime,
                 styling_call: project.stylingCall
             };
+            await this.addDefaultsToProject(result.id, result.shoot_date, finalProject);
+            return finalProject;
         }
     },
 
     async updateProjectStatus(id, status) {
         const { error } = await sb.from('projects').update({ status }).eq('id', id);
         if (error) throw error;
+    },
+
+    async updateProjectPaymentStatus(id, payment_status) {
+        const { error } = await sb.from('projects').update({ payment_status }).eq('id', id);
+        if (error) throw error;
+    },
+
+    async autoArchiveProjects() {
+        try {
+            const projects = await this.getProjects();
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+            for (const project of projects) {
+                // Only archive if status is delivered or published
+                if (project.status === 'delivered' || project.status === 'published') {
+                    // Check if status_date is more than a week ago
+                    const statusDateStr = project.status_date || project.updated_at || project.created_at;
+                    const statusDate = statusDateStr ? new Date(statusDateStr) : null;
+                    
+                    if (statusDate && statusDate < oneWeekAgo) {
+                        await this.updateProjectStatus(project.id, 'archived');
+                        console.log(`Auto-archived project: ${project.name}`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Auto-archiving failed:', e.message);
+        }
     },
 
     async deleteProject(id) {
@@ -336,27 +380,39 @@ const Store = {
     },
 
     async getChecklistItems(projectId) {
-        if (this._checklistTableExists === false) {
+        let items = [];
+        if (this._checklistTableExists === false || this._rlsChecklistEnabled === false) {
             const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-            return localItems.filter(item => item.project_id === projectId);
+            items = localItems.filter(item => String(item.project_id) === String(projectId));
+        } else {
+            try {
+                const { data, error } = await sb
+                    .from('project_checklists')
+                    .select('*')
+                    .eq('project_id', projectId)
+                    .order('created_at', { ascending: true });
+                
+                if (error) {
+                    if (error.code === '42P01') this._checklistTableExists = false;
+                    throw error;
+                }
+                items = data || [];
+            } catch (e) {
+                const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+                items = localItems.filter(item => String(item.project_id) === String(projectId));
+            }
         }
 
-        try {
-            const { data, error } = await sb
-                .from('project_checklists')
-                .select('*')
-                .eq('project_id', projectId)
-                .order('created_at', { ascending: true });
-            
-            if (error) {
-                if (error.code === '42P01') this._checklistTableExists = false;
-                throw error;
-            }
-            return data || [];
-        } catch (e) {
-            const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-            return localItems.filter(item => item.project_id === projectId);
-        }
+        // De-duplicate items for the UI
+        const seen = new Set();
+        return items.filter(t => {
+            const content = String(t.content || '').trim();
+            const category = String(t.category || '');
+            const key = `${content}-${category}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
     },
 
     async getTaskById(id) {
@@ -376,70 +432,153 @@ const Store = {
     },
 
     async getAllTasks() {
-        if (this._checklistTableExists === false) {
-            return JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        let tasks = [];
+        if (this._checklistTableExists === false || this._rlsChecklistEnabled === false) {
+            tasks = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        } else {
+            try {
+                const { data, error } = await sb
+                    .from('project_checklists')
+                    .select('*, projects(name)')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    if (error.code === '42P01') this._checklistTableExists = false;
+                    throw error;
+                }
+                tasks = data || [];
+            } catch (e) {
+                tasks = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+            }
         }
 
-        try {
-            const { data, error } = await sb
-                .from('project_checklists')
-                .select('*, projects(name)')
-                .order('created_at', { ascending: false });
+        // De-duplicate tasks for the UI
+        const seen = new Set();
+        return tasks.filter(t => {
+            const date = String(t.due_date || t.dueDate || '').trim();
+            const content = String(t.content || '').trim();
+            const pid = String(t.project_id || t.projectId || 'no-proj');
+            const key = `${pid}-${content}-${date}`;
             
-            if (error) {
-                if (error.code === '42P01') this._checklistTableExists = false;
-                throw error;
-            }
-            return data || [];
-        } catch (e) {
-            return JSON.parse(localStorage.getItem('local_checklists') || '[]');
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    },
+
+    cleanupDuplicates() {
+        const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        if (localItems.length === 0) return;
+
+        const seen = new Set();
+        const uniqueItems = localItems.filter(t => {
+            const date = String(t.due_date || t.dueDate || '').trim();
+            const content = String(t.content || '').trim();
+            const pid = String(t.project_id || t.projectId || 'no-proj');
+            const key = `${pid}-${content}-${date}`;
+            
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        if (uniqueItems.length !== localItems.length) {
+            console.log(`Cleaned up ${localItems.length - uniqueItems.length} duplicate tasks from local storage.`);
+            localStorage.setItem('local_checklists', JSON.stringify(uniqueItems));
         }
     },
 
     async saveChecklistItem(item) {
         let savedItemId = item.id;
-        if (this._checklistTableExists !== false) {
+        const isCompleted = item.isCompleted !== undefined ? item.isCompleted : (item.is_completed !== undefined ? item.is_completed : false);
+        const projectId = item.projectId || item.project_id || null;
+        const dueDate = item.dueDate || item.due_date || null;
+
+        // If table doesn't exist or RLS is blocking consistently, stay local
+        if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
             try {
                 let res;
-                if (item.id && !String(item.id).startsWith('local_')) {
-                    res = await sb.from('project_checklists').update({
-                        content: item.content,
-                        is_completed: item.isCompleted,
-                        category: item.category,
-                        due_date: item.dueDate || null,
-                        notes: item.notes || null
-                    }).eq('id', item.id).select();
-                } else {
-                    res = await sb.from('project_checklists').insert([{
-                        project_id: item.projectId || null,
-                        content: item.content,
-                        is_completed: item.isCompleted || false,
-                        category: item.category || 'task',
-                        due_date: item.dueDate || null,
-                        notes: item.notes || null
-                    }]).select();
+                const dataToSave = {
+                    project_id: projectId,
+                    content: item.content,
+                    is_completed: isCompleted,
+                    category: item.category || 'task',
+                    due_date: dueDate
+                };
+
+                // Only add notes if the column is known to exist
+                if (this._notesColumnExists !== false) {
+                    dataToSave.notes = item.notes || null;
                 }
+
+                if (item.id && !String(item.id).startsWith('local_')) {
+                    res = await sb.from('project_checklists').update(dataToSave).eq('id', item.id).select();
+                } else {
+                    res = await sb.from('project_checklists').insert([dataToSave]).select();
+                }
+                
                 if (res.error) {
-                    if (res.error.code === '42P01') this._checklistTableExists = false;
-                    throw res.error;
+                    // Handle table missing
+                    if (res.error.code === '42P01') {
+                        this._checklistTableExists = false;
+                        localStorage.setItem('sb_checklists_missing', 'true');
+                        throw res.error;
+                    }
+                    
+                    // Handle RLS error (401 / Unauthorized / Policy violation)
+                    if (res.error.code === '42501' || res.error.status === 401 || res.error.message?.includes('RLS') || res.error.message?.includes('policy')) {
+                        if (this._rlsChecklistEnabled !== false) {
+                            console.warn('Supabase RLS blocking checklist save, staying local');
+                            this._rlsChecklistEnabled = false;
+                            localStorage.setItem('sb_checklists_rls_blocked', 'true');
+                        }
+                        throw res.error;
+                    }
+
+                    // Handle missing 'notes' column if we thought it existed
+                    if ((res.error.message?.includes('notes') || res.error.code === '42703') && this._notesColumnExists !== false) {
+                        console.warn('Supabase project_checklists missing notes column, disabling notes sync');
+                        this._notesColumnExists = false;
+                        localStorage.setItem('sb_checklists_notes_missing', 'true');
+                        
+                        // Only retry if RLS is NOT actively blocking (to avoid double 401 logs)
+                        if (this._rlsChecklistEnabled !== false) {
+                            const fallbackData = { ...dataToSave };
+                            delete fallbackData.notes;
+                            
+                            if (item.id && !String(item.id).startsWith('local_')) {
+                                res = await sb.from('project_checklists').update(fallbackData).eq('id', item.id).select();
+                            } else {
+                                res = await sb.from('project_checklists').insert([fallbackData]).select();
+                            }
+                            if (res.error) throw res.error;
+                        } else {
+                            throw new Error('RLS blocking retry');
+                        }
+                    } else {
+                        throw res.error;
+                    }
                 }
                 if (res.data && res.data[0]) savedItemId = res.data[0].id;
             } catch (e) {
-                console.warn('Supabase checklist save failed, using local fallback');
+                // Silently fallback if we already logged the specific reason above or if it's a general network error
+                if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
+                    console.warn('Supabase checklist save failed, using local fallback:', e.message);
+                }
             }
         }
 
         // Sync with Local storage
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-        const existingIdx = localItems.findIndex(i => (savedItemId && i.id === savedItemId) || (i.content === item.content && i.project_id === item.projectId && i.category === item.category));
+        const existingIdx = localItems.findIndex(i => (savedItemId && i.id === savedItemId) || (i.content === item.content && i.project_id === projectId && i.category === item.category));
         
         const itemToSave = {
             id: savedItemId || item.id || 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-            project_id: item.projectId || null,
+            project_id: projectId,
             content: item.content,
-            is_completed: item.isCompleted || false,
+            is_completed: isCompleted,
             category: item.category || 'task',
-            due_date: item.dueDate || null,
+            due_date: dueDate,
             notes: item.notes || null,
             created_at: item.created_at || new Date().toISOString()
         };
@@ -507,21 +646,32 @@ const Store = {
         localStorage.setItem('checklist_defaults', JSON.stringify(defaults));
     },
 
-    async addDefaultsToProject(projectId, shootDate = null) {
+    async addDefaultsToProject(projectId, shootDate = null, projectData = null) {
         if (!projectId) return;
         
         let clientName = '';
-        let projects = await this.getProjects();
-        let currentProjectResource = projects.find(p => p.id === projectId);
-        let stylingCall = currentProjectResource?.styling_call || 'none';
+        let stylingCall = 'none';
 
-        try {
-            const { data, error } = await sb.from('projects').select('clients(name)').eq('id', projectId).single();
-            if (data?.clients?.name) {
-                clientName = data.clients.name; // Extract just the name string
+        if (projectData) {
+            clientName = projectData.clients?.name || '';
+            stylingCall = projectData.styling_call || 'none';
+        } else {
+            let projects = await this.getProjects();
+            let currentProjectResource = projects.find(p => String(p.id) === String(projectId));
+            stylingCall = currentProjectResource?.styling_call || 'none';
+            if (currentProjectResource?.clients?.name) clientName = currentProjectResource.clients.name;
+        }
+
+        // If client name is still missing, try to fetch it
+        if (!clientName) {
+            try {
+                const { data } = await sb.from('projects').select('clients(name)').eq('id', projectId).single();
+                if (data?.clients?.name) {
+                    clientName = data.clients.name;
+                }
+            } catch (e) {
+                console.warn('Could not fetch client name for defaults');
             }
-        } catch (e) {
-            console.warn('Could not fetch client name for defaults');
         }
 
         const existingItems = await this.getChecklistItems(projectId);
@@ -546,20 +696,52 @@ const Store = {
             ...defaults.equipment.map(content => ({ projectId, content, category: 'equipment' }))
         ];
 
+        // Handle Styling Call Task separately to allow updates/deletions
+        const existingStylingTask = existingItems.find(i => i.category === 'styling' || i.content.includes('שיחת סטיילינג'));
+        
         if (stylingCall !== 'none' && shootDate) {
             const weeks = stylingCall === '1_week' ? 1 : 2;
             const stylingDate = this._calculateStylingDate(shootDate, weeks);
-            itemsToSave.push({
-                projectId,
-                content: `שיחת סטיילינג ${clientName ? '(' + clientName + ')' : ''}`,
-                category: 'shoot',
-                dueDate: stylingDate
-            });
+            const content = `שיחת סטיילינג ${clientName ? '(' + clientName + ')' : ''}`;
+            
+            if (existingStylingTask) {
+                // Update existing task if date or content (name) changed
+                if (existingStylingTask.due_date !== stylingDate || existingStylingTask.content !== content) {
+                    await this.saveChecklistItem({
+                        ...existingStylingTask,
+                        dueDate: stylingDate,
+                        content: content,
+                        projectId: projectId
+                    });
+                }
+            } else {
+                // Create new styling task
+                itemsToSave.push({
+                    projectId,
+                    content: content,
+                    category: 'styling',
+                    dueDate: stylingDate
+                });
+            }
+        } else if (stylingCall === 'none' && existingStylingTask) {
+            // Delete styling task if styling call was removed
+            await this.deleteChecklistItem(existingStylingTask.id, projectId);
         }
 
-        const finalItemsToSave = itemsToSave.filter(defItem => !existingItems.some(existing => existing.content === defItem.content && existing.category === defItem.category));
+        const finalItemsToSave = [];
+        const seenCurrent = new Set();
 
-        if (finalItemsToSave.length === 0) return;
+        for (const item of itemsToSave) {
+            const key = `${item.content}-${item.category}`;
+            const exists = existingItems.some(existing => 
+                existing.content === item.content && 
+                (existing.category === item.category || (item.category === 'shoot' && existing.category === 'styling'))
+            );
+            if (!exists && !seenCurrent.has(key)) {
+                finalItemsToSave.push(item);
+                seenCurrent.add(key);
+            }
+        }
 
         for (const item of finalItemsToSave) {
             try {
@@ -568,6 +750,59 @@ const Store = {
                 console.error('Failed to save default item:', item, err);
             }
         }
+    },
+
+    async importCategoryDefaults(projectId, category, shootDate = null, projectData = null) {
+        console.log('importCategoryDefaults started for', category, 'project', projectId);
+        if (!projectId) return;
+
+        let clientName = projectData?.clients?.name || '';
+        if (!clientName && projectData?.client_id) {
+             try {
+                const { data } = await sb.from('projects').select('clients(name)').eq('id', projectId).single();
+                if (data?.clients?.name) clientName = data.clients.name;
+            } catch (e) {}
+        }
+
+        const existingItems = await this.getChecklistItems(projectId);
+        console.log('Existing items for project:', existingItems.length);
+        
+        const allDefaults = this.getChecklistDefaults();
+        const categoryDefaults = allDefaults[category] || [];
+        console.log('Defaults for category', category, ':', categoryDefaults.length);
+
+        const itemsToSave = categoryDefaults.map(content => {
+            let dueDate = null;
+            let finalContent = content;
+            if (category === 'shoot' && content.includes('תזכורת')) {
+                if (shootDate) {
+                    const date = new Date(shootDate);
+                    date.setDate(date.getDate() - 1);
+                    dueDate = date.toISOString().split('T')[0];
+                }
+                if (clientName) {
+                    finalContent = `${content} (${clientName})`;
+                }
+            }
+            return { projectId, content: finalContent, category, dueDate };
+        });
+
+        const finalItemsToSave = itemsToSave.filter(defItem => 
+            !existingItems.some(existing => 
+                existing.content === defItem.content && 
+                (existing.category === defItem.category || (defItem.category === 'shoot' && existing.category === 'styling'))
+            )
+        );
+        console.log('Final items to save:', finalItemsToSave.length);
+
+        for (const item of finalItemsToSave) {
+            try {
+                await this.saveChecklistItem(item);
+            } catch (err) {
+                console.error('Failed to save default item:', item, err);
+            }
+        }
+        return finalItemsToSave;
     },
 
     getChecklistDisplayMode() {

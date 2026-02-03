@@ -155,6 +155,7 @@ const UI = {
         let boardHtml = `<div class="kanban-board">`;
         
         statuses.forEach(status => {
+            if (status.id === 'archived') return; // Don't show archive column in main board
             const statusProjects = projects.filter(p => p.status === status.id);
             boardHtml += `
                 <div class="kanban-column" data-status="${status.id}" ondragover="event.preventDefault()" ondrop="app.handleCardDrop(event, '${status.id}')">
@@ -180,7 +181,14 @@ const UI = {
                                                 <i data-lucide="calendar" style="width:12px;"></i>
                                                 ${p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'}) : '---'}
                                             </div>
-                                            <div class="kanban-card-avatar">${initial}</div>
+                                            <div style="display:flex; align-items:center; gap:4px;">
+                                                <select class="mini-status-select" onclick="event.stopPropagation()" onchange="app.updatePaymentStatus('${p.id}', this.value)" style="font-size: 0.7rem; padding: 1px 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); cursor: pointer;">
+                                                    <option value="not_paid" ${p.payment_status === 'not_paid' ? 'selected' : ''}>💸</option>
+                                                    <option value="deposit" ${p.payment_status === 'deposit' ? 'selected' : ''}>💰</option>
+                                                    <option value="paid_full" ${p.payment_status === 'paid_full' ? 'selected' : ''}>✅</option>
+                                                </select>
+                                                <div class="kanban-card-avatar">${initial}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 `;
@@ -196,6 +204,46 @@ const UI = {
         document.getElementById('view-container').innerHTML = boardHtml;
         document.getElementById('view-title').innerText = 'פרויקטים (לוח קנבן)';
         document.getElementById('view-subtitle').innerText = 'מעקב אחרי זרימת העבודה שלך.';
+        if (window.lucide) lucide.createIcons();
+    },
+
+    async renderArchive() {
+        const projects = (await Store.getProjects()).filter(p => p.status === 'archived');
+        
+        let html = '';
+        if (projects.length === 0) {
+            html = '<div style="padding: 40px; text-align: center; color: var(--text-muted); background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border);">אין פרויקטים בארכיון.</div>';
+        } else {
+            html = `
+                <div class="card-list">
+                    ${projects.map(p => {
+                        const clientName = p.clients?.name || 'לקוח לא ידוע';
+                        return `
+                            <div class="list-item">
+                                <div class="item-info">
+                                    <span class="item-name">${p.name}</span>
+                                    <span class="item-sub">${clientName} | ${p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : '---'}</span>
+                                </div>
+                                <div class="item-actions">
+                                    <button class="btn btn-secondary btn-sm" onclick="app.viewProject('${p.id}')">
+                                        <i data-lucide="eye"></i>
+                                        צפייה
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm" onclick="app.confirmAction('שחזור פרויקט', 'האם לשחזר את הפרויקט מהארכיון?', () => app.updateStatus('${p.id}', 'delivered'))">
+                                        <i data-lucide="rotate-ccw"></i>
+                                        שחזור
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        document.getElementById('view-container').innerHTML = html;
+        document.getElementById('view-title').innerText = 'ארכיון פרויקטים';
+        document.getElementById('view-subtitle').innerText = 'פרויקטים שהסתיימו ועברו לארכיון.';
         if (window.lucide) lucide.createIcons();
     },
 
@@ -225,8 +273,25 @@ const UI = {
                     filteredTasks.map(t => {
                         const projectName = t.projects?.name || 'משימה כללית';
                         const isGlobal = !t.project_id;
+                        const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
                         const dueDate = t.due_date ? new Date(t.due_date).toLocaleDateString('he-IL') : null;
                         
+                        let badgeBg = '#F3E8FF';
+                        let badgeColor = '#7E22CE';
+                        let badgeLabel = 'כללי';
+
+                        if (!isGlobal) {
+                            if (isStyling) {
+                                badgeBg = '#D1FAE5';
+                                badgeColor = '#059669';
+                                badgeLabel = 'שיחת סטיילינג';
+                            } else {
+                                badgeBg = '#E0F2FE';
+                                badgeColor = '#0369A1';
+                                badgeLabel = `פרויקט: ${projectName}`;
+                            }
+                        }
+
                         return `
                         <div class="list-item ${t.is_completed ? 'completed' : ''}" style="opacity: ${t.is_completed ? '0.6' : '1'}; cursor: pointer;" onclick="app.viewTask('${t.id}')">
                             <div style="display:flex; align-items:center; gap:16px; flex:1;">
@@ -234,8 +299,8 @@ const UI = {
                                 <div class="item-info">
                                     <span class="item-name" style="${t.is_completed ? 'text-decoration:line-through' : ''}; font-size:1rem;">${t.content}</span>
                                     <div style="display:flex; gap:8px; align-items:center;">
-                                        <span class="item-sub" style="background: ${isGlobal ? '#F3E8FF' : '#E0F2FE'}; color: ${isGlobal ? '#7E22CE' : '#0369A1'}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
-                                            ${isGlobal ? 'כללי' : `פרויקט: ${projectName}`}
+                                        <span class="item-sub" style="background: ${badgeBg}; color: ${badgeColor}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+                                            ${badgeLabel}
                                         </span>
                                         ${dueDate ? `
                                             <span style="font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
@@ -276,7 +341,8 @@ const UI = {
             'shooting': 'camera',
             'editing': 'pen-tool',
             'delivered': 'check-circle',
-            'published': 'share-2'
+            'published': 'share-2',
+            'archived': 'archive'
         };
         return icons[statusId] || 'circle';
     },
@@ -313,8 +379,18 @@ const UI = {
                         const day = i + 1;
                         const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         
-                        const dayProjects = projects.filter(p => p.shoot_date === dateStr);
-                        const dayTasks = tasks.filter(t => t.due_date === dateStr);
+                        const dayProjects = projects.filter(p => p.shoot_date === dateStr && p.status !== 'archived');
+                        
+                        // De-duplicate tasks for this specific day
+                        const allDayTasks = tasks.filter(t => t.due_date === dateStr);
+                        const seenTaskContent = new Set();
+                        const dayTasks = allDayTasks.filter(t => {
+                            const key = String(t.content || '').trim();
+                            if (seenTaskContent.has(key)) return false;
+                            seenTaskContent.add(key);
+                            return true;
+                        });
+                        
                         const dayHolidays = holidays[dateStr] || [];
                         const isToday = new Date().toISOString().split('T')[0] === dateStr;
 
@@ -364,18 +440,23 @@ const UI = {
                                          ${displayName}
                                      </div>
                                  `}).join('')}
-                                ${dayTasks.map(t => `
+                                ${dayTasks.map(t => {
+                                    const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
+                                    const bg = isStyling ? '#ECFDF5' : '#F3E8FF';
+                                    const color = isStyling ? '#059669' : '#7E22CE';
+                                    
+                                    return `
                                     <div class="calendar-event task" 
                                         draggable="true" 
                                         ondragstart="event.dataTransfer.setData('taskId', '${t.id}')"
                                         onclick="${t.project_id ? `app.viewProject('${t.project_id}')` : `app.viewTask('${t.id}')`}" 
-                                        style="background:#F3E8FF; color:#7E22CE; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through' : ''}" 
-                                        title="משימה: ${t.content}"
+                                        style="background:${bg}; color:${color}; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through' : ''}" 
+                                        title="${isStyling ? 'שיחת סטיילינג' : 'משימה'}: ${t.content}"
                                     >
-                                        <i data-lucide="check-square" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:2px;"></i>
+                                        <i data-lucide="${isStyling ? 'phone' : 'check-square'}" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:2px;"></i>
                                         ${t.content}
                                     </div>
-                                `).join('')}
+                                `}).join('')}
                             </div>
                         </div>
                         `;
@@ -409,7 +490,7 @@ const UI = {
 
     async renderShoots() {
         const projects = (await Store.getProjects())
-            .filter(p => p.shoot_date)
+            .filter(p => p.shoot_date && p.status !== 'archived')
             .sort((a, b) => new Date(a.shoot_date) - new Date(b.shoot_date));
 
         let html = '';
@@ -428,6 +509,11 @@ const UI = {
                                 </div>
                             </div>
                             <div class="item-actions">
+                                <select class="mini-status-select" onclick="event.stopPropagation()" onchange="app.updatePaymentStatus('${p.id}', this.value)" style="font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); cursor: pointer;">
+                                    <option value="not_paid" ${p.payment_status === 'not_paid' ? 'selected' : ''}>💸 טרם שולם</option>
+                                    <option value="deposit" ${p.payment_status === 'deposit' ? 'selected' : ''}>💰 מקדמה</option>
+                                    <option value="paid_full" ${p.payment_status === 'paid_full' ? 'selected' : ''}>✅ שולם</option>
+                                </select>
                                 <button class="btn btn-secondary" onclick="app.viewProject('${p.id}')">
                                     <i data-lucide="eye"></i>
                                     צפייה
@@ -482,7 +568,14 @@ const UI = {
                                         onmouseover="this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'; this.style.transform='translateY(-2px)';"
                                         onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'; this.style.transform='translateY(0)';"
                                     >
-                                        <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-main);">${p.name}</div>
+                                        <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-main); display: flex; justify-content: space-between; align-items: start;">
+                                            ${p.name}
+                                            <select class="mini-status-select" onclick="event.stopPropagation()" onchange="app.updatePaymentStatus('${p.id}', this.value)" style="font-size: 0.65rem; padding: 0 2px; border: none; background: transparent; cursor: pointer;">
+                                                <option value="not_paid" ${p.payment_status === 'not_paid' ? 'selected' : ''}>💸</option>
+                                                <option value="deposit" ${p.payment_status === 'deposit' ? 'selected' : ''}>💰</option>
+                                                <option value="paid_full" ${p.payment_status === 'paid_full' ? 'selected' : ''}>✅</option>
+                                            </select>
+                                        </div>
                                         <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
                                             <i data-lucide="user" style="width: 14px; height: 14px;"></i>
                                             ${p.clients?.name || 'ללא לקוח'}
@@ -850,7 +943,7 @@ const UI = {
         }
         
         const displayMode = Store.getChecklistDisplayMode();
-        const shootItems = items.filter(i => i.category === 'shoot');
+        const shootItems = items.filter(i => i.category === 'shoot' || i.category === 'styling');
         const equipmentItems = items.filter(i => i.category === 'equipment');
 
         const renderItems = (itemList, category) => {

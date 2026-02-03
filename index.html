@@ -41,6 +41,10 @@
                     <i data-lucide="briefcase"></i>
                     <span>פרויקטים</span>
                 </li>
+                <li data-view="archive">
+                    <i data-lucide="archive"></i>
+                    <span>ארכיון</span>
+                </li>
                 <li data-view="tasks">
                     <i data-lucide="check-square"></i>
                     <span>משימות</span>
@@ -80,6 +84,10 @@
             <div class="mobile-nav-item" data-view="projects">
                 <i data-lucide="briefcase"></i>
                 <span>פרויקטים</span>
+            </div>
+            <div class="mobile-nav-item" data-view="archive">
+                <i data-lucide="archive"></i>
+                <span>ארכיון</span>
             </div>
             <div class="mobile-nav-item" data-view="tasks">
                 <i data-lucide="check-square"></i>
@@ -340,8 +348,8 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="project-status">סטטוס</label>
-                        <select id="project-status">
+                        <label for="project-status">סטטוס פרויקט</label>
+                        <select id="project-status" onchange="if(app.editingProjectId) app.updateStatus(app.editingProjectId, this.value)">
                             <option value="new">פנייה חדשה</option>
                             <option value="quote">הצעת מחיר</option>
                             <option value="closed">נסגר (נקבע תאריך)</option>
@@ -350,6 +358,15 @@
                             <option value="editing">בעריכה</option>
                             <option value="delivered">נמסר</option>
                             <option value="published">פורסם</option>
+                            <option value="archived">ארכיון</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-payment-status">סטטוס גבייה</label>
+                        <select id="project-payment-status" onchange="if(app.editingProjectId) app.updatePaymentStatus(app.editingProjectId, this.value)">
+                            <option value="not_paid">טרם שולם</option>
+                            <option value="deposit">מקדמה שולמה</option>
+                            <option value="paid_full">שולם במלואו</option>
                         </select>
                     </div>
                 </div>
@@ -399,6 +416,9 @@
                             <input type="text" id="new-shoot-item" placeholder="הוסיפי משהו חשוב...">
                             <button type="button" class="btn btn-secondary btn-sm" onclick="app.addChecklistItem('shoot', app.editingProjectId)">הוספה</button>
                         </div>
+                        <button type="button" class="btn btn-secondary btn-sm import-defaults-btn" onclick="app.importDefaults('shoot')" style="margin-top: 8px; width: 100%; border-style: dashed; justify-content: center; gap: 8px;">
+                            <i data-lucide="download" style="width:14px;"></i> ייבוא רשימת ברירת המחדל
+                        </button>
                     </div>
 
                     <div class="checklist-section" style="margin-top:20px;">
@@ -410,6 +430,9 @@
                             <input type="text" id="new-equipment-item" placeholder="הוסיפי ציוד שצריך לקחת...">
                             <button type="button" class="btn btn-secondary btn-sm" onclick="app.addChecklistItem('equipment', app.editingProjectId)">הוספה</button>
                         </div>
+                        <button type="button" class="btn btn-secondary btn-sm import-defaults-btn" onclick="app.importDefaults('equipment')" style="margin-top: 8px; width: 100%; border-style: dashed; justify-content: center; gap: 8px;">
+                            <i data-lucide="download" style="width:14px;"></i> ייבוא רשימת ברירת המחדל
+                        </button>
                     </div>
                 </div>
 
@@ -425,7 +448,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" id="delete-project-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
-                    <button type="button" id="project-cancel-btn" class="btn btn-secondary close-modal">סגירה</button>
+                    <button type="submit" id="project-cancel-btn" class="btn btn-secondary">שמירה</button>
                     <button type="submit" id="save-project-btn" class="btn btn-primary" style="display:none;">שמירה</button>
                 </div>
             </form>
