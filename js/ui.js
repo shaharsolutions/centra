@@ -393,70 +393,64 @@ const UI = {
                         
                         const dayHolidays = holidays[dateStr] || [];
                         const isToday = new Date().toISOString().split('T')[0] === dateStr;
+                        const hasEvents = dayProjects.length > 0 || dayTasks.length > 0;
+                        const hasShabbat = dayHolidays.some(h => h.category === 'candles' || h.category === 'havdalah');
 
                         return `
                         <div 
-                            class="calendar-day" 
+                            class="calendar-day ${hasEvents ? 'has-events' : ''}" 
                             data-date="${dateStr}"
+                            onclick="app.showDayDetails('${dateStr}')"
                             ondragover="event.preventDefault(); this.style.background='#EEF2FF';" 
                             ondragleave="this.style.background='${isToday ? '#F5F3FF' : 'white'}';"
                             ondrop="app.handleCalendarDrop(event, '${dateStr}')"
-                            style="background: ${isToday ? '#F5F3FF' : 'white'}; min-height:120px; padding:8px; border: 0.5px solid var(--border); overflow-y: auto; transition: background 0.2s;"
+                            style="background: ${isToday ? '#F5F3FF' : 'white'}; min-height:120px; padding:8px; border: 0.5px solid var(--border); overflow-y: auto; transition: background 0.2s; cursor: pointer;"
                         >
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                                 <div style="font-size:0.85rem; font-weight:${isToday ? '700' : '500'}; color:${isToday ? 'var(--primary)' : 'var(--text-main)'};">${day}</div>
-                                ${dayHolidays.filter(h => h.category === 'holiday').map(h => `
-                                    <div style="font-size:0.65rem; color:#B45309; font-weight:600; background:#FEF3C7; padding:1px 4px; border-radius:30px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80%;" title="${h.hebrew}">${h.hebrew}</div>
-                                `).join('')}
+                                <div class="desktop-only" style="display:flex; gap:2px; flex-wrap:wrap; max-width:80%;">
+                                    ${dayHolidays.filter(h => h.category === 'holiday').map(h => `
+                                        <div style="font-size:0.65rem; color:#B45309; font-weight:600; background:#FEF3C7; padding:1px 4px; border-radius:30px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${h.hebrew}">${h.hebrew}</div>
+                                    `).join('')}
+                                </div>
                             </div>
                             
-                            <!-- Shabbat Times (Candles/Havdalah) -->
-                            <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:4px;">
-                                ${dayHolidays.filter(h => h.category === 'candles' || h.category === 'havdalah').map(h => {
-                                    const time = new Date(h.date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-                                    const label = h.category === 'candles' ? 'כניסה:' : 'יציאה:';
-                                    return `
-                                        <div style="font-size:0.6rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;">
-                                            <i data-lucide="${h.category === 'candles' ? 'flame' : 'moon'}" style="width:8px; height:8px;"></i>
-                                            <strong>${label} ${time}</strong>
-                                        </div>
-                                    `;
-                                }).join('')}
+                            <!-- Mobile Indicators -->
+                            <div class="mobile-only mobile-indicators" style="display:none; flex-wrap:wrap; gap:3px; justify-content:center; margin-top:4px;">
+                                ${dayProjects.map(() => `<span class="dot dot-project"></span>`).join('')}
+                                ${dayTasks.map(() => `<span class="dot dot-task"></span>`).join('')}
+                                ${hasShabbat ? `<span class="dot dot-shabbat"></span>` : ''}
                             </div>
+                            
+                            <!-- Desktop Full Events -->
+                            <div class="desktop-only">
+                                <!-- Shabbat Times (Candles/Havdalah) -->
+                                <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:4px;">
+                                    ${dayHolidays.filter(h => h.category === 'candles' || h.category === 'havdalah').map(h => {
+                                        const time = new Date(h.date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                                        const label = h.category === 'candles' ? 'כניסה:' : 'יציאה:';
+                                        return '<div style="font-size:0.6rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;"><i data-lucide="' + (h.category === 'candles' ? 'flame' : 'moon') + '" style="width:8px; height:8px;"></i><strong>' + label + ' ' + time + '</strong></div>';
+                                    }).join('')}
+                                </div>
 
-                            <div class="calendar-events" style="display:flex; flex-direction:column; gap:4px;">
-                                ${dayProjects.map(p => {
-                                     const clientName = p.clients?.name || '';
-                                     const displayName = clientName ? `${p.name} (${clientName})` : p.name;
-                                     return `
-                                     <div class="calendar-event project" 
-                                         draggable="true" 
-                                         ondragstart="event.dataTransfer.setData('projectId', '${p.id}')"
-                                         onclick="app.viewProject('${p.id}')" 
-                                         style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" 
-                                         title="פרויקט: ${displayName}"
-                                     >
-                                         <i data-lucide="camera" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:2px;"></i>
-                                         ${displayName}
-                                     </div>
-                                 `}).join('')}
-                                ${dayTasks.map(t => {
-                                    const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
-                                    const bg = isStyling ? '#ECFDF5' : '#F3E8FF';
-                                    const color = isStyling ? '#059669' : '#7E22CE';
-                                    
-                                    return `
-                                    <div class="calendar-event task" 
-                                        draggable="true" 
-                                        ondragstart="event.dataTransfer.setData('taskId', '${t.id}')"
-                                        onclick="${t.project_id ? `app.viewProject('${t.project_id}')` : `app.viewTask('${t.id}')`}" 
-                                        style="background:${bg}; color:${color}; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through' : ''}" 
-                                        title="${isStyling ? 'שיחת סטיילינג' : 'משימה'}: ${t.content}"
-                                    >
-                                        <i data-lucide="${isStyling ? 'phone' : 'check-square'}" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:2px;"></i>
-                                        ${t.content}
-                                    </div>
-                                `}).join('')}
+                                <div class="calendar-events" style="display:flex; flex-direction:column; gap:4px;">
+                                    ${dayProjects.map(p => {
+                                         const clientName = p.clients?.name || '';
+                                         const displayName = clientName ? p.name + ' (' + clientName + ')' : p.name;
+                                         return '<div class="calendar-event project" draggable="true" ondragstart="event.dataTransfer.setData(\'projectId\', \'' + p.id + '\')" onclick="event.stopPropagation(); app.viewProject(\'' + p.id + '\')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="פרויקט: ' + displayName + '"><i data-lucide="camera" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:2px;"></i>' + displayName + '</div>';
+                                     }).join('')}
+                                    ${dayTasks.map(t => {
+                                        const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
+                                        const bg = isStyling ? '#ECFDF5' : '#F3E8FF';
+                                        const color = isStyling ? '#059669' : '#7E22CE';
+                                        const clickAction = t.project_id ? "app.viewProject('" + t.project_id + "')" : "app.viewTask('" + t.id + "')";
+                                        const completedStyle = t.is_completed ? 'opacity:0.6; text-decoration:line-through' : '';
+                                        const iconName = isStyling ? 'phone' : 'check-square';
+                                        const titleText = (isStyling ? 'שיחת סטיילינג' : 'משימה') + ': ' + t.content;
+                                        
+                                        return '<div class="calendar-event task" draggable="true" ondragstart="event.dataTransfer.setData(\'taskId\', \'' + t.id + '\')" onclick="event.stopPropagation(); ' + clickAction + '" style="background:' + bg + '; color:' + color + '; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; ' + completedStyle + '" title="' + titleText + '"><i data-lucide="' + iconName + '" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:2px;"></i>' + t.content + '</div>';
+                                    }).join('')}
+                                </div>
                             </div>
                         </div>
                         `;
@@ -475,9 +469,24 @@ const UI = {
                 .calendar-day:hover {
                     border-color: var(--primary-light) !important;
                 }
+                .dot {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 50%;
+                    display: inline-block;
+                }
+                .dot-project { background: #0369A1; }
+                .dot-task { background: #7E22CE; }
+                .dot-shabbat { background: #F59E0B; }
+                
                 @media (max-width: 768px) {
-                    .calendar-grid div { height: 80px !important; min-height: 80px !important; }
-                    .calendar-event { font-size: 0.6rem !important; }
+                    .calendar-grid div.calendar-day { height: 60px !important; min-height: 60px !important; padding: 4px !important; }
+                    .desktop-only { display: none !important; }
+                    .mobile-only { display: flex !important; }
+                    .calendar-day .mobile-indicators { display: flex !important; }
+                }
+                @media (min-width: 769px) {
+                    .mobile-only { display: none !important; }
                 }
             </style>
         `;

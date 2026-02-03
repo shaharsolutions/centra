@@ -1032,6 +1032,117 @@ const app = {
         }
     },
 
+    async showDayDetails(dateStr) {
+        // On desktop, clicking a day in the calendar doesn't need a popup
+        if (window.innerWidth > 768) return;
+
+        const projects = await Store.getProjects();
+        const tasks = await Store.getAllTasks();
+        const [year, month] = dateStr.split('-').map(Number);
+        const holidays = await Store.getJewishHolidays(year, month);
+
+        const dayProjects = projects.filter(p => p.shoot_date === dateStr && p.status !== 'archived');
+        
+        // De-duplicate tasks for this day
+        const allDayTasks = tasks.filter(t => t.due_date === dateStr);
+        const seenTaskContent = new Set();
+        const dayTasks = allDayTasks.filter(t => {
+            const key = String(t.content || '').trim();
+            if (seenTaskContent.has(key)) return false;
+            seenTaskContent.add(key);
+            return true;
+        });
+        
+        const dayHolidays = holidays[dateStr] || [];
+
+        const dateObj = new Date(dateStr);
+        const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+        const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+        const formattedDate = `יום ${dayNames[dateObj.getDay()]}, ${dateObj.getDate()} ב${monthNames[dateObj.getMonth()]}`;
+
+        let contentHtml = '';
+
+        // Holidays
+        const holidayItems = dayHolidays.filter(h => h.category === 'holiday');
+        if (holidayItems.length > 0) {
+            contentHtml += `<div style="margin-bottom:12px;">
+                ${holidayItems.map(h => `<div style="background:#FEF3C7; color:#B45309; padding:6px 10px; border-radius:6px; font-size:0.85rem; font-weight:600;">${h.hebrew}</div>`).join('')}
+            </div>`;
+        }
+
+        // Shabbat Times
+        const shabbatTimes = dayHolidays.filter(h => h.category === 'candles' || h.category === 'havdalah');
+        if (shabbatTimes.length > 0) {
+            contentHtml += `<div style="margin-bottom:12px; background:var(--bg-main); padding:10px; border-radius:8px;">
+                <div style="font-weight:600; font-size:0.85rem; margin-bottom:6px; color:var(--text-main);">זמני שבת</div>
+                ${shabbatTimes.map(h => {
+                    const time = new Date(h.date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                    const label = h.category === 'candles' ? '🕯️ הדלקת נרות:' : '✨ צאת שבת:';
+                    return `<div style="font-size:0.9rem; color:var(--text-muted);">${label} <strong>${time}</strong></div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        // Projects
+        if (dayProjects.length > 0) {
+            contentHtml += `<div style="margin-bottom:12px;">
+                <div style="font-weight:600; font-size:0.85rem; margin-bottom:6px; color:var(--text-main);">📷 צילומים</div>
+                ${dayProjects.map(p => {
+                    const clientName = p.clients?.name || '';
+                    const displayName = clientName ? `${p.name} (${clientName})` : p.name;
+                    return `<div onclick="app.viewProject('${p.id}')" style="background:#E0F2FE; color:#0369A1; padding:8px 12px; border-radius:6px; margin-bottom:4px; cursor:pointer; font-size:0.85rem;">${displayName}</div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        // Tasks
+        if (dayTasks.length > 0) {
+            contentHtml += `<div>
+                <div style="font-weight:600; font-size:0.85rem; margin-bottom:6px; color:var(--text-main);">✅ משימות</div>
+                ${dayTasks.map(t => {
+                    const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
+                    const bg = isStyling ? '#ECFDF5' : '#F3E8FF';
+                    const color = isStyling ? '#059669' : '#7E22CE';
+                    return `<div onclick="${t.project_id ? `app.viewProject('${t.project_id}')` : `app.viewTask('${t.id}')`}" style="background:${bg}; color:${color}; padding:8px 12px; border-radius:6px; margin-bottom:4px; cursor:pointer; font-size:0.85rem; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through;' : ''}">${t.content}</div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        if (!contentHtml) {
+            contentHtml = '<div style="text-align:center; color:var(--text-muted); padding:20px;">אין אירועים ביום זה.</div>';
+        }
+
+        // Create a simple popup
+        let popup = document.getElementById('day-details-popup');
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.id = 'day-details-popup';
+            popup.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; display:flex; align-items:flex-end; justify-content:center;';
+            popup.innerHTML = `
+                <div id="day-details-content" style="background:white; width:100%; max-height:70vh; border-radius:20px 20px 0 0; padding:20px; overflow-y:auto; animation: slideUp 0.3s ease;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 id="day-details-title" style="margin:0; font-size:1.1rem;"></h3>
+                        <button onclick="document.getElementById('day-details-popup').remove()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">&times;</button>
+                    </div>
+                    <div id="day-details-body"></div>
+                </div>
+            `;
+            popup.onclick = (e) => { if (e.target === popup) popup.remove(); };
+            document.body.appendChild(popup);
+
+            // Add animation style if not exists
+            if (!document.getElementById('day-popup-style')) {
+                const style = document.createElement('style');
+                style.id = 'day-popup-style';
+                style.textContent = '@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }';
+                document.head.appendChild(style);
+            }
+        }
+
+        document.getElementById('day-details-title').innerText = formattedDate;
+        document.getElementById('day-details-body').innerHTML = contentHtml;
+    },
+
     async handlePaymentDrop(event, newPaymentStatus) {
         event.preventDefault();
         const projectId = event.dataTransfer.getData('projectId');
