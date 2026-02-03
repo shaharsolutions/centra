@@ -286,6 +286,26 @@ const Store = {
         if (error) throw error;
     },
 
+    async updateProjectStylingCall(id, styling_call) {
+        // Try getting project first to ensure we have the shoot date
+        const projects = await this.getProjects();
+        const p = projects.find(proj => String(proj.id) === String(id));
+        if (!p) return;
+
+        try {
+            const { error } = await sb.from('projects').update({ styling_call }).eq('id', id);
+            if (error) throw error;
+        } catch (e) {
+            console.warn('Supabase styling call update failed, storing locally:', e.message);
+            const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
+            localStyling[id] = styling_call;
+            localStorage.setItem('local_project_styling', JSON.stringify(localStyling));
+        }
+
+        // Sync tasks (add/update/delete styling task)
+        await this.addDefaultsToProject(id, p.shoot_date, { ...p, styling_call });
+    },
+
     async updateProjectPaymentStatus(id, payment_status) {
         const { error } = await sb.from('projects').update({ payment_status }).eq('id', id);
         if (error) throw error;
@@ -488,6 +508,26 @@ const Store = {
         }
     },
 
+    async cleanupOrphanTasks() {
+        // Clean up tasks that reference deleted projects
+        const projects = await this.getProjects();
+        const projectIds = new Set(projects.map(p => String(p.id)));
+        
+        // Clean local storage
+        const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        const cleanedItems = localItems.map(t => {
+            const pid = t.project_id || t.projectId;
+            if (pid && !projectIds.has(String(pid))) {
+                // Project doesn't exist - unlink the task
+                console.log(`Unlinking orphan task "${t.content}" from deleted project ${pid}`);
+                return { ...t, project_id: null, projectId: null };
+            }
+            return t;
+        });
+        
+        localStorage.setItem('local_checklists', JSON.stringify(cleanedItems));
+    },
+
     async saveChecklistItem(item) {
         let savedItemId = item.id;
         const isCompleted = item.isCompleted !== undefined ? item.isCompleted : (item.is_completed !== undefined ? item.is_completed : false);
@@ -637,7 +677,7 @@ const Store = {
         
         // Return hardcoded defaults if nothing in localStorage
         return {
-            shoot: ['שיחה מקדימה עם הלקוחה', 'בדיקת מזג אוויר', 'שליחת תזכורת יום לפני', 'בדיקת לוקיישן'],
+            shoot: ['שיחה מקדימה עם הלקוח/ה', 'בדיקת מזג אוויר', 'שליחת תזכורת יום לפני', 'בדיקת לוקיישן'],
             equipment: ['מצלמה גוף 1', 'מכרטיסי זיכרון ריקים', 'סוללות טעונות', 'עדשות נקיות']
         };
     },
@@ -697,22 +737,28 @@ const Store = {
         ];
 
         // Handle Styling Call Task separately to allow updates/deletions
-        const existingStylingTask = existingItems.find(i => i.category === 'styling' || i.content.includes('שיחת סטיילינג'));
+        const existingStylingTasks = existingItems.filter(i => i.category === 'styling' || i.content.includes('שיחת סטיילינג'));
         
         if (stylingCall !== 'none' && shootDate) {
             const weeks = stylingCall === '1_week' ? 1 : 2;
             const stylingDate = this._calculateStylingDate(shootDate, weeks);
             const content = `שיחת סטיילינג ${clientName ? '(' + clientName + ')' : ''}`;
             
-            if (existingStylingTask) {
-                // Update existing task if date or content (name) changed
-                if (existingStylingTask.due_date !== stylingDate || existingStylingTask.content !== content) {
+            if (existingStylingTasks.length > 0) {
+                // Update only the first one, delete others if they exist
+                const firstTask = existingStylingTasks[0];
+                if (firstTask.due_date !== stylingDate || firstTask.content !== content) {
                     await this.saveChecklistItem({
-                        ...existingStylingTask,
+                        ...firstTask,
                         dueDate: stylingDate,
                         content: content,
                         projectId: projectId
                     });
+                }
+                
+                // Delete extras
+                for (let i = 1; i < existingStylingTasks.length; i++) {
+                    await this.deleteChecklistItem(existingStylingTasks[i].id, projectId);
                 }
             } else {
                 // Create new styling task
@@ -723,9 +769,11 @@ const Store = {
                     dueDate: stylingDate
                 });
             }
-        } else if (stylingCall === 'none' && existingStylingTask) {
-            // Delete styling task if styling call was removed
-            await this.deleteChecklistItem(existingStylingTask.id, projectId);
+        } else if (stylingCall === 'none' && existingStylingTasks.length > 0) {
+            // Delete ALL styling tasks if styling call was removed
+            for (const task of existingStylingTasks) {
+                await this.deleteChecklistItem(task.id, projectId);
+            }
         }
 
         const finalItemsToSave = [];
@@ -890,20 +938,18 @@ const Store = {
 
     // Locations
     async getLocations() {
+        const mapDefault = (locs) => locs.map(l => ({ ...l, id: `default-${l.id}`, isCustom: false }));
         try {
             const { data, error } = await sb.from('locations').select('*').order('title');
             if (error) {
-                // If table doesn't exist, return defaults
-                if (error.code === '42P01') {
-                    return this.defaults.locations;
-                }
+                if (error.code === '42P01') return mapDefault(this.defaults.locations);
                 throw error;
             }
-            // Merge custom locations with defaults
-            return [...this.defaults.locations, ...(data || [])];
+            const customLocations = (data || []).map(l => ({ ...l, isCustom: true }));
+            return [...mapDefault(this.defaults.locations), ...customLocations];
         } catch (e) {
             console.warn('Error fetching locations, using defaults:', e);
-            return this.defaults.locations;
+            return mapDefault(this.defaults.locations);
         }
     },
 
@@ -916,7 +962,7 @@ const Store = {
         };
 
         try {
-            if (location.id && location.id > 15) { // Only edit custom locations (id > 15 are custom)
+        if (location.id && !String(location.id).startsWith('default-')) { // Only edit custom locations
                 const { error } = await sb.from('locations').update(dbLocation).eq('id', location.id);
                 if (error) throw error;
             } else {
@@ -931,7 +977,7 @@ const Store = {
 
     async deleteLocation(id) {
         // Only allow deleting custom locations (id > 15)
-        if (id <= 15) {
+        if (String(id).startsWith('default-')) {
             throw new Error('לא ניתן למחוק לוקיישנים מובנים');
         }
         try {

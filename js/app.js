@@ -10,6 +10,9 @@ const app = {
         await Store.init();
         this.addEventListeners();
         
+        // Cleanup tasks linked to deleted projects
+        await Store.cleanupOrphanTasks().catch(e => console.error('Cleanup orphan tasks failed:', e));
+        
         // Auto-archive projects that were delivered/published more than a week ago
         await Store.autoArchiveProjects().catch(e => console.error('Auto-archived failed:', e));
         
@@ -124,6 +127,13 @@ const app = {
             }
         });
 
+        // Auto-save styling call changes
+        document.getElementById('project-styling-call').addEventListener('change', async (e) => {
+            if (this.editingProjectId) {
+                await this.updateStylingCall(this.editingProjectId, e.target.value);
+            }
+        });
+
         // Auto-fill price when selecting a package
         document.getElementById('project-name').addEventListener('input', async (e) => {
             const packageName = e.target.value;
@@ -132,6 +142,22 @@ const app = {
             
             if (selectedPackage) {
                 document.getElementById('proj-total-price').value = selectedPackage.price;
+            }
+        });
+
+        // Auto-update payment status when deposit is entered
+        document.getElementById('proj-deposit-paid').addEventListener('input', (e) => {
+            const deposit = parseFloat(e.target.value) || 0;
+            const statusSelect = document.getElementById('project-payment-status');
+            const totalPrice = parseFloat(document.getElementById('proj-total-price').value) || 0;
+            
+            if (deposit > 0 && deposit < totalPrice) {
+                statusSelect.value = 'deposit';
+                // Trigger manual change if necessary for other logic
+                statusSelect.dispatchEvent(new Event('change'));
+            } else if (deposit >= totalPrice && totalPrice > 0) {
+                statusSelect.value = 'paid_full';
+                statusSelect.dispatchEvent(new Event('change'));
             }
         });
 
@@ -148,9 +174,14 @@ const app = {
             });
         });
 
-        // Confirmation Modal Buttons
         document.getElementById('confirm-no-btn').addEventListener('click', () => {
             document.getElementById('confirm-modal').classList.add('hidden');
+        });
+
+        document.getElementById('delete-location-btn').addEventListener('click', () => {
+            if (this.editingLocationId) {
+                this.deleteLocation(this.editingLocationId);
+            }
         });
     },
 
@@ -166,7 +197,7 @@ const app = {
 
         // Reset display
         yesBtn.style.display = isAlert ? 'none' : 'block';
-        noBtn.innerText = isAlert ? 'הבנתי' : 'ביטול';
+        noBtn.innerText = isAlert ? 'הבנתי' : 'סגירה';
 
         // Use clonal replacement to clear ALL old listeners
         const newYesBtn = yesBtn.cloneNode(true);
@@ -280,6 +311,7 @@ const app = {
             async () => {
                 try {
                     await Store.deleteLocation(id);
+                    this.closeModal();
                     await UI.renderLocations();
                 } catch (error) {
                     console.error('Delete location error:', error);
@@ -371,12 +403,24 @@ const app = {
             // New client mode - always edit
             editToggle.style.display = 'none';
             cancelEditBtn.style.display = 'none';
-            footerCancelBtn.style.display = 'block';
+            footerCancelBtn.style.display = 'none';
         }
     },
 
     // Project Modal
     async openProjectModal(title, projectId = null, selectedClientId = null) {
+        // If opening an existing project, fetch it first to verify it exists
+        let p = null;
+        if (projectId) {
+            const projects = await Store.getProjects();
+            p = projects.find(proj => String(proj.id) === String(projectId));
+            if (!p) {
+                console.warn('Project not found with ID:', projectId);
+                alert('הפרויקט לא נמצא. ייתכן שנמחק.');
+                return;
+            }
+        }
+        
         this.editingProjectId = projectId;
         document.getElementById('project-modal-title').innerText = title;
         document.getElementById('project-modal').classList.remove('hidden');
@@ -384,61 +428,57 @@ const app = {
         const editToggle = document.getElementById('edit-project-toggle');
         const driveLink = document.getElementById('project-drive-link');
         
-        await UI.populateClientsDropdown(selectedClientId);
+        let projectClientId = selectedClientId || (p ? p.client_id : null);
+        
+        await UI.populateClientsDropdown(projectClientId);
         await UI.populatePackagesDatalist();
 
-        if (projectId) {
+        if (projectId && p) {
             editToggle.style.display = 'flex';
-            const projects = await Store.getProjects();
-            const p = projects.find(proj => proj.id === projectId);
-            if (p) {
-                this.editingProjectPaymentStatus = p.payment_status || 'not_paid';
-                document.getElementById('project-client').value = p.client_id;
-                document.getElementById('project-name').value = p.name;
-                document.getElementById('project-date').value = p.shoot_date || '';
-                document.getElementById('project-time').value = p.shoot_time || '';
-                document.getElementById('project-location').value = p.location || '';
-                document.getElementById('project-subjects-count').value = p.subjects_count || '';
-                document.getElementById('project-subjects-details').value = p.subjects_details || '';
-                document.getElementById('project-styling-call').value = p.styling_call || 'none';
-                document.getElementById('project-status').value = p.status || 'new';
-                document.getElementById('project-payment-status').value = p.payment_status || 'not_paid';
-                document.getElementById('not-closed-reason').value = p.not_closed_reason || '';
-                this.toggleNotClosedReason(p.status || 'new');
-                
-                document.getElementById('proj-total-price').value = p.payments?.total || '';
-                document.getElementById('proj-deposit-paid').value = p.payments?.deposit || '';
-                document.getElementById('project-drive').value = p.drive_link || '';
-                
-                if (p.drive_link) {
-                    driveLink.href = p.drive_link;
-                    driveLink.style.display = 'flex';
-                } else {
-                    driveLink.style.display = 'none';
-                }
-
-                // Populate view spans
-                document.getElementById('project-name-view').innerText = p.name;
-                document.getElementById('project-date-view').innerText = p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : 'ללא תאריך';
-                document.getElementById('project-time-view').innerText = p.shoot_time || '--:--';
-                document.getElementById('project-location-view').innerText = p.location || 'לא הוגדר מיקום';
-                document.getElementById('project-subjects-count-view').innerText = p.subjects_count || '0';
-                document.getElementById('project-subjects-details-view').innerText = p.subjects_details || 'ללא פירוט';
-                
-                const stylingLabel = p.styling_call === '1_week' ? 'שבוע לפני' : (p.styling_call === '2_weeks' ? 'שבועיים לפני' : 'ללא');
-                document.getElementById('project-styling-call-view').innerText = stylingLabel;
-
-                document.getElementById('proj-total-price-view').innerText = (p.payments?.total || 0) + ' ₪';
-                document.getElementById('proj-deposit-paid-view').innerText = (p.payments?.deposit || 0) + ' ₪';
-                document.getElementById('project-drive-view').innerText = p.drive_link || 'אין קישור';
-                document.getElementById('not-closed-reason-view').innerText = p.not_closed_reason || 'לא צוינה סיבה';
-
-                if (p.location && p.shoot_date) {
-                    this.fetchWeatherForProject();
-                } else {
-                    document.getElementById('project-weather-container').classList.add('hidden');
-                }
+            this.editingProjectPaymentStatus = p.payment_status || 'not_paid';
+            document.getElementById('project-client').value = p.client_id;
+            document.getElementById('project-name').value = p.name;
+            document.getElementById('project-date').value = p.shoot_date || '';
+            document.getElementById('project-time').value = p.shoot_time || '';
+            document.getElementById('project-location').value = p.location || '';
+            document.getElementById('project-subjects-count').value = p.subjects_count || '';
+            document.getElementById('project-subjects-details').value = p.subjects_details || '';
+            document.getElementById('project-styling-call').value = p.styling_call || 'none';
+            document.getElementById('project-status').value = p.status || 'new';
+            document.getElementById('project-payment-status').value = p.payment_status || 'not_paid';
+            document.getElementById('not-closed-reason').value = p.not_closed_reason || '';
+            this.toggleNotClosedReason(p.status || 'new');
+            
+            document.getElementById('proj-total-price').value = p.payments?.total || '';
+            document.getElementById('proj-deposit-paid').value = p.payments?.deposit || '';
+            document.getElementById('project-drive').value = p.drive_link || '';
+            
+            if (p.drive_link) {
+                driveLink.href = p.drive_link;
+                driveLink.style.display = 'flex';
+            } else {
+                driveLink.style.display = 'none';
             }
+
+            // Populate view spans
+            document.getElementById('project-name-view').innerText = p.name;
+            document.getElementById('project-date-view').innerText = p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : 'ללא תאריך';
+            document.getElementById('project-time-view').innerText = p.shoot_time || '--:--';
+            document.getElementById('project-location-view').innerText = p.location || 'לא הוגדר מיקום';
+            document.getElementById('project-subjects-count-view').innerText = p.subjects_count || '0';
+            document.getElementById('project-subjects-details-view').innerText = p.subjects_details || 'ללא פירוט';
+            
+            document.getElementById('proj-total-price-view').innerText = (p.payments?.total || 0) + ' ₪';
+            document.getElementById('proj-deposit-paid-view').innerText = (p.payments?.deposit || 0) + ' ₪';
+            document.getElementById('project-drive-view').innerText = p.drive_link || 'אין קישור';
+            document.getElementById('not-closed-reason-view').innerText = p.not_closed_reason || 'לא צוינה סיבה';
+
+            if (p.location && p.shoot_date) {
+                this.fetchWeatherForProject();
+            } else {
+                document.getElementById('project-weather-container').classList.add('hidden');
+            }
+            
             this.setProjectEditMode(false);
             UI.renderNotes(null, projectId);
             UI.renderChecklist(projectId);
@@ -495,12 +535,12 @@ const app = {
         if (this.editingProjectId) {
             editToggle.style.display = isEdit ? 'none' : 'flex';
             cancelEditBtn.style.display = isEdit ? 'flex' : 'none';
-            footerCancelBtn.style.display = isEdit ? 'none' : '';
+            footerCancelBtn.style.display = isEdit ? 'none' : 'block';
         } else {
             // New project mode - always edit, no view/cancel-edit toggle
             editToggle.style.display = 'none';
             cancelEditBtn.style.display = 'none';
-            footerCancelBtn.style.display = '';
+            footerCancelBtn.style.display = 'none'; // Only the main save button should be visible
         }
     },
 
@@ -546,15 +586,9 @@ const app = {
     async handleProjectSubmit() {
         const isNew = !this.editingProjectId;
         
-        let paymentStatus = this.editingProjectPaymentStatus || 'not_paid';
         const deposit = parseFloat(document.getElementById('proj-deposit-paid').value) || 0;
         const total = parseFloat(document.getElementById('proj-total-price').value) || 0;
         
-        // Auto-update to 'deposit' if a deposit is entered and status is 'not_paid'
-        if (deposit > 0 && paymentStatus === 'not_paid') {
-            paymentStatus = 'deposit';
-        }
-
         const project = {
             id: this.editingProjectId,
             clientId: document.getElementById('project-client').value,
@@ -634,6 +668,27 @@ const app = {
     },
 
     async viewProject(id) {
+        // First check if project exists
+        const projects = await Store.getProjects();
+        const projectExists = projects.some(p => String(p.id) === String(id));
+        
+        if (!projectExists) {
+            // Project doesn't exist - maybe it was deleted
+            // Check if there's a task that references this project and show it instead
+            const tasks = await Store.getAllTasks();
+            const orphanTask = tasks.find(t => String(t.project_id) === String(id));
+            
+            if (orphanTask) {
+                // Show the task details instead
+                alert('הפרויקט שהמשימה מקושרת אליו נמחק. מציג את פרטי המשימה.');
+                this.openTaskModal(orphanTask);
+                return;
+            } else {
+                alert('הפרויקט לא נמצא. ייתכן שנמחק.');
+                return;
+            }
+        }
+        
         this.openProjectModal('פרטי פרויקט', id);
     },
 
@@ -750,7 +805,7 @@ const app = {
             <div style="display:flex; gap:8px; margin-top:8px;">
                 <input type="text" id="edit-note-input-${id}" value="${currentContent}" style="flex:1; padding:6px; font-size:0.9rem;">
                 <button class="btn btn-primary btn-sm" onclick="app.saveNoteEdit('${id}', '${type}')">שירה</button>
-                <button class="btn btn-secondary btn-sm" onclick="app.cancelNoteEdit('${id}', '${currentContent}')">ביטול</button>
+                <button class="btn btn-secondary btn-sm" onclick="app.cancelNoteEdit('${id}', '${currentContent}')">סגירה</button>
             </div>
         `;
         document.getElementById(`edit-note-input-${id}`).focus();
@@ -771,6 +826,26 @@ const app = {
         } catch (error) {
             console.error('Update note error:', error);
             this.confirmAction('שגיאה', 'חלה שגיאה בעדכון ההערה.', null, true);
+        }
+    },
+
+    async updateStylingCall(id, value) {
+        try {
+            await Store.updateProjectStylingCall(id, value);
+            
+            // Sync modal if open
+            if (this.editingProjectId === id) {
+                document.getElementById('project-styling-call').value = value;
+                UI.renderChecklist(id);
+            }
+
+            if (this.currentView === 'calendar') {
+                await UI.renderCalendar();
+            } else {
+                UI.renderCalendar().catch(() => {});
+            }
+        } catch (error) {
+            console.error('Update styling call error:', error);
         }
     },
 
@@ -1090,7 +1165,7 @@ const app = {
                 ${dayProjects.map(p => {
                     const clientName = p.clients?.name || '';
                     const displayName = clientName ? `${p.name} (${clientName})` : p.name;
-                    return `<div onclick="app.viewProject('${p.id}')" style="background:#E0F2FE; color:#0369A1; padding:8px 12px; border-radius:6px; margin-bottom:4px; cursor:pointer; font-size:0.85rem;">${displayName}</div>`;
+                    return `<div onclick="document.getElementById('day-details-popup')?.remove(); app.viewProject('${p.id}')" style="background:#E0F2FE; color:#0369A1; padding:8px 12px; border-radius:6px; margin-bottom:4px; cursor:pointer; font-size:0.85rem;">${displayName}</div>`;
                 }).join('')}
             </div>`;
         }
@@ -1103,7 +1178,8 @@ const app = {
                     const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
                     const bg = isStyling ? '#ECFDF5' : '#F3E8FF';
                     const color = isStyling ? '#059669' : '#7E22CE';
-                    return `<div onclick="${t.project_id ? `app.viewProject('${t.project_id}')` : `app.viewTask('${t.id}')`}" style="background:${bg}; color:${color}; padding:8px 12px; border-radius:6px; margin-bottom:4px; cursor:pointer; font-size:0.85rem; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through;' : ''}">${t.content}</div>`;
+                    const clickAction = t.project_id ? `app.viewProject('${t.project_id}')` : `app.viewTask('${t.id}')`;
+                    return `<div onclick="document.getElementById('day-details-popup')?.remove(); ${clickAction}" style="background:${bg}; color:${color}; padding:8px 12px; border-radius:6px; margin-bottom:4px; cursor:pointer; font-size:0.85rem; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through;' : ''}">${t.content}</div>`;
                 }).join('')}
             </div>`;
         }

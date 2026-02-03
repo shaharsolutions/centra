@@ -783,8 +783,7 @@ const UI = {
                                 </div>
                             </div>
                             <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px;">${loc.description}</p>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
                                 <button class="btn btn-secondary btn-sm" style="gap: 8px; justify-content: center;" onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(loc.title + ' צילומים')}', '_blank')">
                                     <i data-lucide="search" style="width: 14px; height: 14px;"></i>
                                     חיפוש תמונות
@@ -793,12 +792,12 @@ const UI = {
                                     <i data-lucide="map" style="width: 14px; height: 14px;"></i>
                                     ניווט למקום
                                 </button>
-                                ${loc.id > 15 ? `
+                                ${(!loc.id || !String(loc.id).startsWith('default-')) ? `
                                     <button class="btn btn-secondary btn-sm" style="gap: 8px; justify-content: center;" onclick="app.openLocationModal('${loc.id}')">
                                         <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i>
                                         עריכה
                                     </button>
-                                    <button class="btn btn-secondary btn-sm delete-btn" style="gap: 8px; justify-content: center;" onclick="app.deleteLocation('${loc.id}')">
+                                    <button class="btn btn-secondary btn-sm delete-btn" style="gap: 8px; justify-content: center; color: #EF4444;" onclick="app.deleteLocation('${loc.id}')">
                                         <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                                         מחיקה
                                     </button>
@@ -833,7 +832,7 @@ const UI = {
         const select = document.getElementById('project-client');
         if (select) {
             select.innerHTML = '<option value="">בחרי לקוח...</option>' + 
-                clients.map(c => `<option value="${c.id}" ${c.id === selectedClientId ? 'selected' : ''}>${c.name} (${c.phone})</option>`).join('');
+                clients.map(c => `<option value="${c.id}" ${String(c.id) === String(selectedClientId) ? 'selected' : ''}>${c.name} (${c.phone})</option>`).join('');
         }
     },
 

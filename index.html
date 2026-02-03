@@ -152,7 +152,7 @@
                         <i data-lucide="edit-2" style="width:14px;"></i> עריכה
                     </button>
                     <button type="button" id="cancel-edit-client" class="btn btn-secondary btn-sm" style="display:none;">
-                        ביטול עריכה
+                        סגירת עריכה
                     </button>
                     <button class="close-modal">&times;</button>
                 </div>
@@ -251,7 +251,7 @@
 
                 <div class="modal-footer">
                     <button type="button" id="delete-client-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
-                    <button type="button" id="client-cancel-btn" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="button" id="client-cancel-btn" class="btn btn-secondary close-modal">סגירה</button>
                     <button type="submit" id="save-client-btn" class="btn btn-primary" style="display:none;">שמירה</button>
                 </div>
             </form>
@@ -268,7 +268,7 @@
                         <i data-lucide="edit-2" style="width:14px;"></i> עריכה
                     </button>
                     <button type="button" id="cancel-edit-project" class="btn btn-secondary btn-sm" style="display:none;">
-                        ביטול עריכה
+                        סגירת עריכה
                     </button>
                     <button class="close-modal">&times;</button>
                 </div>
@@ -333,14 +333,11 @@
                     </div>
                     <div class="form-group">
                         <label for="project-styling-call">שיחת סטיילינג</label>
-                        <div class="view-group">
-                            <select id="project-styling-call" disabled>
-                                <option value="none">ללא</option>
-                                <option value="1_week">שבוע לפני</option>
-                                <option value="2_weeks">שבועיים לפני</option>
-                            </select>
-                            <span id="project-styling-call-view" class="view-text hidden"></span>
-                        </div>
+                        <select id="project-styling-call">
+                            <option value="none">ללא</option>
+                            <option value="1_week">שבוע לפני</option>
+                            <option value="2_weeks">שבועיים לפני</option>
+                        </select>
                     </div>
                 </div>
                 <div id="project-weather-container" class="weather-widget hidden">
@@ -448,7 +445,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" id="delete-project-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
-                    <button type="submit" id="project-cancel-btn" class="btn btn-secondary">שמירה</button>
+                    <button type="button" id="project-cancel-btn" class="btn btn-secondary" onclick="app.closeModal()">סגירה</button>
                     <button type="submit" id="save-project-btn" class="btn btn-primary" style="display:none;">שמירה</button>
                 </div>
             </form>
@@ -473,7 +470,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" id="delete-package-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
-                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="button" class="btn btn-secondary close-modal">סגירה</button>
                     <button type="submit" class="btn btn-primary">שמירה</button>
                 </div>
             </form>
@@ -487,7 +484,7 @@
             <p id="confirm-desc" style="margin: 15px 0; color: var(--text-muted);"></p>
             <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;">
                 <button id="confirm-yes-btn" class="btn btn-primary" style="background: #EF4444;">כן, למחוק</button>
-                <button id="confirm-no-btn" class="btn btn-secondary">ביטול</button>
+                <button id="confirm-no-btn" class="btn btn-secondary">סגירה</button>
             </div>
         </div>
     </div>
@@ -530,7 +527,7 @@
 
                 <div class="modal-footer">
                     <button type="button" id="delete-task-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA;">מחיקה</button>
-                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="button" class="btn btn-secondary close-modal">סגירה</button>
                     <button type="submit" class="btn btn-primary">שמירה</button>
                 </div>
             </form>
@@ -581,7 +578,7 @@
 
                 <div class="modal-footer">
                     <button type="button" id="delete-location-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
-                    <button type="button" class="btn btn-secondary close-modal">ביטול</button>
+                    <button type="button" class="btn btn-secondary close-modal">סגירה</button>
                     <button type="submit" class="btn btn-primary">שמירה</button>
                 </div>
             </form>
