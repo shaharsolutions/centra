@@ -247,6 +247,7 @@ const app = {
             case 'archive': await UI.renderArchive(); break;
             case 'tasks': await UI.renderTasks(); break;
             case 'calendar': await UI.renderCalendar(); break;
+            case 'reports': await UI.renderReports(); break;
             case 'shoots': await UI.renderShoots(); break;
             case 'payments': await UI.renderPayments(); break;
             case 'locations': await UI.renderLocations(); break;
@@ -920,6 +921,7 @@ const app = {
                 if (pkg) {
                     document.getElementById('package-name').value = pkg.name;
                     document.getElementById('package-price').value = pkg.price;
+                    document.getElementById('package-duration').value = pkg.duration || '';
                 }
             });
         } else {
@@ -932,7 +934,8 @@ const app = {
         const pkg = {
             id: this.editingPackageId,
             name: document.getElementById('package-name').value,
-            price: parseFloat(document.getElementById('package-price').value)
+            price: parseFloat(document.getElementById('package-price').value),
+            duration: document.getElementById('package-duration').value
         };
         await Store.savePackage(pkg);
         this.closeModal();

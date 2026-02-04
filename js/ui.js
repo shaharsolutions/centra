@@ -659,7 +659,13 @@ const UI = {
                     <div class="card-list">
                         ${packages.length === 0 ? '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין חבילות.</div>' : packages.map(p => `
                             <div class="list-item">
-                                <div class="item-info"><span class="item-name">${p.name}</span><span class="item-sub">${p.price} ₪</span></div>
+                                <div class="item-info">
+                                    <span class="item-name">${p.name}</span>
+                                    <div class="item-meta" style="font-size: 0.8rem; color: var(--text-muted);">
+                                        <span>${p.price} ₪</span>
+                                        ${p.duration ? ` • <span>${p.duration}</span>` : ''}
+                                    </div>
+                                </div>
                                 <div class="item-actions">
                                     <button class="btn btn-secondary btn-sm" onclick="app.openPackageModal('עריכת חבילה', '${p.id}')"><i data-lucide="edit-2"></i></button>
                                     <button class="btn btn-secondary btn-sm delete-btn" onclick="app.deletePackage('${p.id}')"><i data-lucide="trash-2"></i></button>
@@ -897,6 +903,180 @@ const UI = {
                 <div class="note-content" id="note-content-${n.id}">${n.content}</div>
             </div>
         `).join('');
+        if (window.lucide) lucide.createIcons();
+    },
+
+    async renderReports() {
+        const projects = await Store.getProjects();
+        const clients = await Store.getClients();
+        
+        // Metrics calculation
+        const totalProjects = projects.length;
+        const activeProjects = projects.filter(p => p.status !== 'archived').length;
+        
+        // Revenue calculation
+        let totalRevenue = 0;
+        let collectedRevenue = 0;
+        let pendingRevenue = 0;
+        
+        projects.forEach(p => {
+            const total = parseFloat(p.payments?.total) || 0;
+            const deposit = parseFloat(p.payments?.deposit) || 0;
+            
+            totalRevenue += total;
+            collectedRevenue += deposit;
+            
+            if (p.payment_status === 'paid') {
+                collectedRevenue += (total - deposit);
+            } else {
+                pendingRevenue += (total - deposit);
+            }
+        });
+
+        // Projects by status distribution
+        const statusCounts = {};
+        projects.forEach(p => {
+            statusCounts[p.status] = (statusCounts[p.status] || 0) + 1;
+        });
+
+        // Monthly distribution (last 12 months)
+        const monthlyData = {};
+        const now = new Date();
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            monthlyData[key] = { count: 0, revenue: 0 };
+        }
+
+        projects.forEach(p => {
+            if (!p.shoot_date) return;
+            const d = new Date(p.shoot_date);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (monthlyData[key]) {
+                monthlyData[key].count++;
+                monthlyData[key].revenue += (parseFloat(p.payments?.total) || 0);
+            }
+        });
+
+        const sortedMonths = Object.keys(monthlyData).sort();
+
+        const html = `
+            <div class="reports-container" style="display: flex; flex-direction: column; gap: 24px;">
+                <!-- Key Metrics Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                    <div class="report-card" style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--primary);">
+                            <i data-lucide="briefcase"></i>
+                            <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin: 0;">פרויקטים פעילים</h3>
+                        </div>
+                        <div style="font-size: 2rem; font-weight: 700; color: var(--text-main);">${activeProjects}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">מתוך ${totalProjects} פרויקטים סה"כ</div>
+                    </div>
+
+                    <div class="report-card" style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: #10B981;">
+                            <i data-lucide="trending-up"></i>
+                            <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin: 0;">הכנסות שנגבו</h3>
+                        </div>
+                        <div style="font-size: 2rem; font-weight: 700; color: var(--text-main);">₪${collectedRevenue.toLocaleString()}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">מתוך צפי של ₪${totalRevenue.toLocaleString()}</div>
+                    </div>
+
+                    <div class="report-card" style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: #F59E0B;">
+                            <i data-lucide="clock"></i>
+                            <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin: 0;">חובות פתוחים</h3>
+                        </div>
+                        <div style="font-size: 2rem; font-weight: 700; color: var(--text-main);">₪${pendingRevenue.toLocaleString()}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">תשלומים שטרם הוסדרו</div>
+                    </div>
+                </div>
+
+                <!-- Detailed Charts Section -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
+                    <!-- Status Distribution -->
+                    <div style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 20px;">סטטוס פרויקטים</h3>
+                        <div style="display: flex; flex-direction: column; gap: 16px;">
+                            ${Object.entries(statusCounts).sort((a,b) => b[1] - a[1]).map(([status, count]) => {
+                                const statusInfo = Store.getStatusInfo(status);
+                                const percentage = totalProjects > 0 ? (count / totalProjects * 100).toFixed(0) : 0;
+                                return `
+                                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                                            <span style="font-weight: 500;">${statusInfo.label}</span>
+                                            <span style="color: var(--text-muted);">${count} (${percentage}%)</span>
+                                        </div>
+                                        <div style="height: 8px; background: var(--bg-main); border-radius: 4px; overflow: hidden;">
+                                            <div style="height: 100%; width: ${percentage}%; background: ${statusInfo.color};"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Monthly Activity -->
+                    <div style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 20px;">פעילות חודשית (פרויקטים)</h3>
+                        <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 160px; gap: 8px; margin-top: 20px;">
+                            ${sortedMonths.map(month => {
+                                const data = monthlyData[month];
+                                const maxCount = Math.max(...Object.values(monthlyData).map(d => d.count), 1);
+                                const heightPercentage = (data.count / maxCount * 100).toFixed(0);
+                                const monthLabel = month.split('-')[1];
+                                return `
+                                    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%;">
+                                        <div style="flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center;">
+                                            <div title="${month}: ${data.count} פרויקטים" style="width: 100%; height: ${heightPercentage}%; background: var(--primary-light); border-radius: 4px 4px 0 0; min-height: ${data.count > 0 ? '4px' : '0'};"></div>
+                                        </div>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">${monthLabel}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Income by Month Table -->
+                <div style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 20px;">פירוט הכנסות חודשי</h3>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: right;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--border);">
+                                    <th style="padding: 12px; font-weight: 600; color: var(--text-muted);">חודש</th>
+                                    <th style="padding: 12px; font-weight: 600; color: var(--text-muted);">פרויקטים</th>
+                                    <th style="padding: 12px; font-weight: 600; color: var(--text-muted);">הכנסה חזויה</th>
+                                    <th style="padding: 12px; font-weight: 600; color: var(--text-muted);">ממוצע לפרויקט</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sortedMonths.reverse().map(month => {
+                                    const data = monthlyData[month];
+                                    if (data.count === 0 && data.revenue === 0) return '';
+                                    const [y, m] = month.split('-');
+                                    const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+                                    const avg = data.count > 0 ? (data.revenue / data.count).toFixed(0) : 0;
+                                    return `
+                                        <tr style="border-bottom: 1px solid var(--border);">
+                                            <td style="padding: 12px; font-weight: 500;">${monthNames[parseInt(m)-1]} ${y}</td>
+                                            <td style="padding: 12px;">${data.count}</td>
+                                            <td style="padding: 12px; font-weight: 600; color: #10B981;">₪${data.revenue.toLocaleString()}</td>
+                                            <td style="padding: 12px; color: var(--text-muted);">₪${parseInt(avg).toLocaleString()}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('view-container').innerHTML = html;
+        document.getElementById('view-title').innerText = 'דוחות ותובנות';
+        document.getElementById('view-subtitle').innerText = 'מבט על הביצועים העסקיים שלך.';
         if (window.lucide) lucide.createIcons();
     },
 

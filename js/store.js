@@ -393,16 +393,86 @@ const Store = {
 
     // Packages
     async getPackages() {
-        const { data, error } = await sb.from('packages').select('*').order('name');
-        return data || [];
+        let dbPackages = [];
+        let localPackages = JSON.parse(localStorage.getItem('local_packages') || '[]');
+
+        try {
+            const { data, error } = await sb.from('packages').select('*').order('name');
+            if (error) throw error;
+            dbPackages = data || [];
+        } catch (e) {
+            console.warn('Error fetching packages from Supabase:', e.message);
+        }
+
+        // Merge DB and Local
+        const allPackages = [...dbPackages];
+        localPackages.forEach(lp => {
+            if (!allPackages.some(dp => String(dp.id) === String(lp.id))) {
+                allPackages.push(lp);
+            }
+        });
+
+        // Ensure duration and other fields are merged from local if missing in DB
+        const localPackageExtras = JSON.parse(localStorage.getItem('local_package_extras') || '{}');
+        return allPackages.map(p => ({
+            ...p,
+            duration: p.duration || localPackageExtras[p.id]?.duration || ''
+        }));
     },
 
     async savePackage(pkg) {
-        if (pkg.id) {
-            await sb.from('packages').update({ name: pkg.name, price: pkg.price }).eq('id', pkg.id);
-        } else {
-            await sb.from('packages').insert([{ name: pkg.name, price: pkg.price }]);
+        const dbData = { name: pkg.name, price: pkg.price };
+        let savedPackageData = null;
+
+        try {
+            // Attempt with duration first
+            const fullData = { ...dbData, duration: pkg.duration };
+            if (pkg.id && !String(pkg.id).startsWith('local_')) {
+                const { data, error } = await sb.from('packages').update(fullData).eq('id', pkg.id).select();
+                if (error) throw error;
+                savedPackageData = data[0];
+            } else {
+                const { data, error } = await sb.from('packages').insert([fullData]).select();
+                if (error) throw error;
+                savedPackageData = data[0];
+            }
+        } catch (e) {
+            console.warn('Supabase package save failed (maybe duration column missing), trying fallback:', e.message);
+            try {
+                if (pkg.id && !String(pkg.id).startsWith('local_')) {
+                    const { data, error } = await sb.from('packages').update(dbData).eq('id', pkg.id).select();
+                    if (error) throw error;
+                    savedPackageData = data[0];
+                } else {
+                    const { data, error } = await sb.from('packages').insert([dbData]).select();
+                    if (error) throw error;
+                    savedPackageData = data[0];
+                }
+            } catch (innerE) {
+                console.error('Final Supabase package save failed:', innerE.message);
+            }
         }
+
+        const finalPackage = savedPackageData || {
+            ...dbData,
+            duration: pkg.duration,
+            id: pkg.id || 'local_pkg_' + Date.now(),
+            created_at: new Date().toISOString()
+        };
+
+        // Sync with local storage
+        const localPackages = JSON.parse(localStorage.getItem('local_packages') || '[]');
+        const existingIdx = localPackages.findIndex(p => p.id === finalPackage.id);
+        if (existingIdx !== -1) localPackages[existingIdx] = finalPackage;
+        else localPackages.push(finalPackage);
+        localStorage.setItem('local_packages', JSON.stringify(localPackages));
+
+        // Save duration to extras anyway (safety)
+        const localPackageExtras = JSON.parse(localStorage.getItem('local_package_extras') || '{}');
+        localPackageExtras[finalPackage.id] = { duration: pkg.duration };
+        localStorage.setItem('local_package_extras', JSON.stringify(localPackageExtras));
+
+        return finalPackage;
     },
 
     async deletePackage(id) {

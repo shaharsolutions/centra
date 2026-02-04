@@ -61,6 +61,10 @@
                     <i data-lucide="calendar"></i>
                     <span>לוח שנה</span>
                 </li>
+                <li data-view="reports">
+                    <i data-lucide="bar-chart-3"></i>
+                    <span>דוחות</span>
+                </li>
                 <li data-view="locations">
                     <i data-lucide="map-pin"></i>
                     <span>לוקיישנים</span>
@@ -104,6 +108,10 @@
             <div class="mobile-nav-item" data-view="calendar">
                 <i data-lucide="calendar"></i>
                 <span>לוח שנה</span>
+            </div>
+            <div class="mobile-nav-item" data-view="reports">
+                <i data-lucide="bar-chart-3"></i>
+                <span>דוחות</span>
             </div>
             <div class="mobile-nav-item" data-view="locations">
                 <i data-lucide="map-pin"></i>
@@ -467,6 +475,10 @@
                 <div class="form-group">
                     <label for="package-price">מחיר (₪)</label>
                     <input type="number" id="package-price" required placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="package-duration">זמן מוקצב (טקסט חופשי)</label>
+                    <input type="text" id="package-duration" placeholder="לדוגמה: שעה וחצי">
                 </div>
                 <div class="modal-footer">
                     <button type="button" id="delete-package-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
