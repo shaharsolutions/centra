@@ -81,16 +81,33 @@ const Store = {
 
     // Clients
     async getClients() {
-        const { data, error } = await sb
-            .from('clients')
-            .select('*')
-            .order('name');
-        if (error) console.error('Error fetching clients:', error);
+        let dbClients = [];
+        let localClients = JSON.parse(localStorage.getItem('local_clients') || '[]');
+
+        if (this._checklistTableExists !== false) {
+            try {
+                const { data, error } = await sb
+                    .from('clients')
+                    .select('*')
+                    .order('name');
+                if (error) throw error;
+                dbClients = data || [];
+            } catch (error) {
+                console.warn('Error fetching clients from Supabase:', error.message);
+            }
+        }
         
-        const clients = data || [];
+        // Merge DB and Local clients
+        const allClients = [...dbClients];
+        localClients.forEach(lc => {
+            if (!allClients.some(dc => String(dc.id) === String(lc.id))) {
+                allClients.push(lc);
+            }
+        });
+
         const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
         
-        return clients.map(c => ({
+        return allClients.map(c => ({
             ...c,
             city: localExtras[c.id]?.city || c.city,
             email: localExtras[c.id]?.email || c.email,
@@ -107,37 +124,46 @@ const Store = {
             source: client.source
         };
 
-        if (client.id) {
-            const { error } = await sb.from('clients').update(dbClient).eq('id', client.id);
-            if (error) throw error;
-            
-            // Save extras
-            const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
-            localExtras[client.id] = {
-                city: client.city,
-                email: client.email,
-                instagram: client.instagram,
-                facebook: client.facebook,
-                website: client.website
-            };
-            localStorage.setItem('local_client_extras', JSON.stringify(localExtras));
-        } else {
-            const { data, error } = await sb.from('clients').insert([dbClient]).select();
-            if (error) throw error;
-            
-            if (data && data[0]) {
-                const newId = data[0].id;
-                const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
-                localExtras[newId] = {
-                    city: client.city,
-                    email: client.email,
-                    instagram: client.instagram,
-                    facebook: client.facebook,
-                    website: client.website
-                };
-                localStorage.setItem('local_client_extras', JSON.stringify(localExtras));
+        let savedClientData = null;
+        try {
+            if (client.id && !String(client.id).startsWith('local_')) {
+                const { data, error } = await sb.from('clients').update(dbClient).eq('id', client.id).select();
+                if (error) throw error;
+                savedClientData = data[0];
+            } else {
+                const { data, error } = await sb.from('clients').insert([dbClient]).select();
+                if (error) throw error;
+                savedClientData = data[0];
             }
+        } catch (e) {
+            console.warn('Supabase client save failed, staying local:', e.message);
         }
+
+        const finalClient = savedClientData || {
+            ...dbClient,
+            id: client.id || 'local_client_' + Date.now(),
+            created_at: new Date().toISOString()
+        };
+
+        // Sync with local storage
+        const localClients = JSON.parse(localStorage.getItem('local_clients') || '[]');
+        const existingIdx = localClients.findIndex(c => c.id === finalClient.id || (c.name === finalClient.name && c.phone === finalClient.phone));
+        if (existingIdx !== -1) localClients[existingIdx] = finalClient;
+        else localClients.push(finalClient);
+        localStorage.setItem('local_clients', JSON.stringify(localClients));
+
+        // Save extras
+        const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
+        localExtras[finalClient.id] = {
+            city: client.city,
+            email: client.email,
+            instagram: client.instagram,
+            facebook: client.facebook,
+            website: client.website
+        };
+        localStorage.setItem('local_client_extras', JSON.stringify(localExtras));
+        
+        return finalClient;
     },
 
     async deleteClient(id) {
@@ -147,41 +173,65 @@ const Store = {
 
     // Projects
     async getProjects(clientId = null) {
-        let query = sb.from('projects').select('*, clients(name)');
-        if (clientId) {
-            query = query.eq('client_id', clientId);
+        let dbProjects = [];
+        let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
+
+        if (this._checklistTableExists !== false) { // Reuse this as a general DB check or just try
+            try {
+                let query = sb.from('projects').select('*, clients(name)');
+                if (clientId) {
+                    query = query.eq('client_id', clientId);
+                }
+                const { data, error } = await query.order('created_at', { ascending: false });
+                if (error) throw error;
+                dbProjects = data || [];
+            } catch (e) {
+                console.warn('Error fetching projects from Supabase:', e.message);
+            }
         }
-        const { data: projects, error } = await query.order('created_at', { ascending: false });
-        if (error) console.error('Error fetching projects:', error);
         
-        const data = projects || [];
+        // Merge DB and Local projects
+        const allProjects = [...dbProjects];
+        localProjects.forEach(lp => {
+            if (!allProjects.some(dp => String(dp.id) === String(lp.id))) {
+                if (!clientId || String(lp.client_id) === String(clientId)) {
+                    allProjects.push(lp);
+                }
+            }
+        });
         
-        // Merge local data if DB columns are missing
+        // Merge local extra columns data
         const localLocations = JSON.parse(localStorage.getItem('local_project_locations') || '{}');
         const localPaymentStatuses = JSON.parse(localStorage.getItem('local_project_payment_statuses') || '{}');
-        return data.map(p => {
-            // Normalize clients field - ensure it's always { name: '...' } or null
+        const localReasons = JSON.parse(localStorage.getItem('local_project_reasons') || '{}');
+        const localSubjects = JSON.parse(localStorage.getItem('local_project_subjects') || '{}');
+        const localTimes = JSON.parse(localStorage.getItem('local_project_times') || '{}');
+        const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
+
+        return allProjects.map(p => {
+            // Normalize clients field
             let normalizedClients = p.clients;
             if (p.clients && typeof p.clients === 'object' && !p.clients.name) {
-                // If clients is an object but doesn't have a 'name' property, try to find it
                 normalizedClients = null;
             }
             
+            const pid = p.id;
             return {
                 ...p,
                 clients: normalizedClients,
-                location: p.location || localLocations[p.id] || '',
-                payment_status: p.payment_status || localPaymentStatuses[p.id] || 'not_paid',
-                not_closed_reason: p.not_closed_reason || JSON.parse(localStorage.getItem('local_project_reasons') || '{}')[p.id] || '',
-                subjects_count: p.subjects_count || JSON.parse(localStorage.getItem('local_project_subjects') || '{}')[p.id]?.count || '',
-                subjects_details: p.subjects_details || JSON.parse(localStorage.getItem('local_project_subjects') || '{}')[p.id]?.details || '',
-                shoot_time: p.shoot_time || JSON.parse(localStorage.getItem('local_project_times') || '{}')[p.id] || '',
-                styling_call: p.styling_call || JSON.parse(localStorage.getItem('local_project_styling') || '{}')[p.id] || 'none'
+                location: p.location || localLocations[pid] || '',
+                payment_status: p.payment_status || localPaymentStatuses[pid] || 'not_paid',
+                not_closed_reason: p.not_closed_reason || localReasons[pid] || '',
+                subjects_count: p.subjects_count || localSubjects[pid]?.count || '',
+                subjects_details: p.subjects_details || localSubjects[pid]?.details || '',
+                shoot_time: p.shoot_time || localTimes[pid] || '',
+                styling_call: p.styling_call || localStyling[pid] || 'none'
             };
         });
     },
 
     async saveProject(project) {
+        let savedProjectData = null;
         const dbProject = {
             client_id: project.clientId,
             name: project.name,
@@ -200,85 +250,86 @@ const Store = {
         };
 
         try {
-            let result;
-            if (project.id) {
+            if (project.id && !String(project.id).startsWith('local_')) {
                 const { data, error } = await sb.from('projects').update(dbProject).eq('id', project.id).select('*, clients(name)');
                 if (error) throw error;
-                result = data[0];
+                savedProjectData = data[0];
             } else {
                 const { data, error } = await sb.from('projects').insert([dbProject]).select('*, clients(name)');
                 if (error) throw error;
-                result = data[0];
+                savedProjectData = data[0];
             }
-            await this.addDefaultsToProject(result.id, result.shoot_date, { ...result, styling_call: project.stylingCall });
-            return result;
         } catch (e) {
-            // If column is missing (400 or specifically "location" or "payment_status" not found)
-            console.warn('Supabase column save failed, storing locally:', e.message);
+            console.warn('Supabase project save failed, attempting fallback:', e.message);
             
-            // Save to localStorage mapping
-            const localLocations = JSON.parse(localStorage.getItem('local_project_locations') || '{}');
-            const localPaymentStatuses = JSON.parse(localStorage.getItem('local_project_payment_statuses') || '{}');
-            
-            // Re-attempt without missing fields
-            const fallbackProject = { ...dbProject };
-            delete fallbackProject.location;
-            delete fallbackProject.payment_status;
-            delete fallbackProject.not_closed_reason;
-            delete fallbackProject.subjects_count;
-            delete fallbackProject.subjects_details;
-            delete fallbackProject.shoot_time;
-            delete fallbackProject.styling_call;
-            
-            const localReasons = JSON.parse(localStorage.getItem('local_project_reasons') || '{}');
-            const localSubjects = JSON.parse(localStorage.getItem('local_project_subjects') || '{}');
-            const localTimes = JSON.parse(localStorage.getItem('local_project_times') || '{}');
-            const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
-
-            let result;
-            if (project.id) {
-                localLocations[project.id] = project.location;
-                localPaymentStatuses[project.id] = project.paymentStatus || 'not_paid';
-                const { data, error } = await sb.from('projects').update(fallbackProject).eq('id', project.id).select('*, clients(name)');
-                if (error) throw error;
-                result = data[0];
-            } else {
-                const { data, error } = await sb.from('projects').insert([fallbackProject]).select('*, clients(name)');
-                if (error) throw error;
-                result = data[0];
-                if (project.location) {
-                    localLocations[result.id] = project.location;
-                }
-                localPaymentStatuses[result.id] = project.paymentStatus || 'not_paid';
-                localSubjects[result.id] = { count: project.subjectsCount, details: project.subjectsDetails };
-                if (project.shootTime) {
-                    localTimes[result.id] = project.shootTime;
-                }
-                if (project.stylingCall) {
-                    localStyling[result.id] = project.stylingCall;
+            // Re-attempt without potentially missing columns if it's a 400 error
+            if (e.message?.includes('column') || e.status === 400) {
+                try {
+                    const fallbackProject = { ...dbProject };
+                    delete fallbackProject.location;
+                    delete fallbackProject.payment_status;
+                    delete fallbackProject.not_closed_reason;
+                    delete fallbackProject.subjects_count;
+                    delete fallbackProject.subjects_details;
+                    delete fallbackProject.shoot_time;
+                    delete fallbackProject.styling_call;
+                    
+                    if (project.id && !String(project.id).startsWith('local_')) {
+                        const { data, error } = await sb.from('projects').update(fallbackProject).eq('id', project.id).select('*, clients(name)');
+                        if (error) throw error;
+                        savedProjectData = data[0];
+                    } else {
+                        const { data, error } = await sb.from('projects').insert([fallbackProject]).select('*, clients(name)');
+                        if (error) throw error;
+                        savedProjectData = data[0];
+                    }
+                } catch (innerE) {
+                    console.error('Final Supabase retry failed:', innerE.message);
                 }
             }
-            
-            localStorage.setItem('local_project_locations', JSON.stringify(localLocations));
-            localStorage.setItem('local_project_payment_statuses', JSON.stringify(localPaymentStatuses));
-            localStorage.setItem('local_project_reasons', JSON.stringify(localReasons));
-            localStorage.setItem('local_project_subjects', JSON.stringify(localSubjects));
-            localStorage.setItem('local_project_times', JSON.stringify(localTimes));
-            localStorage.setItem('local_project_styling', JSON.stringify(localStyling));
-            
-            const finalProject = { 
-                ...result, 
-                location: project.location, 
-                payment_status: project.paymentStatus || 'not_paid', 
-                not_closed_reason: project.notClosedReason,
-                subjects_count: project.subjectsCount,
-                subjects_details: project.subjectsDetails,
-                shoot_time: project.shootTime,
-                styling_call: project.stylingCall
-            };
-            await this.addDefaultsToProject(result.id, result.shoot_date, finalProject);
-            return finalProject;
         }
+
+        // Final result - either from DB or constructed for local storage
+        const finalProject = savedProjectData || {
+            ...dbProject,
+            id: project.id || 'local_proj_' + Date.now(),
+            created_at: project.created_at || new Date().toISOString()
+        };
+
+        // Sync with local storage
+        const localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
+        const existingIdx = localProjects.findIndex(p => p.id === finalProject.id || (p.name === finalProject.name && p.client_id === finalProject.client_id));
+        if (existingIdx !== -1) localProjects[existingIdx] = finalProject;
+        else localProjects.push(finalProject);
+        localStorage.setItem('local_projects', JSON.stringify(localProjects));
+
+        // Sync extra columns for backward compatibility and inconsistent DB states
+        const localLocations = JSON.parse(localStorage.getItem('local_project_locations') || '{}');
+        const localPaymentStatuses = JSON.parse(localStorage.getItem('local_project_payment_statuses') || '{}');
+        const localReasons = JSON.parse(localStorage.getItem('local_project_reasons') || '{}');
+        const localSubjects = JSON.parse(localStorage.getItem('local_project_subjects') || '{}');
+        const localTimes = JSON.parse(localStorage.getItem('local_project_times') || '{}');
+        const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
+
+        const pid = finalProject.id;
+        localLocations[pid] = project.location;
+        localPaymentStatuses[pid] = project.paymentStatus || 'not_paid';
+        localReasons[pid] = project.notClosedReason;
+        localSubjects[pid] = { count: project.subjectsCount, details: project.subjectsDetails };
+        localTimes[pid] = project.shootTime;
+        localStyling[pid] = project.stylingCall;
+
+        localStorage.setItem('local_project_locations', JSON.stringify(localLocations));
+        localStorage.setItem('local_project_payment_statuses', JSON.stringify(localPaymentStatuses));
+        localStorage.setItem('local_project_reasons', JSON.stringify(localReasons));
+        localStorage.setItem('local_project_subjects', JSON.stringify(localSubjects));
+        localStorage.setItem('local_project_times', JSON.stringify(localTimes));
+        localStorage.setItem('local_project_styling', JSON.stringify(localStyling));
+
+        // Add default tasks
+        await this.addDefaultsToProject(finalProject.id, finalProject.shoot_date, { ...finalProject, clients: finalProject.clients || (await sb.from('clients').select('name').eq('id', finalProject.client_id).single()).data });
+        
+        return finalProject;
     },
 
     async updateProjectStatus(id, status) {
@@ -400,11 +451,10 @@ const Store = {
     },
 
     async getChecklistItems(projectId) {
-        let items = [];
-        if (this._checklistTableExists === false || this._rlsChecklistEnabled === false) {
-            const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-            items = localItems.filter(item => String(item.project_id) === String(projectId));
-        } else {
+        let dbItems = [];
+        let localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        
+        if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
             try {
                 const { data, error } = await sb
                     .from('project_checklists')
@@ -416,16 +466,25 @@ const Store = {
                     if (error.code === '42P01') this._checklistTableExists = false;
                     throw error;
                 }
-                items = data || [];
+                dbItems = data || [];
             } catch (e) {
-                const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-                items = localItems.filter(item => String(item.project_id) === String(projectId));
+                console.warn('Supabase fetch failed, using only local:', e.message);
             }
         }
 
-        // De-duplicate items for the UI
+        // Merge and de-duplicate by ID
+        const localProjectItems = localItems.filter(item => String(item.project_id) === String(projectId));
+        const allItems = [...dbItems];
+        
+        localProjectItems.forEach(localItem => {
+            if (!allItems.some(dbItem => String(dbItem.id) === String(localItem.id))) {
+                allItems.push(localItem);
+            }
+        });
+
+        // Final de-duplicate by content/category for UI cleanliness
         const seen = new Set();
-        return items.filter(t => {
+        return allItems.filter(t => {
             const content = String(t.content || '').trim();
             const category = String(t.category || '');
             const key = `${content}-${category}`;
@@ -452,10 +511,10 @@ const Store = {
     },
 
     async getAllTasks() {
-        let tasks = [];
-        if (this._checklistTableExists === false || this._rlsChecklistEnabled === false) {
-            tasks = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-        } else {
+        let dbTasks = [];
+        let localTasks = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+
+        if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
             try {
                 const { data, error } = await sb
                     .from('project_checklists')
@@ -466,15 +525,23 @@ const Store = {
                     if (error.code === '42P01') this._checklistTableExists = false;
                     throw error;
                 }
-                tasks = data || [];
+                dbTasks = data || [];
             } catch (e) {
-                tasks = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+                console.warn('Supabase fetch failed, using only local:', e.message);
             }
         }
 
-        // De-duplicate tasks for the UI
+        // Merge and de-duplicate by ID
+        const allTasks = [...dbTasks];
+        localTasks.forEach(localTask => {
+            if (!allTasks.some(dbTask => String(dbTask.id) === String(localTask.id))) {
+                allTasks.push(localTask);
+            }
+        });
+
+        // De-duplicate tasks for the UI by content/date/pid
         const seen = new Set();
-        return tasks.filter(t => {
+        return allTasks.filter(t => {
             const date = String(t.due_date || t.dueDate || '').trim();
             const content = String(t.content || '').trim();
             const pid = String(t.project_id || t.projectId || 'no-proj');
@@ -610,7 +677,21 @@ const Store = {
 
         // Sync with Local storage
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-        const existingIdx = localItems.findIndex(i => (savedItemId && i.id === savedItemId) || (i.content === item.content && i.project_id === projectId && i.category === item.category));
+        
+        // Find existing index: 
+        // 1. By exact ID match
+        // 2. OR if it's a new item (no ID or local ID), by content/project match but ONLY if the item to save also doesn't have a final ID yet
+        const existingIdx = localItems.findIndex(i => {
+            if (savedItemId && i.id === savedItemId) return true;
+            if (item.id && i.id === item.id) return true;
+            
+            // If both don't have a real DB ID, match by content to prevent duplicates during creation
+            const isLocal = (id) => !id || String(id).startsWith('local_');
+            if (isLocal(savedItemId) && isLocal(item.id) && isLocal(i.id)) {
+                return i.content === item.content && i.project_id === projectId && i.category === item.category;
+            }
+            return false;
+        });
         
         const itemToSave = {
             id: savedItemId || item.id || 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
