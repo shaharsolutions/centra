@@ -39,30 +39,34 @@ const Store = {
         this._notesColumnExists = localStorage.getItem('sb_checklists_notes_missing') !== 'true';
         this._rlsChecklistEnabled = localStorage.getItem('sb_checklists_rls_blocked') !== 'true';
 
-        if (this._checklistTableExists && this._rlsChecklistEnabled) {
+        if (this._checklistTableExists !== false) {
             try {
-                // Test the table with a simple request - check for RLS and existence
-                const { error } = await sb.from('project_checklists').select('id').limit(1);
-                if (error) {
-                    if (error.code === '42P01' || error.status === 404) {
-                        this._checklistTableExists = false;
-                        localStorage.setItem('sb_checklists_missing', 'true');
-                    } else if (error.code === '42501' || error.status === 401 || error.message?.includes('policy')) {
-                        this._rlsChecklistEnabled = false;
-                        localStorage.setItem('sb_checklists_rls_blocked', 'true');
-                        console.warn('Supabase RLS blocking checklists, staying local');
-                    }
+                const { error } = await sb.from('project_checklists').select('id', { count: 'exact', head: true }).limit(1);
+                if (error && (error.code === '42P01' || error.status === 404)) {
+                    this._checklistTableExists = false;
+                    localStorage.setItem('sb_checklists_missing', 'true');
                 }
             } catch (e) {}
         }
 
-        // Clean up any existing duplicates in local storage
-        this.cleanupDuplicates();
+        // Clean up any existing duplicates in local storage occasionally
+        if (Math.random() < 0.1) this.cleanupDuplicates();
 
         const { data: packages, error } = await sb.from('packages').select('*');
         if (error) {
             console.error('Error connecting to Supabase:', error);
-            return;
+        } else if (packages) {
+            // Hydrate local storage with synced packages
+            const localPackages = JSON.parse(localStorage.getItem('local_packages') || '[]');
+            const newLocal = [...localPackages.filter(p => String(p.id).startsWith('local_'))];
+            packages.forEach(dp => {
+                if (!newLocal.some(lp => String(lp.id) === String(dp.id))) {
+                    newLocal.push(dp);
+                }
+            });
+            if (newLocal.length > localPackages.length) {
+                localStorage.setItem('local_packages', JSON.stringify(newLocal));
+            }
         }
         if (packages && packages.length === 0) {
             const initialPackages = [
@@ -84,17 +88,29 @@ const Store = {
         let dbClients = [];
         let localClients = JSON.parse(localStorage.getItem('local_clients') || '[]');
 
-        if (this._checklistTableExists !== false) {
-            try {
-                const { data, error } = await sb
-                    .from('clients')
-                    .select('*')
-                    .order('name');
-                if (error) throw error;
-                dbClients = data || [];
-            } catch (error) {
-                console.warn('Error fetching clients from Supabase:', error.message);
+        try {
+            const { data, error } = await sb
+                .from('clients')
+                .select('*')
+                .order('name');
+            if (error) throw error;
+            dbClients = data || [];
+            
+            // Hydrate local storage with synced clients
+            if (dbClients.length > 0) {
+                const syncedLocal = localClients.filter(c => !String(c.id).startsWith('local_'));
+                const newLocal = [...localClients.filter(c => String(c.id).startsWith('local_'))];
+                dbClients.forEach(dc => {
+                    if (!newLocal.some(lc => String(lc.id) === String(dc.id))) {
+                        newLocal.push(dc);
+                    }
+                });
+                if (newLocal.length > localClients.length) {
+                    localStorage.setItem('local_clients', JSON.stringify(newLocal));
+                }
             }
+        } catch (error) {
+            console.warn('Error fetching clients from Supabase:', error.message);
         }
         
         // Merge DB and Local clients
@@ -176,18 +192,29 @@ const Store = {
         let dbProjects = [];
         let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
 
-        if (this._checklistTableExists !== false) { // Reuse this as a general DB check or just try
-            try {
-                let query = sb.from('projects').select('*, clients(name)');
-                if (clientId) {
-                    query = query.eq('client_id', clientId);
-                }
-                const { data, error } = await query.order('created_at', { ascending: false });
-                if (error) throw error;
-                dbProjects = data || [];
-            } catch (e) {
-                console.warn('Error fetching projects from Supabase:', e.message);
+        try {
+            let query = sb.from('projects').select('*, clients(name)');
+            if (clientId) {
+                query = query.eq('client_id', clientId);
             }
+            const { data, error } = await query.order('created_at', { ascending: false });
+            if (error) throw error;
+            dbProjects = data || [];
+
+            // Hydrate local storage with synced projects
+            if (dbProjects.length > 0 && !clientId) {
+                const newLocal = [...localProjects.filter(p => String(p.id).startsWith('local_'))];
+                dbProjects.forEach(dp => {
+                    if (!newLocal.some(lp => String(lp.id) === String(dp.id))) {
+                        newLocal.push(dp);
+                    }
+                });
+                if (newLocal.length > localProjects.length) {
+                    localStorage.setItem('local_projects', JSON.stringify(newLocal));
+                }
+            }
+        } catch (e) {
+            console.warn('Error fetching projects from Supabase:', e.message);
         }
         
         // Merge DB and Local projects
@@ -596,6 +623,19 @@ const Store = {
                     throw error;
                 }
                 dbTasks = data || [];
+
+                // Hydrate local storage with synced tasks
+                if (dbTasks.length > 0) {
+                    const newLocal = [...localTasks.filter(t => String(t.id).startsWith('local_'))];
+                    dbTasks.forEach(dt => {
+                        if (!newLocal.some(lt => String(lt.id) === String(dt.id))) {
+                            newLocal.push(dt);
+                        }
+                    });
+                    if (newLocal.length > localTasks.length) {
+                        localStorage.setItem('local_checklists', JSON.stringify(newLocal));
+                    }
+                }
             } catch (e) {
                 console.warn('Supabase fetch failed, using only local:', e.message);
             }
@@ -648,21 +688,30 @@ const Store = {
     async cleanupOrphanTasks() {
         // Clean up tasks that reference deleted projects
         const projects = await this.getProjects();
+        if (projects.length === 0) return; // Safety: don't cleanup if no projects loaded
+        
         const projectIds = new Set(projects.map(p => String(p.id)));
         
         // Clean local storage
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        let count = 0;
         const cleanedItems = localItems.map(t => {
             const pid = t.project_id || t.projectId;
             if (pid && !projectIds.has(String(pid))) {
-                // Project doesn't exist - unlink the task
-                console.log(`Unlinking orphan task "${t.content}" from deleted project ${pid}`);
-                return { ...t, project_id: null, projectId: null };
+                // If it looks like a DB ID but it's not in our list, it might be an orphan
+                // However, we only unlink if we are reasonably sure we have a complete project list
+                if (!String(pid).startsWith('local_')) {
+                    count++;
+                    return { ...t, project_id: null, projectId: null };
+                }
             }
             return t;
         });
         
-        localStorage.setItem('local_checklists', JSON.stringify(cleanedItems));
+        if (count > 0) {
+            console.log(`Cleaned up ${count} orphan tasks.`);
+            localStorage.setItem('local_checklists', JSON.stringify(cleanedItems));
+        }
     },
 
     async saveChecklistItem(item) {
