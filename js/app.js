@@ -659,6 +659,13 @@ const app = {
         UI.renderSettings();
     },
 
+    async updateCalendarCity(city) {
+        Store.setCalendarCity(city);
+        // Refresh views that use Shabbat times
+        if (this.currentView === 'calendar') await UI.renderCalendar();
+        if (this.currentView === 'dashboard') await UI.renderDashboard();
+    },
+
     editClient(id) { 
         this.openClientModal('עריכת לקוח', id);
         this.setClientEditMode(true);

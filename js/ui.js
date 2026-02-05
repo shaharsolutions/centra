@@ -652,6 +652,23 @@ const UI = {
         const packages = await Store.getPackages();
         const checklistDefaults = Store.getChecklistDefaults();
         const displayMode = Store.getChecklistDisplayMode();
+        const currentCity = Store.getCalendarCity();
+
+        const cities = [
+            { id: 'IL-Jerusalem', name: 'ירושלים' },
+            { id: 'IL-Tel+Aviv', name: 'תל אביב' },
+            { id: 'IL-Haifa', name: 'חיפה' },
+            { id: 'IL-Ashdod', name: 'אשדוד' },
+            { id: 'IL-Beer+Sheva', name: 'באר שבע' },
+            { id: 'IL-Netanya', name: 'נתניה' },
+            { id: 'IL-Rishon+LeZion', name: 'ראשון לציון' },
+            { id: 'IL-Petah+Tiqwa', name: 'פתח תקווה' },
+            { id: 'IL-Rehovot', name: 'רחובות' },
+            { id: 'IL-Ashqelon', name: 'אשקלון' },
+            { id: 'IL-Bet+Shemesh', name: 'בית שמש' }
+        ];
+
+        const cityName = cities.find(c => c.id === currentCity)?.name || 'תל אביב';
 
         const html = `
             <div class="settings-container">
@@ -659,20 +676,25 @@ const UI = {
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">הגדרות אזוריות</h2>
-                            <p class="section-desc">זמני כניסת שבת וחגים מחושבים לפי עיר המגורים שלך.</p>
+                            <p class="section-desc">התאמת זמני השבת לפי המיקום שלך.</p>
                         </div>
                     </div>
-                    <div class="card-list" style="padding: 16px;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <i data-lucide="map-pin" style="color: var(--primary);"></i>
-                            <div>
-                                <div style="font-weight: 600;">עיר מוגדרת: תל אביב</div>
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">זמני השבת מותאמים למיקום זה.</div>
+                    <div class="card-list" style="padding: 20px;">
+                        <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
+                                <i data-lucide="map-pin" style="color: var(--primary);"></i>
+                                <div>
+                                    <div style="font-weight: 600;">עיר לזמני שבת</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">השפעה על הדשבורד ולוח השנה.</div>
+                                </div>
                             </div>
+                            <select id="settings-city-select" onchange="app.updateCalendarCity(this.value)" style="flex: 1; max-width: 300px;">
+                                ${cities.map(c => `<option value="${c.id}" ${c.id === currentCity ? 'selected' : ''}>${c.name}</option>`).join('')}
+                            </select>
                         </div>
                     </div>
                 </section>
-                <section class="settings-section">
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">חבילות צילום</h2>
@@ -702,7 +724,7 @@ const UI = {
                     </div>
                 </section>
 
-                <section class="settings-section" style="margin-top: 40px;">
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">תצוגת רשימות צ'ק-ליסט</h2>
@@ -721,7 +743,7 @@ const UI = {
                     </div>
                 </section>
 
-                <section class="settings-section" style="margin-top: 40px;">
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">ברירת מחדל: דברים שלא שוכחים</h2>
@@ -744,7 +766,7 @@ const UI = {
                     </div>
                 </section>
 
-                <section class="settings-section" style="margin-top: 40px;">
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">ברירת מחדל: ציוד ליום צילום</h2>

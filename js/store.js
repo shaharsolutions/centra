@@ -77,6 +77,9 @@ const Store = {
             ];
             await sb.from('packages').insert(initialPackages);
         }
+
+        // Clean up any existing duplicates in local storage occasionally
+        if (Math.random() < 0.1) this.cleanupDuplicates();
     },
 
     _checklistTableExists: null,
@@ -1065,6 +1068,15 @@ const Store = {
         localStorage.setItem('checklist_display_mode', mode);
     },
 
+    getCalendarCity() {
+        return localStorage.getItem('calendar_city') || CONFIG.calendarCity || 'IL-Tel+Aviv';
+    },
+
+    setCalendarCity(city) {
+        localStorage.setItem('calendar_city', city);
+        this._holidayCache = {}; // Clear cache when city changes
+    },
+
     async fixLegacyTaskNames() {
         // Fix tasks that have [object Object] in their names
         const allTasks = await this.getAllTasks();
@@ -1116,7 +1128,8 @@ const Store = {
         if (this._holidayCache[cacheKey]) return this._holidayCache[cacheKey];
 
         try {
-            const url = `https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&nx=on&year=${year}&month=${month}&ss=on&mf=on&c=on&geo=city&city=${CONFIG.calendarCity}&m=50&lg=sh`;
+            const city = this.getCalendarCity();
+            const url = `https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&nx=on&year=${year}&month=${month}&ss=on&mf=on&c=on&geo=city&city=${city}&m=50&lg=sh`;
             const response = await fetch(url);
             const data = await response.json();
             
