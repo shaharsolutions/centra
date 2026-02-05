@@ -379,15 +379,25 @@ const UI = {
                         const day = i + 1;
                         const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         
-                        const dayProjects = projects.filter(p => p.shoot_date === dateStr && p.status !== 'archived');
+                        const dayProjects = projects.filter(p => {
+                            if (!p.shoot_date) return false;
+                            const projectDate = String(p.shoot_date).split('T')[0];
+                            return projectDate === dateStr && p.status !== 'archived';
+                        });
                         
                         // De-duplicate tasks for this specific day
-                        const allDayTasks = tasks.filter(t => t.due_date === dateStr);
-                        const seenTaskContent = new Set();
+                        const allDayTasks = tasks.filter(t => {
+                            const taskDate = String(t.due_date || t.dueDate || '').split('T')[0];
+                            return taskDate === dateStr;
+                        });
+                        const seenTaskKey = new Set();
                         const dayTasks = allDayTasks.filter(t => {
-                            const key = String(t.content || '').trim();
-                            if (seenTaskContent.has(key)) return false;
-                            seenTaskContent.add(key);
+                            const content = String(t.content || '').trim();
+                            const pid = String(t.project_id || t.projectId || 'no-proj');
+                            const key = `${pid}-${content}`;
+                            
+                            if (seenTaskKey.has(key)) return false;
+                            seenTaskKey.add(key);
                             return true;
                         });
                         
@@ -645,6 +655,23 @@ const UI = {
 
         const html = `
             <div class="settings-container">
+                <section class="settings-section">
+                    <div class="section-header">
+                        <div class="header-text">
+                            <h2 class="section-title">הגדרות אזוריות</h2>
+                            <p class="section-desc">זמני כניסת שבת וחגים מחושבים לפי עיר המגורים שלך.</p>
+                        </div>
+                    </div>
+                    <div class="card-list" style="padding: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i data-lucide="map-pin" style="color: var(--primary);"></i>
+                            <div>
+                                <div style="font-weight: 600;">עיר מוגדרת: תל אביב</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">זמני השבת מותאמים למיקום זה.</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
                 <section class="settings-section">
                     <div class="section-header">
                         <div class="header-text">

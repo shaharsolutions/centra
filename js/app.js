@@ -1119,15 +1119,25 @@ const app = {
         const [year, month] = dateStr.split('-').map(Number);
         const holidays = await Store.getJewishHolidays(year, month);
 
-        const dayProjects = projects.filter(p => p.shoot_date === dateStr && p.status !== 'archived');
+        const dayProjects = projects.filter(p => {
+            if (!p.shoot_date) return false;
+            const projectDate = String(p.shoot_date).split('T')[0];
+            return projectDate === dateStr && p.status !== 'archived';
+        });
         
         // De-duplicate tasks for this day
-        const allDayTasks = tasks.filter(t => t.due_date === dateStr);
-        const seenTaskContent = new Set();
+        const allDayTasks = tasks.filter(t => {
+            const taskDate = String(t.due_date || t.dueDate || '').split('T')[0];
+            return taskDate === dateStr;
+        });
+        const seenTaskKey = new Set();
         const dayTasks = allDayTasks.filter(t => {
-            const key = String(t.content || '').trim();
-            if (seenTaskContent.has(key)) return false;
-            seenTaskContent.add(key);
+            const content = String(t.content || '').trim();
+            const pid = String(t.project_id || t.projectId || 'no-proj');
+            const key = `${pid}-${content}`;
+            
+            if (seenTaskKey.has(key)) return false;
+            seenTaskKey.add(key);
             return true;
         });
         

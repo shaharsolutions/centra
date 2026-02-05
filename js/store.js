@@ -1,5 +1,5 @@
-const supabaseUrl = 'https://qpgceyfsgquhdtvyybwf.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZ2NleWZzZ3F1aGR0dnl5YndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5MzQ3NjAsImV4cCI6MjA4NTUxMDc2MH0.mM2paucqV5IMyYkB2XE-zRkv3i6XxB80dSzTiCXr_3Q';
+const supabaseUrl = CONFIG.supabaseUrl;
+const supabaseKey = CONFIG.supabaseKey;
 const sb = supabase.createClient(supabaseUrl, supabaseKey);
 
 const Store = {
@@ -273,7 +273,8 @@ const Store = {
             subjects_count: project.subjectsCount,
             subjects_details: project.subjectsDetails,
             shoot_time: project.shootTime || null,
-            styling_call: project.stylingCall
+            styling_call: project.stylingCall,
+            status_date: new Date().toISOString()
         };
 
         try {
@@ -360,7 +361,10 @@ const Store = {
     },
 
     async updateProjectStatus(id, status) {
-        const { error } = await sb.from('projects').update({ status }).eq('id', id);
+        const { error } = await sb.from('projects').update({ 
+            status,
+            status_date: new Date().toISOString()
+        }).eq('id', id);
         if (error) throw error;
     },
 
@@ -652,7 +656,7 @@ const Store = {
         // De-duplicate tasks for the UI by content/date/pid
         const seen = new Set();
         return allTasks.filter(t => {
-            const date = String(t.due_date || t.dueDate || '').trim();
+            const date = String(t.due_date || t.dueDate || '').split('T')[0].trim();
             const content = String(t.content || '').trim();
             const pid = String(t.project_id || t.projectId || 'no-proj');
             const key = `${pid}-${content}-${date}`;
@@ -1112,7 +1116,7 @@ const Store = {
         if (this._holidayCache[cacheKey]) return this._holidayCache[cacheKey];
 
         try {
-            const url = `https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&nx=on&year=${year}&month=${month}&ss=on&mf=on&c=on&geo=city&city=IL-Tel+Aviv&m=50&lg=sh`;
+            const url = `https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&nx=on&year=${year}&month=${month}&ss=on&mf=on&c=on&geo=city&city=${CONFIG.calendarCity}&m=50&lg=sh`;
             const response = await fetch(url);
             const data = await response.json();
             
