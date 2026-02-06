@@ -67,10 +67,13 @@ const app = {
             e.stopPropagation();
             this.confirmAction(
                 'מחיקת לקוח',
-                'האם את בטוחה שברצונך למחוק את הלקוח? שימי לב שלא ניתן למחוק לקוח שיש לו פרויקטים פתוחים.',
+                'האם בטוח/ה שברצונך למחוק את הלקוח? שימת לב שלא ניתן למחוק לקוח שיש לו פרויקטים פתוחים.',
                 async () => {
                     try {
+                        const clients = await Store.getClients();
+                        const c = clients.find(cust => cust.id === this.editingClientId);
                         await Store.deleteClient(this.editingClientId);
+                        await Store.logAction('מחיקת לקוח', `הלקוח/ה ${c?.name || 'לא ידוע'} נמחק/ה`, 'client', this.editingClientId);
                         this.closeModal();
                         await this.navigate(this.currentView);
                     } catch (error) {
@@ -85,15 +88,18 @@ const app = {
             e.stopPropagation();
             this.confirmAction(
                 'מחיקת פרויקט',
-                'האם את בטוחה שברצונך למחוק את הפרויקט?',
+                'האם בטוח/ה שברצונך למחוק את הפרויקט?',
                 async () => {
                     try {
+                        const projects = await Store.getProjects();
+                        const p = projects.find(proj => String(proj.id) === String(this.editingProjectId));
                         await Store.deleteProject(this.editingProjectId);
+                        await Store.logAction('מחיקת פרויקט', `הפרויקט ${p?.name || 'לא ידוע'} נמחק`, 'project', this.editingProjectId);
                         this.closeModal();
                         await this.navigate(this.currentView);
                     } catch (error) {
                         console.error('Delete project error:', error);
-                        this.confirmAction('שגיאה', 'חלה שגיאה במחיקת הפרויקט. אנא נסי שוב.', null, true);
+                        this.confirmAction('שגיאה', 'חלה שגיאה במחיקת הפרויקט. נא לנסות שוב.', null, true);
                     }
                 }
             );
@@ -167,7 +173,7 @@ const app = {
         });
 
         document.getElementById('delete-task-btn').addEventListener('click', () => {
-            this.confirmAction('מחיקת משימה', 'בטוחה שברצונך למחוק משימה זו?', async () => {
+            this.confirmAction('מחיקת משימה', 'האם בטוח/ה שברצונך למחוק משימה זו?', async () => {
                 await Store.deleteChecklistItem(this.editingTaskId);
                 this.closeModal();
                 if (this.currentView === 'tasks') await UI.renderTasks();
@@ -251,6 +257,7 @@ const app = {
             case 'shoots': await UI.renderShoots(); break;
             case 'payments': await UI.renderPayments(); break;
             case 'locations': await UI.renderLocations(); break;
+            case 'logs': await UI.renderLogs(); break;
             case 'settings': await UI.renderSettings(); break;
         }
     },
@@ -296,19 +303,21 @@ const app = {
         };
         
         try {
-            await Store.saveLocation(location);
+            const isNew = !this.editingLocationId;
+            const savedLoc = await Store.saveLocation(location);
+            await Store.logAction(isNew ? 'לוקיישן חדש' : 'עדכון לוקיישן', isNew ? `לוקיישן חדש נוסף: ${location.title}` : `פרטי הלוקיישן ${location.title} עודכנו`, 'location', location.id);
             this.closeModal();
             await UI.renderLocations();
         } catch (error) {
             console.error('Save location error:', error);
-            this.confirmAction('שגיאה', 'חלה שגיאה בשמירת הלוקיישן. אנא נסי שוב.', null, true);
+            this.confirmAction('שגיאה', 'חלה שגיאה בשמירת הלוקיישן. נא לנסות שוב.', null, true);
         }
     },
 
     async deleteLocation(id) {
         this.confirmAction(
             'מחיקת לוקיישן',
-            'האם את בטוחה שברצונך למחוק את הלוקיישן?',
+            'האם בטוח/ה שברצונך למחוק את הלוקיישן?',
             async () => {
                 try {
                     await Store.deleteLocation(id);
@@ -579,7 +588,13 @@ const app = {
             facebook: document.getElementById('client-facebook').value,
             website: document.getElementById('client-website').value
         };
-        await Store.saveClient(client);
+        const isNew = !this.editingClientId;
+        const savedClient = await Store.saveClient(client);
+        
+        // Log action
+        const action = isNew ? 'הוספת לקוח' : 'עדכון פרטי לקוח';
+        await Store.logAction(action, isNew ? `לקוח/ה חדש/ה נוסף/פה: ${savedClient.name}` : `פרטי הלקוח/ה ${savedClient.name} עודכנו`, 'client', savedClient.id);
+
         this.closeModal();
         await this.navigate(this.currentView);
     },
@@ -611,6 +626,14 @@ const app = {
         };
         const savedProject = await Store.saveProject(project);
         
+        // Log action
+        const action = isNew ? 'פרויקט חדש' : 'עדכון פרויקט';
+        let clientDisplayName = '';
+        if (savedProject?.clients?.name) {
+            clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${savedProject.client_id}')">${savedProject.clients.name}</span>)`;
+        }
+        await Store.logAction(action, isNew ? `פרויקט חדש נוצר: ${savedProject.name}${clientDisplayName}` : `פרטי הפרויקט ${savedProject.name}${clientDisplayName} עודכנו`, 'project', savedProject.id);
+
         this.closeModal();
         await this.navigate(this.currentView);
     },
@@ -661,6 +684,11 @@ const app = {
 
     async updateCalendarCity(city) {
         Store.setCalendarCity(city);
+        
+        // Log action
+        const cityName = Store.defaults.shabbatCities.find(c => c.id === city)?.name || city;
+        await Store.logAction('שינוי עיר לזמני שבת', `העיר לחישוב זמני שבת שונתה ל: ${cityName}`, 'settings');
+
         // Refresh views that use Shabbat times
         if (this.currentView === 'calendar') await UI.renderCalendar();
         if (this.currentView === 'dashboard') await UI.renderDashboard();
@@ -717,7 +745,7 @@ const app = {
         this.editingClientId = id;
         this.confirmAction(
             'מחיקת לקוח',
-            'האם את בטוחה שברצונך למחוק את הלקוח?',
+            'האם בטוח/ה שברצונך למחוק את הלקוח?',
             async () => {
                 try {
                     await Store.deleteClient(id);
@@ -734,7 +762,7 @@ const app = {
         this.editingProjectId = id;
         this.confirmAction(
             'מחיקת פרויקט',
-            'האם את בטוחה שברצונך למחוק את הפרויקט?',
+            'האם בטוח/ה שברצונך למחוק את הפרויקט?',
             async () => {
                 try {
                     await Store.deleteProject(id);
@@ -762,17 +790,24 @@ const app = {
         try {
             if (type === 'client') {
                 if (!this.editingClientId) {
-                    this.confirmAction('שימי לב', 'שמרי קודם את הלקוח לפני הוספת הערה.', null, true);
+                    this.confirmAction('שימת לב', 'יש לשמור קודם את הלקוח לפני הוספת הערה.', null, true);
                     return;
                 }
                 await Store.addNote(content, this.editingClientId, null);
                 UI.renderNotes(this.editingClientId, null);
             } else {
                 if (!this.editingProjectId) {
-                    this.confirmAction('שימי לב', 'שמרי קודם את הפרויקט לפני הוספת הערה.', null, true);
+                    this.confirmAction('שימת לב', 'יש לשמור קודם את הפרויקט לפני הוספת הערה.', null, true);
                     return;
                 }
                 await Store.addNote(content, null, this.editingProjectId);
+                const projects = await Store.getProjects();
+                const p = projects.find(proj => String(proj.id) === String(this.editingProjectId));
+                let clientDisplayName = '';
+                if (p?.clients?.name) {
+                    clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${p.client_id}')">${p.clients.name}</span>)`;
+                }
+                await Store.logAction('הערה חדשה', `הערה חדשה נוספה לפרויקט "${p?.name || 'לא ידוע'}${clientDisplayName}": ${content}`, 'note', this.editingProjectId || this.editingClientId);
                 UI.renderNotes(null, this.editingProjectId);
             }
             input.value = '';
@@ -788,7 +823,7 @@ const app = {
             event.stopPropagation();
         }
 
-        this.confirmAction('מחיקת הערה', 'בטוחה שברצונך למחוק את ההערה?', async () => {
+        this.confirmAction('מחיקת הערה', 'האם בטוח/ה שברצונך למחוק את ההערה?', async () => {
             try {
                 await Store.deleteNote(id);
                 if (type === 'client') UI.renderNotes(this.editingClientId, null);
@@ -861,6 +896,20 @@ const app = {
         try {
             await Store.updateProjectStatus(id, newStatus);
             
+            // Log action
+            const projects = await Store.getProjects();
+            const p = projects.find(proj => String(proj.id) === String(id));
+            let clientDisplayName = '';
+            if (p?.clients?.name) {
+                clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${p.client_id}')">${p.clients.name}</span>)`;
+            } else if (p?.client_id) {
+                const clients = await Store.getClients();
+                const c = clients.find(cust => String(cust.id) === String(p.client_id));
+                if (c) clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${c.id}')">${c.name}</span>)`;
+            }
+            const statusLabel = Store.defaults.statuses.find(s => s.id === newStatus)?.label || newStatus;
+            await Store.logAction('עדכון סטטוס', `סטטוס הפרויקט "${p?.name || 'לא ידוע'}${clientDisplayName}" שונה ל-"${statusLabel}"`, 'project', id);
+
             // Sync modal if open for this project
             if (this.editingProjectId === id) {
                 const statusSelect = document.getElementById('project-status');
@@ -879,6 +928,20 @@ const app = {
     async updatePaymentStatus(id, newStatus) {
         try {
             await Store.updateProjectPaymentStatus(id, newStatus);
+
+            // Log action
+            const projects = await Store.getProjects();
+            const p = projects.find(proj => String(proj.id) === String(id));
+            let clientDisplayName = '';
+            if (p?.clients?.name) {
+                clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${p.client_id}')">${p.clients.name}</span>)`;
+            } else if (p?.client_id) {
+                const clients = await Store.getClients();
+                const c = clients.find(cust => String(cust.id) === String(p.client_id));
+                if (c) clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${c.id}')">${c.name}</span>)`;
+            }
+            const statusLabels = { 'not_paid': 'טרם שולם', 'deposit': 'מקדמה שולמה', 'paid_full': 'שולם במלואו' };
+            await Store.logAction('עדכון גבייה', `סטטוס הגבייה לפרויקט "${p?.name || 'לא ידוע'}${clientDisplayName}" עודכן ל-"${statusLabels[newStatus] || newStatus}"`, 'project', id);
 
             // Sync modal if open for this project
             if (this.editingProjectId === id) {
@@ -944,13 +1007,17 @@ const app = {
             price: parseFloat(document.getElementById('package-price').value),
             duration: document.getElementById('package-duration').value
         };
-        await Store.savePackage(pkg);
+        const isNew = !this.editingPackageId;
+        const savedPkg = await Store.savePackage(pkg);
+        
+        await Store.logAction(isNew ? 'חבילה חדשה' : 'עדכון חבילה', isNew ? `חבילה חדשה נוספה: ${savedPkg.name}` : `פרטי החבילה ${savedPkg.name} עודכנו`, 'package', savedPkg.id);
+
         this.closeModal();
         await this.navigate('settings');
     },
 
     async deletePackage(id) {
-        this.confirmAction('מחיקת חבילה', 'בטוחה שברצונך למחוק את החבילה?', async () => {
+        this.confirmAction('מחיקת חבילה', 'האם בטוח/ה שברצונך למחוק את החבילה?', async () => {
             await Store.deletePackage(id);
             await this.navigate('settings');
         });
@@ -1003,12 +1070,15 @@ const app = {
         if (!content) return;
 
         try {
+            const taskId = 'local_' + Date.now();
             await Store.saveChecklistItem({
+                id: taskId,
                 projectId: null,
                 content,
                 category: 'task',
                 isCompleted: false
             });
+            await Store.logAction('משימה חדשה', `משימה כללית חדשה נוספה: ${content}`, 'task', taskId);
             input.value = '';
             UI.renderTasks();
         } catch (error) {
@@ -1244,28 +1314,12 @@ const app = {
         const projectId = event.dataTransfer.getData('projectId');
         const dragType = event.dataTransfer.getData('dragType');
         
-        // Only handle payment drops here
         if (dragType !== 'payment' || !projectId) return;
 
         try {
-            const projects = await Store.getProjects();
-            const project = projects.find(p => p.id === projectId);
-            if (!project) return;
-            
-            const updatedProject = {
-                ...project,
-                paymentStatus: newPaymentStatus,
-                clientId: project.client_id,
-                shootDate: project.shoot_date,
-                driveLink: project.drive_link,
-                payments: project.payments
-            };
-            
-            await Store.saveProject(updatedProject);
-            UI.renderPayments();
+            await this.updatePaymentStatus(projectId, newPaymentStatus);
         } catch (error) {
-            console.error('Payment status update error:', error);
-            this.confirmAction('שגיאה', 'חלה שגיאה בעדכון סטטוס התשלום.', null, true);
+            console.error('Payment drop error:', error);
         }
     },
 

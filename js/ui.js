@@ -259,7 +259,7 @@ const UI = {
         let html = `
             <div class="tasks-header" style="margin-bottom: 24px; background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--border);">
                 <div style="display:flex; gap:12px; align-items:center;">
-                    <input type="text" id="new-global-task-input" placeholder="הוסיפי משימה כללית חדשה..." style="flex:1; padding:10px 16px; border:1px solid var(--border); border-radius:var(--radius-md); font-size:0.95rem;">
+                    <input type="text" id="new-global-task-input" placeholder="הוספת משימה כללית חדשה..." style="flex:1; padding:10px 16px; border:1px solid var(--border); border-radius:var(--radius-md); font-size:0.95rem;">
                     <button class="btn btn-primary" onclick="app.addGlobalTask()">
                         <i data-lucide="plus"></i>
                         הוספה
@@ -269,7 +269,7 @@ const UI = {
 
             <div class="card-list">
                 ${filteredTasks.length === 0 ? 
-                    '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין משימות. הוסיפי משימה חדשה למעלה.</div>' : 
+                    '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין משימות. הוספת משימה חדשה למעלה.</div>' : 
                     filteredTasks.map(t => {
                         const projectName = t.projects?.name || 'משימה כללית';
                         const isGlobal = !t.project_id;
@@ -654,20 +654,7 @@ const UI = {
         const displayMode = Store.getChecklistDisplayMode();
         const currentCity = Store.getCalendarCity();
 
-        const cities = [
-            { id: 'IL-Jerusalem', name: 'ירושלים' },
-            { id: 'IL-Tel+Aviv', name: 'תל אביב' },
-            { id: 'IL-Haifa', name: 'חיפה' },
-            { id: 'IL-Ashdod', name: 'אשדוד' },
-            { id: 'IL-Beer+Sheva', name: 'באר שבע' },
-            { id: 'IL-Netanya', name: 'נתניה' },
-            { id: 'IL-Rishon+LeZion', name: 'ראשון לציון' },
-            { id: 'IL-Petah+Tiqwa', name: 'פתח תקווה' },
-            { id: 'IL-Rehovot', name: 'רחובות' },
-            { id: 'IL-Ashqelon', name: 'אשקלון' },
-            { id: 'IL-Bet+Shemesh', name: 'בית שמש' }
-        ];
-
+        const cities = Store.defaults.shabbatCities;
         const cityName = cities.find(c => c.id === currentCity)?.name || 'תל אביב';
 
         const html = `
@@ -698,7 +685,7 @@ const UI = {
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">חבילות צילום</h2>
-                            <p class="section-desc">הגדירי את החבילות שלך לשימוש מהיר.</p>
+                            <p class="section-desc">הגדרת החבילות לשימוש מהיר.</p>
                         </div>
                         <button class="btn btn-primary" onclick="app.openPackageModal('חבילה חדשה')">
                             <i data-lucide="plus"></i> הוספת חבילה
@@ -728,7 +715,7 @@ const UI = {
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">תצוגת רשימות צ'ק-ליסט</h2>
-                            <p class="section-desc">בחרי כיצד הרשימות יוצגו בפרויקטים.</p>
+                            <p class="section-desc">בחירת אופן תצוגת הרשימות בפרויקטים.</p>
                         </div>
                     </div>
                     <div class="card-list" style="padding: 16px; display: flex; gap: 24px;">
@@ -760,7 +747,7 @@ const UI = {
                             </div>
                         `).join('')}
                         <div class="list-item" style="gap: 12px; padding: 12px 24px;">
-                            <input type="text" id="new-default-shoot" placeholder="הוסיפי משימה חדשה..." style="flex:1;">
+                            <input type="text" id="new-default-shoot" placeholder="הוספת משימה חדשה..." style="flex:1;">
                             <button class="btn btn-primary btn-sm" onclick="app.addChecklistDefault('shoot')">הוספה</button>
                         </div>
                     </div>
@@ -783,7 +770,7 @@ const UI = {
                             </div>
                         `).join('')}
                         <div class="list-item" style="gap: 12px; padding: 12px 24px;">
-                            <input type="text" id="new-default-equipment" placeholder="הוסיפי ציוד חדש..." style="flex:1;">
+                            <input type="text" id="new-default-equipment" placeholder="הוספת ציוד חדש..." style="flex:1;">
                             <button class="btn btn-primary btn-sm" onclick="app.addChecklistDefault('equipment')">הוספה</button>
                         </div>
                     </div>
@@ -886,7 +873,7 @@ const UI = {
         const clients = await Store.getClients();
         const select = document.getElementById('project-client');
         if (select) {
-            select.innerHTML = '<option value="">בחרי לקוח...</option>' + 
+            select.innerHTML = '<option value="">בחירת לקוח...</option>' + 
                 clients.map(c => `<option value="${c.id}" ${String(c.id) === String(selectedClientId) ? 'selected' : ''}>${c.name} (${c.phone})</option>`).join('');
         }
     },
@@ -1222,6 +1209,105 @@ const UI = {
         }
 
         if (window.lucide) lucide.createIcons();
+    },
+
+    async renderLogs() {
+        const logs = await Store.getActionLogs(100);
+        
+        let html = `
+            <div class="logs-container" style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden;">
+                <div style="padding: 16px 24px; border-bottom: 2px solid var(--bg-main); display: flex; justify-content: space-between; align-items: center; background: #F9FAFB;">
+                    <div style="font-weight: 700; color: var(--text-main);">100 הפעולות האחרונות במערכת</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">${logs.length} פעולות תועדו</div>
+                </div>
+                <div class="logs-list">
+                    ${logs.length === 0 ? 
+                        '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין פעולות מתועדות.</div>' : 
+                        logs.map(log => {
+                            const date = new Date(log.created_at);
+                            const timeStr = date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                            const dateStr = date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                            
+                            let icon = 'activity';
+                            let color = '#64748b'; // default slate-500
+                            
+                            const action = (log.action || '').toLowerCase();
+                            const details = (log.details || '').toLowerCase();
+
+                            if (action.includes('צירף/פה') || action.includes('יצר/ה') || action.includes('create') || action.includes('add')) {
+                                icon = 'plus-circle';
+                                color = '#10b981'; // emerald-500
+                            } else if (action.includes('מחק') || action.includes('delete') || action.includes('remove')) {
+                                icon = 'trash-2';
+                                color = '#ef4444'; // red-500
+                            } else if (action.includes('עדכן') || action.includes('שינה') || action.includes('update') || action.includes('change')) {
+                                icon = 'edit-3';
+                                color = '#3b82f6'; // blue-500
+                            } else if (action.includes('השלמ') || action.includes('בוצע') || action.includes('complete') || action.includes('finish')) {
+                                icon = 'check-circle';
+                                color = '#8b5cf6'; // violet-500
+                            }
+                            
+                            return `
+                                <div class="log-item" style="display: flex; align-items: flex-start; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--bg-main); transition: background 0.2s;">
+                                    <div style="background: ${color}15; color: ${color}; padding: 8px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                        <i data-lucide="${icon}" style="width: 18px; height: 18px;"></i>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 500; font-size: 0.95rem; color: var(--text-main); margin-bottom: 4px; line-height: 1.4;">${log.details || log.action}</div>
+                                        <div style="display: flex; gap: 16px; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap;">
+                                            <span style="display: flex; align-items: center; gap: 4px;">
+                                                <i data-lucide="calendar" style="width: 12px;"></i>
+                                                ${dateStr}
+                                            </span>
+                                            <span style="display: flex; align-items: center; gap: 4px;">
+                                                <i data-lucide="clock" style="width: 12px;"></i>
+                                                ${timeStr}
+                                            </span>
+                                            ${log.entity_type ? `<span style="background: var(--bg-main); padding: 0 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">${this.getEntityLabel(log.entity_type)}</span>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                </div>
+            </div>
+            <style>
+                .log-item:hover {
+                    background: #F9FAFB;
+                }
+                .log-item:last-child {
+                    border-bottom: none;
+                }
+                .log-client-link {
+                    color: var(--primary);
+                    text-decoration: underline;
+                    cursor: pointer;
+                    font-weight: 600;
+                }
+                .log-client-link:hover {
+                    color: var(--primary-dark);
+                }
+            </style>
+        `;
+        
+        document.getElementById('view-container').innerHTML = html;
+        document.getElementById('view-title').innerText = 'יומן פעולות';
+        document.getElementById('view-subtitle').innerText = 'מעקב אחרי 100 הפעולות האחרונות שבוצעו במערכת.';
+        if (window.lucide) lucide.createIcons();
+    },
+
+    getEntityLabel(type) {
+        const labels = {
+            'client': 'לקוח',
+            'project': 'פרויקט',
+            'task': 'משימה',
+            'package': 'חבילה',
+            'location': 'לוקיישן',
+            'note': 'הערה',
+            'settings': 'הגדרות'
+        };
+        return labels[type] || type;
     }
 };
 

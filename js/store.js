@@ -30,6 +30,19 @@ const Store = {
             { id: 13, title: 'גבעת התורמוסים', region: 'jerusalem', type: 'nature', description: 'פריחת תורמוסים כחולה וסגולה בתוך עמק האלה. מרהיב במיוחד בחודשים פברואר-מרץ.' },
             { id: 14, title: 'חוף האקוודוקט (קיסריה)', region: 'sharon', type: 'beach', description: 'קשתות אבן רומיות עתיקות על קו המים. שילוב מושלם של היסטוריה, ים וארכיטקטורה.' },
             { id: 15, title: 'ים המלח (הפטריות)', region: 'south', type: 'nature', description: 'התגבשויות מלח בצורת פטריות בתוך המים הכחולים. אחד הלוקיישנים הסוריאליסטיים והיפים בעולם.' }
+        ],
+        shabbatCities: [
+            { id: 'IL-Jerusalem', name: 'ירושלים' },
+            { id: 'IL-Tel+Aviv', name: 'תל אביב' },
+            { id: 'IL-Haifa', name: 'חיפה' },
+            { id: 'IL-Ashdod', name: 'אשדוד' },
+            { id: 'IL-Beer+Sheva', name: 'באר שבע' },
+            { id: 'IL-Netanya', name: 'נתניה' },
+            { id: 'IL-Rishon+LeZion', name: 'ראשון לציון' },
+            { id: 'IL-Petah+Tiqwa', name: 'פתח תקווה' },
+            { id: 'IL-Rehovot', name: 'רחובות' },
+            { id: 'IL-Ashqelon', name: 'אשקלון' },
+            { id: 'IL-Bet+Shemesh', name: 'בית שמש' }
         ]
     },
 
@@ -45,6 +58,17 @@ const Store = {
                 if (error && (error.code === '42P01' || error.status === 404)) {
                     this._checklistTableExists = false;
                     localStorage.setItem('sb_checklists_missing', 'true');
+                }
+            } catch (e) {}
+        }
+
+        this._actionLogsTableExists = localStorage.getItem('sb_action_logs_missing') !== 'true';
+        if (this._actionLogsTableExists !== false) {
+            try {
+                const { error } = await sb.from('action_logs').select('id', { count: 'exact', head: true }).limit(1);
+                if (error && (error.code === '42P01' || error.status === 404)) {
+                    this._actionLogsTableExists = false;
+                    localStorage.setItem('sb_action_logs_missing', 'true');
                 }
             } catch (e) {}
         }
@@ -83,6 +107,7 @@ const Store = {
     },
 
     _checklistTableExists: null,
+    _actionLogsTableExists: null,
     _notesColumnExists: null,
     _rlsChecklistEnabled: null,
 
@@ -241,7 +266,9 @@ const Store = {
         return allProjects.map(p => {
             // Normalize clients field
             let normalizedClients = p.clients;
-            if (p.clients && typeof p.clients === 'object' && !p.clients.name) {
+            if (Array.isArray(p.clients)) {
+                normalizedClients = p.clients[0];
+            } else if (p.clients && typeof p.clients === 'object' && !p.clients.name) {
                 normalizedClients = null;
             }
             
@@ -318,6 +345,10 @@ const Store = {
                     console.error('Final Supabase retry failed:', innerE.message);
                 }
             }
+        }
+
+        if (savedProjectData && Array.isArray(savedProjectData.clients)) {
+            savedProjectData.clients = savedProjectData.clients[0];
         }
 
         // Final result - either from DB or constructed for local storage
@@ -411,6 +442,8 @@ const Store = {
                     
                     if (statusDate && statusDate < oneWeekAgo) {
                         await this.updateProjectStatus(project.id, 'archived');
+                        const clientName = project.clients?.name ? ` (<span class="log-client-link" onclick="app.viewClient('${project.client_id}')">${project.clients.name}</span>)` : '';
+                        await this.logAction('ארכוב אוטומטי', `הפרויקט "${project.name}${clientName}" הועבר לארכיון באופן אוטומטי`, 'project', project.id);
                         console.log(`Auto-archived project: ${project.name}`);
                     }
                 }
@@ -542,6 +575,52 @@ const Store = {
     async deleteNote(id) {
         const { error } = await sb.from('notes').delete().eq('id', id);
         if (error) throw error;
+    },
+
+    // Action Logs
+    async getActionLogs(limit = 100) {
+        try {
+            const { data, error } = await sb
+                .from('action_logs')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            if (error) {
+                if (error.code === '42P01') return JSON.parse(localStorage.getItem('local_action_logs') || '[]');
+                throw error;
+            }
+            return data || [];
+        } catch (e) {
+            console.warn('Error fetching action logs:', e.message);
+            return JSON.parse(localStorage.getItem('local_action_logs') || '[]');
+        }
+    },
+
+    async logAction(action, details = '', entityType = null, entityId = null) {
+        const logEntry = {
+            id: crypto.randomUUID ? crypto.randomUUID() : 'log_' + Date.now(),
+            action,
+            details,
+            entity_type: entityType,
+            entity_id: entityId,
+            created_at: new Date().toISOString()
+        };
+
+        try {
+            const { error } = await sb.from('action_logs').insert([logEntry]);
+            if (error) {
+                if (error.code === '42P01') {
+                    this._actionLogsTableExists = false;
+                    localStorage.setItem('sb_action_logs_missing', 'true');
+                }
+                throw error;
+            }
+        } catch (e) {
+            const localLogs = JSON.parse(localStorage.getItem('local_action_logs') || '[]');
+            localLogs.unshift(logEntry);
+            if (localLogs.length > 150) localLogs.pop(); // Keep a bit more locally
+            localStorage.setItem('local_action_logs', JSON.stringify(localLogs));
+        }
     },
 
     // Checklists (with Local Fallback for missing table)
@@ -854,8 +933,17 @@ const Store = {
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
         const idx = localItems.findIndex(i => i.id === id);
         if (idx !== -1) {
-            localItems[idx].is_completed = isCompleted;
+            const item = localItems[idx];
+            item.is_completed = isCompleted;
             localStorage.setItem('local_checklists', JSON.stringify(localItems));
+            
+            // Log action
+            this.logAction(
+                isCompleted ? 'השלמת משימה' : 'ביטול השלמת משימה',
+                `המשימה "${item.content}" ${isCompleted ? 'סומנה כבוצעה' : 'סומנה כלא בוצעה'}`,
+                'task',
+                id
+            );
         }
     },
 
@@ -873,8 +961,13 @@ const Store = {
 
         // Always delete from Local storage to stay in sync
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        const itemToDelete = localItems.find(i => i.id === id);
         const filtered = localItems.filter(i => i.id !== id);
         localStorage.setItem('local_checklists', JSON.stringify(filtered));
+        
+        if (itemToDelete) {
+            this.logAction('מחיקת משימה', `המשימה "${itemToDelete.content}" נמחקה`, 'task', id);
+        }
     },
 
     // Checklist Defaults
