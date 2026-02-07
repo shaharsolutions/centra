@@ -1170,6 +1170,14 @@ const Store = {
         this._holidayCache = {}; // Clear cache when city changes
     },
 
+    getUserGender() {
+        return localStorage.getItem('user_gender') || 'female';
+    },
+
+    setUserGender(gender) {
+        localStorage.setItem('user_gender', gender);
+    },
+
     async fixLegacyTaskNames() {
         // Fix tasks that have [object Object] in their names
         const allTasks = await this.getAllTasks();

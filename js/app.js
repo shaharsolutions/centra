@@ -8,6 +8,7 @@ const app = {
 
     async init() {
         await Store.init();
+        this.applyGender();
         this.addEventListeners();
         
         // Cleanup tasks linked to deleted projects
@@ -105,14 +106,6 @@ const app = {
             );
         });
 
-        document.getElementById('edit-project-toggle').addEventListener('click', () => {
-            this.setProjectEditMode(true);
-        });
-
-        document.getElementById('cancel-edit-project').addEventListener('click', () => {
-            this.setProjectEditMode(false);
-        });
-
         document.getElementById('project-status').addEventListener('change', (e) => {
             this.toggleNotClosedReason(e.target.value);
         });
@@ -189,6 +182,27 @@ const app = {
                 this.deleteLocation(this.editingLocationId);
             }
         });
+
+        // Global Keyboard Event Listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeModal();
+                // Also close confirm modal if open
+                const confirmModal = document.getElementById('confirm-modal');
+                if (confirmModal) confirmModal.classList.add('hidden');
+            }
+        });
+
+        // Click on overlay to close
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    this.closeModal();
+                    // Also handle confirm modal if that's the one clicked
+                    if (overlay.id === 'confirm-modal') overlay.classList.add('hidden');
+                }
+            });
+        });
     },
 
     confirmAction(title, desc, onConfirm, isAlert = false) {
@@ -198,8 +212,19 @@ const app = {
         const yesBtn = document.getElementById('confirm-yes-btn');
         const noBtn = document.getElementById('confirm-no-btn');
 
-        titleEl.innerText = title;
-        descEl.innerText = desc;
+        const gender = Store.getUserGender();
+        const isMale = gender === 'male';
+
+        // Gender-aware replacements
+        let finalTitle = title.replace('בטוח/ה', isMale ? 'בטוח' : 'בטוחה');
+        let finalDesc = desc.replace('בטוח/ה', isMale ? 'בטוח' : 'בטוחה')
+                            .replace('בטוחה', isMale ? 'בטוח' : 'בטוחה')
+                            .replace('זמינה', isMale ? 'זמין' : 'זמינה')
+                            .replace('הלקוח/ה', isMale ? 'הלקוח' : 'הלקוחה')
+                            .replace('נמחק/ה', isMale ? 'נמחק' : 'נמחקה');
+
+        titleEl.innerText = finalTitle;
+        descEl.innerText = finalDesc;
 
         // Reset display
         yesBtn.style.display = isAlert ? 'none' : 'block';
@@ -435,7 +460,6 @@ const app = {
         document.getElementById('project-modal-title').innerText = title;
         document.getElementById('project-modal').classList.remove('hidden');
         const deleteBtn = document.getElementById('delete-project-btn');
-        const editToggle = document.getElementById('edit-project-toggle');
         const driveLink = document.getElementById('project-drive-link');
         
         let projectClientId = selectedClientId || (p ? p.client_id : null);
@@ -444,7 +468,6 @@ const app = {
         await UI.populatePackagesDatalist();
 
         if (projectId && p) {
-            editToggle.style.display = 'flex';
             this.editingProjectPaymentStatus = p.payment_status || 'not_paid';
             document.getElementById('project-client').value = p.client_id;
             document.getElementById('project-name').value = p.name;
@@ -489,12 +512,11 @@ const app = {
                 document.getElementById('project-weather-container').classList.add('hidden');
             }
             
-            this.setProjectEditMode(false);
+            this.setProjectEditMode(true);
             UI.renderNotes(null, projectId);
             UI.renderChecklist(projectId);
             deleteBtn.style.display = 'block';
         } else {
-            editToggle.style.display = 'none';
             driveLink.style.display = 'none';
             document.getElementById('project-form').reset();
             document.getElementById('project-notes-list').innerHTML = '';
@@ -509,10 +531,11 @@ const app = {
     },
 
     setProjectEditMode(isEdit) {
+        // Force isEdit to true as per user request to allow editing by default
+        isEdit = true;
+        
         const form = document.getElementById('project-form');
         const saveBtn = document.getElementById('save-project-btn');
-        const editToggle = document.getElementById('edit-project-toggle');
-        const cancelEditBtn = document.getElementById('cancel-edit-project');
         const footerCancelBtn = document.getElementById('project-cancel-btn');
         
         const status = document.getElementById('project-status').value;
@@ -523,35 +546,20 @@ const app = {
             const input = group.querySelector('input, select, textarea');
             const span = group.querySelector('.view-text');
             
-            if (isEdit) {
-                input?.classList.remove('hidden');
-                span?.classList.add('hidden');
-                if (input && input.tagName === 'SELECT') input.disabled = false;
-                if (input) input.readOnly = false;
-            } else {
-                input?.classList.add('hidden');
-                span?.classList.remove('hidden');
-                if (input && input.tagName === 'SELECT') input.disabled = true;
-                if (input) input.readOnly = true;
-            }
+            input?.classList.remove('hidden');
+            span?.classList.add('hidden');
+            if (input && input.tagName === 'SELECT') input.disabled = false;
+            if (input) input.readOnly = false;
         });
 
-        // Special handling for client dropdown (always visible but disabled/enabled)
+        // Special handling for client dropdown
         const clientSelect = document.getElementById('project-client');
-        if (clientSelect) clientSelect.disabled = !isEdit;
+        if (clientSelect) clientSelect.disabled = false;
 
-        saveBtn.style.display = isEdit ? 'block' : 'none';
+        saveBtn.style.display = 'block';
         
-        if (this.editingProjectId) {
-            editToggle.style.display = isEdit ? 'none' : 'flex';
-            cancelEditBtn.style.display = isEdit ? 'flex' : 'none';
-            footerCancelBtn.style.display = isEdit ? 'none' : 'block';
-        } else {
-            // New project mode - always edit, no view/cancel-edit toggle
-            editToggle.style.display = 'none';
-            cancelEditBtn.style.display = 'none';
-            footerCancelBtn.style.display = 'none'; // Only the main save button should be visible
-        }
+        // Show footer cancel button (Close)
+        if (footerCancelBtn) footerCancelBtn.style.display = 'block';
     },
 
     toggleNotClosedReason(status) {
@@ -692,6 +700,59 @@ const app = {
         // Refresh views that use Shabbat times
         if (this.currentView === 'calendar') await UI.renderCalendar();
         if (this.currentView === 'dashboard') await UI.renderDashboard();
+    },
+
+    async updateGender(gender) {
+        Store.setUserGender(gender);
+        
+        // Log action
+        const genderName = gender === 'male' ? 'צלם' : 'צלמת';
+        await Store.logAction('שינוי מגדר פנייה', `מגדר הפנייה שונה ל: ${genderName}`, 'settings');
+
+        this.applyGender();
+        
+        // Refresh views that might have gendered content
+        if (this.currentView === 'settings') await UI.renderSettings();
+        if (this.currentView === 'dashboard') await UI.renderDashboard();
+        if (this.currentView === 'locations') await UI.renderLocations();
+    },
+
+    applyGender() {
+        const gender = Store.getUserGender();
+        const isMale = gender === 'male';
+        
+        // Update Static Elements in index.html
+        const greeting = document.getElementById('view-title');
+        if (greeting && (greeting.innerText.includes('שלום צלמת!') || greeting.innerText.includes('שלום צלם!'))) {
+            greeting.innerText = isMale ? 'שלום צלם! 👋' : 'שלום צלמת! 👋';
+        }
+
+        // Update Project Location placeholder
+        const locInput = document.getElementById('project-location');
+        if (locInput) locInput.placeholder = isMale ? 'הזן מיקום...' : 'הזיני מיקום...';
+
+        // Update Location Description placeholder
+        const locDesc = document.getElementById('location-description');
+        if (locDesc) locDesc.placeholder = isMale ? 'תאר את הלוקיישן - מה יש בו, למה הוא מתאים, באיזה עונה הכי יפה...' : 'תארי את הלוקיישן - מה יש בו, למה הוא מתאים, באיזה עונה הכי יפה...';
+
+        // Update not-closed reason placeholder
+        const reasonInput = document.getElementById('not-closed-reason');
+        if (reasonInput) reasonInput.placeholder = isMale ? 'למה הלקוח לא סגר? (למשל: מחיר יקר מדי, לא זמין בתאריך...)' : 'למה הלקוח לא סגר? (למשל: מחיר יקר מדי, לא זמינה בתאריך...)';
+
+        // Update confirm title
+        const confirmTitle = document.getElementById('confirm-title');
+        if (confirmTitle && (confirmTitle.innerText.includes('בטוח/ה') || confirmTitle.innerText.includes('בטוח'))) {
+            confirmTitle.innerText = isMale ? 'האם אתה בטוח?' : 'האם את בטוחה?';
+        }
+
+        // SEO/Meta
+        document.title = isMale ? 'Centra | ניהול עסק לצלמים' : 'Centra | ניהול עסק לצלמות';
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc) {
+            metaDesc.content = isMale 
+                ? 'Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לצלם המקצועי.' 
+                : 'Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לצלמת המקצועית.';
+        }
     },
 
     editClient(id) { 
@@ -1268,7 +1329,7 @@ const app = {
                     const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
                     const bg = isStyling ? '#ECFDF5' : '#F3E8FF';
                     const color = isStyling ? '#059669' : '#7E22CE';
-                    const clickAction = t.project_id ? `app.viewProject('${t.project_id}')` : `app.viewTask('${t.id}')`;
+                    const clickAction = `app.viewTask('${t.id}')`;
                     return `<div onclick="document.getElementById('day-details-popup')?.remove(); ${clickAction}" style="background:${bg}; color:${color}; padding:8px 12px; border-radius:6px; margin-bottom:4px; cursor:pointer; font-size:0.85rem; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through;' : ''}">${t.content}</div>`;
                 }).join('')}
             </div>`;

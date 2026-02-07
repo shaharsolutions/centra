@@ -33,8 +33,9 @@ const UI = {
         `;
         
         document.getElementById('view-container').innerHTML = html;
-        document.getElementById('view-title').innerText = 'הדשבורד שלך';
-        document.getElementById('view-subtitle').innerText = 'מבט מהיר על Centra.';
+        const gender = Store.getUserGender();
+        document.getElementById('view-title').innerText = gender === 'male' ? 'שלום צלם! 👋' : 'שלום צלמת! 👋';
+        document.getElementById('view-subtitle').innerText = 'הנה מה שקורה בעסק שלך היום.';
         if (window.lucide) lucide.createIcons();
     },
 
@@ -453,7 +454,7 @@ const UI = {
                                         const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
                                         const bg = isStyling ? '#ECFDF5' : '#F3E8FF';
                                         const color = isStyling ? '#059669' : '#7E22CE';
-                                        const clickAction = t.project_id ? "app.viewProject('" + t.project_id + "')" : "app.viewTask('" + t.id + "')";
+                                        const clickAction = "app.viewTask('" + t.id + "')";
                                         const completedStyle = t.is_completed ? 'opacity:0.6; text-decoration:line-through' : '';
                                         const iconName = isStyling ? 'phone' : 'check-square';
                                         const titleText = (isStyling ? 'שיחת סטיילינג' : 'משימה') + ': ' + t.content;
@@ -653,6 +654,7 @@ const UI = {
         const checklistDefaults = Store.getChecklistDefaults();
         const displayMode = Store.getChecklistDisplayMode();
         const currentCity = Store.getCalendarCity();
+        const currentGender = Store.getUserGender();
 
         const cities = Store.defaults.shabbatCities;
         const cityName = cities.find(c => c.id === currentCity)?.name || 'תל אביב';
@@ -660,6 +662,36 @@ const UI = {
         const html = `
             <div class="settings-container">
                 <section class="settings-section">
+                    <div class="section-header">
+                        <div class="header-text">
+                            <h2 class="section-title">פרופיל והעדפות</h2>
+                            <p class="section-desc">הגדרות אישיות ופנייה במערכת.</p>
+                        </div>
+                    </div>
+                    <div class="card-list" style="padding: 20px;">
+                        <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
+                                <i data-lucide="user" style="color: var(--primary);"></i>
+                                <div>
+                                    <div style="font-weight: 600;">מגדר פנייה</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">התאמת הפניות במערכת (צלם/צלמת).</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 16px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="radio" name="user-gender" value="female" ${currentGender === 'female' ? 'checked' : ''} onchange="app.updateGender(this.value)">
+                                    <span>צלמת</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="radio" name="user-gender" value="male" ${currentGender === 'male' ? 'checked' : ''} onchange="app.updateGender(this.value)">
+                                    <span>צלם</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">הגדרות אזוריות</h2>
@@ -859,8 +891,9 @@ const UI = {
         `;
 
         document.getElementById('view-container').innerHTML = html;
+        const gender = Store.getUserGender();
         document.getElementById('view-title').innerText = 'לוקיישנים לצילומים';
-        document.getElementById('view-subtitle').innerText = 'גלי לוקיישנים מומלצים לצילומים לפי אזורים בארץ.';
+        document.getElementById('view-subtitle').innerText = gender === 'male' ? 'גלה לוקיישנים מומלצים לצילומים לפי אזורים בארץ.' : 'גלי לוקיישנים מומלצים לצילומים לפי אזורים בארץ.';
         if (window.lucide) lucide.createIcons();
     },
 

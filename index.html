@@ -280,26 +280,20 @@
             <div class="modal-header">
                 <h3 id="project-modal-title">פרטי פרויקט</h3>
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <button type="button" id="edit-project-toggle" class="btn btn-secondary btn-sm" style="display:none;">
-                        <i data-lucide="edit-2" style="width:14px;"></i> עריכה
-                    </button>
-                    <button type="button" id="cancel-edit-project" class="btn btn-secondary btn-sm" style="display:none;">
-                        סגירת עריכה
-                    </button>
                     <button class="close-modal">&times;</button>
                 </div>
             </div>
             <form id="project-form" class="modal-form">
                 <div class="form-group">
                     <label for="project-client">לקוח</label>
-                    <select id="project-client" required disabled>
+                    <select id="project-client" required>
                         <!-- Populated by JS -->
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="project-name">שם הפרויקט / חבילה</label>
                     <div class="view-group">
-                        <input type="text" id="project-name" list="packages-list" required placeholder="בחירת חבילה או הקלדת שם..." readonly>
+                        <input type="text" id="project-name" list="packages-list" required placeholder="בחירת חבילה או הקלדת שם...">
                         <datalist id="packages-list">
                             <!-- Populated by JS -->
                         </datalist>
@@ -311,14 +305,14 @@
                     <div class="form-group">
                         <label for="project-subjects-count">מספר מצולמים</label>
                         <div class="view-group">
-                            <input type="number" id="project-subjects-count" placeholder="0" readonly>
+                            <input type="number" id="project-subjects-count" placeholder="0">
                             <span id="project-subjects-count-view" class="view-text hidden"></span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="project-subjects-details">פירוט מצולמים (טקסט חופשי)</label>
                         <div class="view-group">
-                            <input type="text" id="project-subjects-details" placeholder="למשל: זוג הורים ו-3 ילדים" readonly>
+                            <input type="text" id="project-subjects-details" placeholder="למשל: זוג הורים ו-3 ילדים">
                             <span id="project-subjects-details-view" class="view-text hidden"></span>
                         </div>
                     </div>
@@ -327,14 +321,14 @@
                     <div class="form-group">
                         <label for="project-date">תאריך צילום</label>
                         <div class="view-group">
-                            <input type="date" id="project-date" readonly onchange="app.fetchWeatherForProject()">
+                            <input type="date" id="project-date" onchange="app.fetchWeatherForProject()">
                             <span id="project-date-view" class="view-text hidden"></span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="project-time">שעת צילום</label>
                         <div class="view-group">
-                            <input type="time" id="project-time" readonly>
+                            <input type="time" id="project-time">
                             <span id="project-time-view" class="view-text hidden"></span>
                         </div>
                     </div>
@@ -343,7 +337,7 @@
                     <div class="form-group">
                         <label for="project-location">מיקום (לוקיישן)</label>
                         <div class="view-group">
-                            <input type="text" id="project-location" placeholder="הזיני מיקום..." readonly onblur="app.fetchWeatherForProject()">
+                            <input type="text" id="project-location" placeholder="הזיני מיקום..." onblur="app.fetchWeatherForProject()">
                             <span id="project-location-view" class="view-text hidden"></span>
                         </div>
                     </div>
@@ -387,7 +381,7 @@
                 <div id="not-closed-reason-container" class="form-group hidden" style="margin-top: 12px;">
                     <label for="not-closed-reason">סיבת אי סגירה</label>
                     <div class="view-group">
-                        <textarea id="not-closed-reason" placeholder="למה הלקוח לא סגר? (למשל: מחיר יקר מדי, לא זמינה בתאריך...)" readonly style="width:100%; min-height:80px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-md); font-family:inherit;"></textarea>
+                        <textarea id="not-closed-reason" placeholder="למה הלקוח לא סגר? (למשל: מחיר יקר מדי, לא זמינה בתאריך...)" style="width:100%; min-height:80px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-md); font-family:inherit;"></textarea>
                         <span id="not-closed-reason-view" class="view-text hidden"></span>
                     </div>
                 </div>
@@ -395,14 +389,14 @@
                     <div class="form-group">
                         <label for="proj-total-price">מחיר כולל (₪)</label>
                         <div class="view-group">
-                            <input type="number" id="proj-total-price" placeholder="0" readonly>
+                            <input type="number" id="proj-total-price" placeholder="0">
                             <span id="proj-total-price-view" class="view-text hidden"></span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="proj-deposit-paid">מקדמה שולמה (₪)</label>
                         <div class="view-group">
-                            <input type="number" id="proj-deposit-paid" placeholder="0" readonly>
+                            <input type="number" id="proj-deposit-paid" placeholder="0">
                             <span id="proj-deposit-paid-view" class="view-text hidden"></span>
                         </div>
                     </div>
@@ -411,7 +405,7 @@
                     <label for="project-drive-container">קישור ל-Google Drive</label>
                     <div style="display:flex; gap:8px; align-items:center;">
                         <div class="view-group" style="flex:1;">
-                            <input type="url" id="project-drive" placeholder="https://drive.google.com/..." readonly>
+                            <input type="url" id="project-drive" placeholder="https://drive.google.com/...">
                             <span id="project-drive-view" class="view-text hidden"></span>
                         </div>
                         <a id="project-drive-link" target="_blank" class="btn btn-secondary" style="display:none; align-items:center; justify-content:center; padding:8px 12px; height:46px;">
