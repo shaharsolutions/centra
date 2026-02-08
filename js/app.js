@@ -169,7 +169,7 @@ const app = {
             this.confirmAction('מחיקת משימה', 'האם בטוח/ה שברצונך למחוק משימה זו?', async () => {
                 await Store.deleteChecklistItem(this.editingTaskId);
                 this.closeModal();
-                if (this.currentView === 'tasks') await UI.renderTasks();
+                await this.navigate(this.currentView);
             });
         });
 
@@ -1084,6 +1084,14 @@ const app = {
         });
     },
 
+    async deleteChecklistItem(id, projectId) {
+        this.confirmAction('מחיקת משימה', 'האם בטוח/ה שברצונך למחוק את המשימה?', async () => {
+            await Store.deleteChecklistItem(id);
+            if (projectId && projectId !== 'undefined') await UI.renderChecklist(projectId);
+            await this.navigate(this.currentView);
+        });
+    },
+
     // Checklist Actions
     async addChecklistItem(category, projectId) {
         const inputId = `new-${category}-item`;
@@ -1110,20 +1118,13 @@ const app = {
     async toggleChecklistItem(id, isCompleted, projectId) {
         try {
             await Store.toggleChecklistItem(id, isCompleted);
-            UI.renderChecklist(projectId);
+            if (projectId && projectId !== 'undefined') UI.renderChecklist(projectId);
+            await this.navigate(this.currentView);
         } catch (error) {
             console.error('Toggle checklist item error:', error);
         }
     },
 
-    async deleteChecklistItem(id, projectId) {
-        try {
-            await Store.deleteChecklistItem(id);
-            if (projectId) UI.renderChecklist(projectId);
-        } catch (error) {
-            console.error('Delete checklist item error:', error);
-        }
-    },
 
     async addGlobalTask() {
         const input = document.getElementById('new-global-task-input');

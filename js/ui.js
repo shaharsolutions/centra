@@ -296,7 +296,7 @@ const UI = {
                         return `
                         <div class="list-item ${t.is_completed ? 'completed' : ''}" style="opacity: ${t.is_completed ? '0.6' : '1'}; cursor: pointer;" onclick="app.viewTask('${t.id}')">
                             <div style="display:flex; align-items:center; gap:16px; flex:1;">
-                                <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="event.stopPropagation(); app.toggleChecklistItem('${t.id}', this.checked); setTimeout(() => UI.renderTasks(), 500)" style="width:20px; height:20px;">
+                                <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="event.stopPropagation(); app.toggleChecklistItem('${t.id}', this.checked)" style="width:20px; height:20px;">
                                 <div class="item-info">
                                     <span class="item-name" style="${t.is_completed ? 'text-decoration:line-through' : ''}; font-size:1rem;">${t.content}</span>
                                     <div style="display:flex; gap:8px; align-items:center;">
@@ -319,7 +319,7 @@ const UI = {
                                     צפייה
                                 </button>
                                 ` : ''}
-                                <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}'); setTimeout(() => UI.renderTasks(), 500)">
+                                <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
                                     <i data-lucide="trash-2" style="width:14px;"></i>
                                 </button>
                             </div>
