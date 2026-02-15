@@ -176,6 +176,16 @@ const Auth = {
 
     getUserId() {
         return this.session?.user?.id;
+    },
+
+    async updatePassword(newPassword) {
+        try {
+            const { error } = await sb.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: this.getHebrewError(error.message) };
+        }
     }
 };
 

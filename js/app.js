@@ -733,7 +733,7 @@ const app = {
     },
 
     async updateGender(gender) {
-        Store.setUserGender(gender);
+        await Store.setUserGender(gender);
         
         // Log action
         const genderName = gender === 'male' ? 'צלם' : 'צלמת';
@@ -745,6 +745,191 @@ const app = {
         if (this.currentView === 'settings') await UI.renderSettings();
         if (this.currentView === 'dashboard') await UI.renderDashboard();
         if (this.currentView === 'locations') await UI.renderLocations();
+    },
+
+    async changePassword() {
+        const passwordInput = document.getElementById('settings-new-password');
+        const confirmInput = document.getElementById('settings-confirm-password');
+        const errorDiv = document.getElementById('password-change-error');
+        const successDiv = document.getElementById('password-change-success');
+        const btn = document.getElementById('change-password-btn');
+
+        const password = passwordInput.value;
+        const confirm = confirmInput.value;
+
+        errorDiv.classList.add('hidden');
+        successDiv.classList.add('hidden');
+
+        if (!password || password.length < 6) {
+            errorDiv.textContent = 'הסיסמה חייבת להכיל לפחות 6 תווים';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        if (password !== confirm) {
+            errorDiv.textContent = 'הסיסמאות אינן תואמות';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner"></span> מעדכן...';
+
+        const result = await Auth.updatePassword(password);
+
+        if (result.success) {
+            successDiv.textContent = 'הסיסמה עודכנה בהצלחה!';
+            successDiv.classList.remove('hidden');
+            passwordInput.value = '';
+            confirmInput.value = '';
+            
+            // Log action
+            await Store.logAction('עדכון סיסמה', 'המשתמש עדכן את סיסמת ההתחברות', 'settings');
+        } else {
+            errorDiv.textContent = result.error;
+            errorDiv.classList.remove('hidden');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    },
+
+    async exportData() {
+        const btn = document.getElementById('export-data-btn');
+        const status = document.getElementById('export-status');
+        const checkboxes = document.querySelectorAll('.export-checkbox:checked');
+        
+        if (checkboxes.length === 0) {
+            alert('נא לבחור לפחות סוג נתונים אחד לייצוא.');
+            return;
+        }
+
+        const selectedTypes = Array.from(checkboxes).map(cb => cb.value);
+        
+        btn.disabled = true;
+        status.classList.remove('hidden');
+
+        try {
+            // Create a new workbook
+            const wb = XLSX.utils.book_new();
+
+            // Fetch and add each selected data type as a sheet
+            for (const type of selectedTypes) {
+                let data = [];
+                let sheetName = '';
+                let columns = [];
+
+                switch (type) {
+                    case 'clients':
+                        const clients = await Store.getClients();
+                        sheetName = 'לקוחות';
+                        data = clients.map(c => ({
+                            'שם': c.name,
+                            'טלפון': c.phone,
+                            'מקור': UI.getSourceLabel(c.source),
+                            'עיר': c.city || '',
+                            'אימייל': c.email || '',
+                            'אינסטגרם': c.instagram || '',
+                            'תאריך הצטרפות': new Date(c.created_at).toLocaleDateString('he-IL')
+                        }));
+                        break;
+                    case 'projects':
+                        const projects = await Store.getProjects();
+                        sheetName = 'פרויקטים';
+                        data = projects.map(p => ({
+                            'שם הפרויקט': p.name,
+                            'לקוח': p.clients?.name || 'לא ידוע',
+                            'תאריך צילום': p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : '',
+                            'שעה': p.shoot_time || '',
+                            'סטטוס': Store.getStatusInfo(p.status || 'new').label,
+                            'לוקיישן': p.location || '',
+                            'מחיר כולל': p.payments?.total || 0,
+                            'שולם מקדמה': p.payments?.deposit || 0,
+                            'סטטוס תשלום': p.payment_status === 'paid_full' ? 'שולם' : (p.payment_status === 'deposit' ? 'מקדמה' : 'לא שולם'),
+                            'סיבה אם לא נסגר': p.not_closed_reason || ''
+                        }));
+                        break;
+                    case 'tasks':
+                        const tasks = await Store.getAllTasks();
+                        sheetName = 'משימות';
+                        data = tasks.map(t => ({
+                            'משימה': t.content,
+                            'פרויקט': t.projects?.name || 'כללי',
+                            'קטגוריה': t.category === 'shoot' ? 'צילום' : (t.category === 'equipment' ? 'ציוד' : 'אחר'),
+                            'בוצע': t.is_completed ? 'כן' : 'לא',
+                            'תאריך יעד': t.due_date ? new Date(t.due_date).toLocaleDateString('he-IL') : '',
+                            'נוצרה ב': new Date(t.created_at).toLocaleDateString('he-IL')
+                        }));
+                        break;
+                    case 'logs':
+                        const logs = await Store.getActionLogs();
+                        sheetName = 'יומן פעולות';
+                        data = logs.map(l => ({
+                            'תאריך': new Date(l.created_at).toLocaleString('he-IL'),
+                            'פעולה': l.action,
+                            'פרטים': l.details
+                        }));
+                        break;
+                    case 'packages':
+                        const packages = await Store.getPackages();
+                        sheetName = 'חבילות';
+                        data = packages.map(p => ({
+                            'שם החבילה': p.name,
+                            'מחיר': p.price,
+                            'משך זמן': p.duration || ''
+                        }));
+                        break;
+                    case 'locations':
+                        const locations = await Store.getLocations();
+                        sheetName = 'לוקיישנים';
+                        const regionMap = { 'center': 'מרכז', 'north': 'צפון', 'south': 'דרום', 'jerusalem': 'ירושלים', 'sharon': 'שרון' };
+                        const typeMap = { 'urban': 'אורבני', 'nature': 'טבע', 'beach': 'ים', 'village': 'כפרי' };
+                        data = locations.map(l => ({
+                            'שם': l.title,
+                            'אזור': regionMap[l.region] || l.region,
+                            'סוג': typeMap[l.type] || l.type,
+                            'תיאור': l.description
+                        }));
+                        break;
+                    case 'notes':
+                        const allNotes = await Store.getNotes();
+                        sheetName = 'הערות';
+                        data = allNotes.map(n => ({
+                            'תוכן': n.content,
+                            'סוג': n.client_id ? 'לקוח' : (n.project_id ? 'פרויקט' : 'כללי'),
+                            'תאריך': new Date(n.created_at).toLocaleString('he-IL')
+                        }));
+                        break;
+                }
+
+                if (data.length > 0) {
+                    const ws = XLSX.utils.json_to_sheet(data, { header: Object.keys(data[0]) });
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                } else {
+                    // Even if empty, create a dummy sheet to avoid errors if all are empty
+                    const ws = XLSX.utils.json_to_sheet([{ 'מידע': 'אין נתונים זמינים' }]);
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                }
+            }
+
+            // Generate file name with current date
+            const dateStr = new Date().toISOString().split('T')[0];
+            const fileName = `Centra_Export_${dateStr}.xlsx`;
+
+            // Download file
+            XLSX.writeFile(wb, fileName);
+
+            // Log action
+            await Store.logAction('ייצוא נתונים', `בוצע ייצוא לקובץ אקסל עבור: ${selectedTypes.join(', ')}`, 'settings');
+
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('חלה שגיאה בייצוא הנתונים. נא לנסות שוב.');
+        } finally {
+            btn.disabled = false;
+            status.classList.add('hidden');
+        }
     },
 
     applyGender() {

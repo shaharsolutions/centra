@@ -694,6 +694,87 @@ const UI = {
                 <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
+                            <h2 class="section-title">אבטחה וחיבור</h2>
+                            <p class="section-desc">שינוי סיסמת התחברות למערכת.</p>
+                        </div>
+                    </div>
+                    <div class="card-list" style="padding: 20px;">
+                        <div style="display: flex; flex-direction: column; gap: 16px; max-width: 400px;">
+                            <div class="form-group">
+                                <label for="settings-new-password">סיסמה חדשה</label>
+                                <input type="password" id="settings-new-password" placeholder="לפחות 6 תווים" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-confirm-password">אימות סיסמה</label>
+                                <input type="password" id="settings-confirm-password" placeholder="הקלידי שוב את הסיסמה" style="width: 100%;">
+                            </div>
+                            
+                            <div id="password-change-error" class="hidden" style="color: #EF4444; background: #FEF2F2; padding: 10px; border-radius: 8px; font-size: 0.85rem;"></div>
+                            <div id="password-change-success" class="hidden" style="color: #059669; background: #ECFDF5; padding: 10px; border-radius: 8px; font-size: 0.85rem;"></div>
+
+                            <button id="change-password-btn" class="btn btn-primary" onclick="app.changePassword()" style="align-self: flex-start; margin-top: 8px;">
+                                עדכון סיסמה
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
+                    <div class="section-header">
+                        <div class="header-text">
+                            <h2 class="section-title">ייצוא נתונים</h2>
+                            <p class="section-desc">ייצוא כל הנתונים השמורים במערכת לקובץ אקסל (Excel).</p>
+                        </div>
+                    </div>
+                    <div class="card-list" style="padding: 20px;">
+                        <div style="display: flex; flex-direction: column; gap: 20px;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+                                    <input type="checkbox" class="export-checkbox" value="clients" checked>
+                                    <span>לקוחות</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+                                    <input type="checkbox" class="export-checkbox" value="projects" checked>
+                                    <span>פרויקטים</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+                                    <input type="checkbox" class="export-checkbox" value="tasks" checked>
+                                    <span>משימות</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+                                    <input type="checkbox" class="export-checkbox" value="logs" checked>
+                                    <span>יומן פעולות</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+                                    <input type="checkbox" class="export-checkbox" value="packages" checked>
+                                    <span>חבילות</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+                                    <input type="checkbox" class="export-checkbox" value="locations" checked>
+                                    <span>לוקיישנים</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+                                    <input type="checkbox" class="export-checkbox" value="notes" checked>
+                                    <span>הערות (יומן)</span>
+                                </label>
+                            </div>
+                            
+                            <div id="export-status" class="hidden" style="color: var(--primary); background: var(--primary-light); padding: 10px; border-radius: 8px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">
+                                <span class="spinner"></span>
+                                מכין את הקובץ להורדה...
+                            </div>
+
+                            <button id="export-data-btn" class="btn btn-secondary" onclick="app.exportData()" style="align-self: flex-start; display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="download" style="width: 18px; height: 18px;"></i>
+                                ייצוא לאקסל
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
+                    <div class="section-header">
+                        <div class="header-text">
                             <h2 class="section-title">הגדרות אזוריות</h2>
                             <p class="section-desc">התאמת זמני השבת לפי המיקום שלך.</p>
                         </div>

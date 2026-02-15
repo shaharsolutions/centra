@@ -1235,11 +1235,27 @@ const Store = {
     },
 
     getUserGender() {
+        const metadataGender = Auth.session?.user?.user_metadata?.gender;
+        if (metadataGender) {
+            localStorage.setItem('user_gender', metadataGender);
+            return metadataGender;
+        }
         return localStorage.getItem('user_gender') || 'female';
     },
 
-    setUserGender(gender) {
+    async setUserGender(gender) {
         localStorage.setItem('user_gender', gender);
+        
+        // Sync with Supabase if logged in
+        if (Auth.getUserId()) {
+            try {
+                await sb.auth.updateUser({
+                    data: { gender: gender }
+                });
+            } catch (e) {
+                console.warn('Failed to sync gender with Supabase:', e.message);
+            }
+        }
     },
 
     async fixLegacyTaskNames() {
