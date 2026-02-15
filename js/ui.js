@@ -364,9 +364,15 @@ const UI = {
         let html = `
             <div class="calendar-wrapper" style="background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 20px; border: 1px solid var(--border);">
                 <div class="calendar-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; direction: rtl;">
-                    <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(1)"><i data-lucide="chevron-right"></i></button>
+                    <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(-1)" style="display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="chevron-right"></i>
+                        <span>הקודם</span>
+                    </button>
                     <h2 style="font-size:1.25rem; font-weight:700;">${monthNames[currentMonth]} ${currentYear}</h2>
-                    <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(-1)"><i data-lucide="chevron-left"></i></button>
+                    <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(1)" style="display: flex; align-items: center; gap: 4px;">
+                        <span>הבא</span>
+                        <i data-lucide="chevron-left"></i>
+                    </button>
                 </div>
 
                 <div class="calendar-grid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;">
