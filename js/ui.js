@@ -524,7 +524,7 @@ const UI = {
                             <div class="item-info">
                                 <span class="item-name">${p.name}</span>
                                 <div style="display:flex; gap:8px; align-items:center;">
-                                    <span class="item-sub">${new Date(p.shoot_date).toLocaleDateString('he-IL')} | ${p.clients?.name}</span>
+                                    <span class="item-sub">${new Date(p.shoot_date).toLocaleDateString('he-IL')} | ${p.clients?.name || 'לקוח לא ידוע'}</span>
                                     ${p.drive_link ? `<a href="${p.drive_link}" target="_blank" style="color:var(--primary); text-decoration:none; font-size:0.8rem; display:flex; align-items:center; gap:4px;"><i data-lucide="external-link" style="width:12px;"></i> גוגל דרייב</a>` : ''}
                                 </div>
                             </div>

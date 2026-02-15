@@ -995,3 +995,32 @@ input:focus, select:focus, textarea:focus {
     outline: none;
     box-shadow: 0 0 0 3px var(--primary-light);
 }
+/* Spinner Animation */
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+#auth-overlay input:focus {
+    box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+.log-client-link {
+    cursor: pointer;
+    color: var(--primary);
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.log-client-link:hover {
+    color: #4C1D95;
+}

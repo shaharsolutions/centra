@@ -113,6 +113,7 @@ const Store = {
 
     // Clients
     async getClients() {
+        if (!Auth.getUserId()) return [];
         let dbClients = [];
         let localClients = JSON.parse(localStorage.getItem('local_clients') || '[]');
 
@@ -165,7 +166,8 @@ const Store = {
         const dbClient = {
             name: client.name,
             phone: client.phone,
-            source: client.source
+            source: client.source,
+            user_id: Auth.getUserId()
         };
 
         let savedClientData = null;
@@ -213,10 +215,21 @@ const Store = {
     async deleteClient(id) {
         const { error } = await sb.from('clients').delete().eq('id', id);
         if (error) throw error;
+
+        // Sync with local storage
+        let localClients = JSON.parse(localStorage.getItem('local_clients') || '[]');
+        localClients = localClients.filter(c => String(c.id) !== String(id));
+        localStorage.setItem('local_clients', JSON.stringify(localClients));
+
+        // Remove extras
+        const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
+        delete localExtras[id];
+        localStorage.setItem('local_client_extras', JSON.stringify(localExtras));
     },
 
     // Projects
     async getProjects(clientId = null) {
+        if (!Auth.getUserId()) return [];
         let dbProjects = [];
         let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
 
@@ -263,6 +276,8 @@ const Store = {
         const localTimes = JSON.parse(localStorage.getItem('local_project_times') || '{}');
         const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
 
+        const clients = await this.getClients();
+        
         return allProjects.map(p => {
             // Normalize clients field
             let normalizedClients = p.clients;
@@ -270,6 +285,14 @@ const Store = {
                 normalizedClients = p.clients[0];
             } else if (p.clients && typeof p.clients === 'object' && !p.clients.name) {
                 normalizedClients = null;
+            }
+
+            // Fallback: If name is still missing, try to find it in the clients list by ID
+            if ((!normalizedClients || !normalizedClients.name) && p.client_id) {
+                const foundClient = clients.find(c => String(c.id) === String(p.client_id));
+                if (foundClient) {
+                    normalizedClients = { name: foundClient.name };
+                }
             }
             
             const pid = p.id;
@@ -304,7 +327,8 @@ const Store = {
             subjects_details: project.subjectsDetails,
             shoot_time: project.shootTime || null,
             styling_call: project.stylingCall,
-            status_date: new Date().toISOString()
+            status_date: new Date().toISOString(),
+            user_id: Auth.getUserId()
         };
 
         try {
@@ -456,10 +480,33 @@ const Store = {
     async deleteProject(id) {
         const { error } = await sb.from('projects').delete().eq('id', id);
         if (error) throw error;
+
+        // Sync with local storage
+        let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
+        localProjects = localProjects.filter(p => String(p.id) !== String(id));
+        localStorage.setItem('local_projects', JSON.stringify(localProjects));
+
+        // Clean up extras
+        const extraKeys = [
+            'local_project_locations',
+            'local_project_payment_statuses',
+            'local_project_reasons',
+            'local_project_subjects',
+            'local_project_times',
+            'local_project_styling'
+        ];
+        extraKeys.forEach(key => {
+            const data = JSON.parse(localStorage.getItem(key) || '{}');
+            if (data[id]) {
+                delete data[id];
+                localStorage.setItem(key, JSON.stringify(data));
+            }
+        });
     },
 
     // Packages
     async getPackages() {
+        if (!Auth.getUserId()) return [];
         let dbPackages = [];
         let localPackages = JSON.parse(localStorage.getItem('local_packages') || '[]');
 
@@ -488,7 +535,7 @@ const Store = {
     },
 
     async savePackage(pkg) {
-        const dbData = { name: pkg.name, price: pkg.price };
+        const dbData = { name: pkg.name, price: pkg.price, user_id: Auth.getUserId() };
         let savedPackageData = null;
 
         try {
@@ -543,7 +590,20 @@ const Store = {
     },
 
     async deletePackage(id) {
-        await sb.from('packages').delete().eq('id', id);
+        const { error } = await sb.from('packages').delete().eq('id', id);
+        if (error) throw error;
+
+        // Sync with local storage
+        let localPackages = JSON.parse(localStorage.getItem('local_packages') || '[]');
+        localPackages = localPackages.filter(p => String(p.id) !== String(id));
+        localStorage.setItem('local_packages', JSON.stringify(localPackages));
+
+        // Remove extra duration if stored
+        const localPackageExtras = JSON.parse(localStorage.getItem('local_package_extras') || '{}');
+        if (localPackageExtras[id]) {
+            delete localPackageExtras[id];
+            localStorage.setItem('local_package_extras', JSON.stringify(localPackageExtras));
+        }
     },
 
     // Notes (Journal)
@@ -561,7 +621,8 @@ const Store = {
         const dbNote = {
             content,
             client_id: clientId,
-            project_id: projectId
+            project_id: projectId,
+            user_id: Auth.getUserId()
         };
         const { error } = await sb.from('notes').insert([dbNote]);
         if (error) throw error;
@@ -579,6 +640,7 @@ const Store = {
 
     // Action Logs
     async getActionLogs(limit = 100) {
+        if (!Auth.getUserId()) return [];
         try {
             const { data, error } = await sb
                 .from('action_logs')
@@ -603,7 +665,8 @@ const Store = {
             details,
             entity_type: entityType,
             entity_id: entityId,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            user_id: Auth.getUserId()
         };
 
         try {
@@ -815,7 +878,8 @@ const Store = {
                     content: item.content,
                     is_completed: isCompleted,
                     category: item.category || 'task',
-                    due_date: dueDate
+                    due_date: dueDate,
+                    user_id: Auth.getUserId()
                 };
 
                 // Only add notes if the column is known to exist
@@ -1256,6 +1320,7 @@ const Store = {
 
     // Locations
     async getLocations() {
+        if (!Auth.getUserId()) return [];
         const mapDefault = (locs) => locs.map(l => ({ ...l, id: `default-${l.id}`, isCustom: false }));
         try {
             const { data, error } = await sb.from('locations').select('*').order('title');
@@ -1276,7 +1341,8 @@ const Store = {
             title: location.title,
             region: location.region,
             type: location.type,
-            description: location.description
+            description: location.description,
+            user_id: Auth.getUserId()
         };
 
         try {

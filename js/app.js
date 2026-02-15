@@ -6,7 +6,11 @@ const app = {
     editingTaskId: null,
     currentCalendarDate: new Date(),
 
+    initialized: false,
+
     async init() {
+        if (!Auth.session || this.initialized) return;
+        this.initialized = true;
         await Store.init();
         this.applyGender();
         this.addEventListeners();
@@ -597,14 +601,27 @@ const app = {
             website: document.getElementById('client-website').value
         };
         const isNew = !this.editingClientId;
-        const savedClient = await Store.saveClient(client);
-        
-        // Log action
-        const action = isNew ? 'הוספת לקוח' : 'עדכון פרטי לקוח';
-        await Store.logAction(action, isNew ? `לקוח/ה חדש/ה נוסף/פה: ${savedClient.name}` : `פרטי הלקוח/ה ${savedClient.name} עודכנו`, 'client', savedClient.id);
+        const submitBtn = document.getElementById('save-client-btn');
+        const originalText = submitBtn.innerText;
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'שומר...';
 
-        this.closeModal();
-        await this.navigate(this.currentView);
+        try {
+            const savedClient = await Store.saveClient(client);
+            
+            // Log action
+            const action = isNew ? 'הוספת לקוח' : 'עדכון פרטי לקוח';
+            await Store.logAction(action, isNew ? `לקוח/ה חדש/ה נוסף/פה: ${savedClient.name}` : `פרטי הלקוח/ה ${savedClient.name} עודכנו`, 'client', savedClient.id);
+
+            this.closeModal();
+            await this.navigate(this.currentView);
+        } catch (error) {
+            console.error('Save client error:', error);
+            alert('חלה שגיאה בשמירת הלקוח.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = originalText;
+        }
     },
 
     async handleProjectSubmit() {
@@ -632,18 +649,31 @@ const app = {
             driveLink: document.getElementById('project-drive').value,
             location: document.getElementById('project-location').value
         };
-        const savedProject = await Store.saveProject(project);
-        
-        // Log action
-        const action = isNew ? 'פרויקט חדש' : 'עדכון פרויקט';
-        let clientDisplayName = '';
-        if (savedProject?.clients?.name) {
-            clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${savedProject.client_id}')">${savedProject.clients.name}</span>)`;
-        }
-        await Store.logAction(action, isNew ? `פרויקט חדש נוצר: ${savedProject.name}${clientDisplayName}` : `פרטי הפרויקט ${savedProject.name}${clientDisplayName} עודכנו`, 'project', savedProject.id);
+        const submitBtn = document.getElementById('save-project-btn');
+        const originalText = submitBtn.innerText;
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'שומר...';
 
-        this.closeModal();
-        await this.navigate(this.currentView);
+        try {
+            const savedProject = await Store.saveProject(project);
+            
+            // Log action
+            const action = isNew ? 'פרויקט חדש' : 'עדכון פרויקט';
+            let clientDisplayName = '';
+            if (savedProject?.clients?.name) {
+                clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${savedProject.client_id}')">${savedProject.clients.name}</span>)`;
+            }
+            await Store.logAction(action, isNew ? `פרויקט חדש נוצר: ${savedProject.name}${clientDisplayName}` : `פרטי הפרויקט ${savedProject.name}${clientDisplayName} עודכנו`, 'project', savedProject.id);
+
+            this.closeModal();
+            await this.navigate(this.currentView);
+        } catch (error) {
+            console.error('Save project error:', error);
+            alert('חלה שגיאה בשמירת הפרויקט.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = originalText;
+        }
     },
 
     async importDefaults(category) {
@@ -746,12 +776,10 @@ const app = {
         }
 
         // SEO/Meta
-        document.title = isMale ? 'Centra | ניהול עסק לצלמים' : 'Centra | ניהול עסק לצלמות';
+        document.title = 'ניהול עסק לצילום | Centra';
         const metaDesc = document.querySelector('meta[name="description"]');
         if (metaDesc) {
-            metaDesc.content = isMale 
-                ? 'Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לצלם המקצועי.' 
-                : 'Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לצלמת המקצועית.';
+            metaDesc.content = 'Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לעסק לצילום.';
         }
     },
 
@@ -1454,4 +1482,6 @@ const app = {
 };
 
 window.app = app;
-document.addEventListener('DOMContentLoaded', () => app.init());
+document.addEventListener('DOMContentLoaded', () => {
+    // Auth.init will call app.init() once session is confirmed
+});
