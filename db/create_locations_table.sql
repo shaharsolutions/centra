@@ -8,14 +8,19 @@ CREATE TABLE IF NOT EXISTS locations (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Add user_id column for multi-user support
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
+
 -- Enable Row Level Security
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 
--- Create policy to allow all operations (adjust based on your auth needs)
-CREATE POLICY "Allow all operations on locations" ON locations
+-- Create policy to allow users to manage ONLY their own locations
+DROP POLICY IF EXISTS "Allow all operations on locations" ON locations;
+DROP POLICY IF EXISTS "Users can manage their own locations" ON locations;
+CREATE POLICY "Users can manage their own locations" ON locations
     FOR ALL
-    USING (true)
-    WITH CHECK (true);
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 -- Add index for faster queries
 CREATE INDEX IF NOT EXISTS idx_locations_region ON locations(region);
