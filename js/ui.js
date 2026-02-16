@@ -363,15 +363,36 @@ const UI = {
 
         let html = `
             <div class="calendar-wrapper" style="background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 20px; border: 1px solid var(--border);">
-                <div class="calendar-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; direction: rtl;">
-                    <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(-1)" style="display: flex; align-items: center; gap: 4px;">
-                        <i data-lucide="chevron-right"></i>
-                        <span>הקודם</span>
-                    </button>
-                    <h2 style="font-size:1.25rem; font-weight:700;">${monthNames[currentMonth]} ${currentYear}</h2>
-                    <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(1)" style="display: flex; align-items: center; gap: 4px;">
-                        <span>הבא</span>
-                        <i data-lucide="chevron-left"></i>
+                <div class="calendar-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; direction: rtl; flex-wrap: wrap; gap: 12px;">
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(-1)" style="display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="chevron-right"></i>
+                            <span class="desktop-only">הקודם</span>
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(1)" style="display: flex; align-items: center; gap: 4px;">
+                            <span class="desktop-only">הבא</span>
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; align-items: center; background: var(--bg-main); padding: 4px 16px; border-radius: 30px; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+                        <select id="calendar-month-select" onchange="app.goToSelectedDate()" style="background: transparent; border: none; font-size: 1.1rem; font-weight: 700; color: var(--text-main); cursor: pointer; padding: 4px 8px; font-family: inherit; width: auto; min-width: 90px; text-align: center;">
+                            ${monthNames.map((name, index) => `<option value="${index}" ${index === currentMonth ? 'selected' : ''}>${name}</option>`).join('')}
+                        </select>
+                        <select id="calendar-year-select" onchange="app.goToSelectedDate()" style="background: transparent; border: none; font-size: 1.1rem; font-weight: 700; color: var(--text-main); cursor: pointer; padding: 4px 8px; font-family: inherit; width: auto; text-align: center;">
+                            ${(() => {
+                                const years = [];
+                                for (let y = currentYear - 5; y <= currentYear + 10; y++) {
+                                    years.push(`<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`);
+                                }
+                                return years.join('');
+                            })()}
+                        </select>
+                    </div>
+
+                    <button class="btn btn-secondary btn-sm" onclick="app.currentCalendarDate = new Date(); app.navigate('calendar')" style="display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="calendar"></i>
+                        <span>היום</span>
                     </button>
                 </div>
 
@@ -797,6 +818,36 @@ const UI = {
                             <select id="settings-city-select" onchange="app.updateCalendarCity(this.value)" style="flex: 1; max-width: 300px;">
                                 ${cities.map(c => `<option value="${c.id}" ${c.id === currentCity ? 'selected' : ''}>${c.name}</option>`).join('')}
                             </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
+                    <div class="section-header">
+                        <div class="header-text">
+                            <h2 class="section-title">הגדרות ארכיון אוטומטי</h2>
+                            <p class="section-desc">ניהול המעבר האוטומטי של פרויקטים לארכיון.</p>
+                        </div>
+                    </div>
+                    <div class="card-list" style="padding: 20px;">
+                        <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
+                                <i data-lucide="archive" style="color: var(--primary);"></i>
+                                <div>
+                                    <div style="font-weight: 600;">זמן לארכוב פרויקטים ש"פורסמו"</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">כמה זמן פרויקט יישאר בעמודה "פורסם" לפני שיעבור לארכיון.</div>
+                                </div>
+                            </div>
+                            <select id="settings-archive-delay" onchange="Store.setArchiveDelay(this.value); Store.logAction('עדכון הגדרות ארכיון', 'זמן ארכוב פרויקטים פורסמו שונה ל-' + this.value + ' ימים')" style="flex: 1; max-width: 300px;">
+                                <option value="7" ${Store.getArchiveDelay() === 7 ? 'selected' : ''}>שבוע</option>
+                                <option value="14" ${Store.getArchiveDelay() === 14 ? 'selected' : ''}>שבועיים</option>
+                                <option value="30" ${Store.getArchiveDelay() === 30 ? 'selected' : ''}>חודש</option>
+                                <option value="90" ${Store.getArchiveDelay() === 90 ? 'selected' : ''}>3 חודשים</option>
+                            </select>
+                        </div>
+                        <div style="margin-top: 16px; padding: 12px; background: #F9FAFB; border-radius: 8px; font-size: 0.85rem; color: var(--text-muted);">
+                            <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle; margin-left: 4px;"></i>
+                            <strong>שימי לב:</strong> פרויקטים בסטטוס "נמסר" <u>ללא</u> אישור פרסום יעברו אוטומטית לארכיון לאחר שבוע. פרויקטים <u>עם</u> אישור פרסום יישארו בעמודה עד שתעבירי אותם ל"פורסם".
                         </div>
                     </div>
                 </section>

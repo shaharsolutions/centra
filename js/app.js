@@ -481,6 +481,7 @@ const app = {
             document.getElementById('project-subjects-count').value = p.subjects_count || '';
             document.getElementById('project-subjects-details').value = p.subjects_details || '';
             document.getElementById('project-styling-call').value = p.styling_call || 'none';
+            document.getElementById('project-publication-approval').checked = p.publication_approval || false;
             document.getElementById('project-status').value = p.status || 'new';
             document.getElementById('project-payment-status').value = p.payment_status || 'not_paid';
             document.getElementById('not-closed-reason').value = p.not_closed_reason || '';
@@ -641,6 +642,7 @@ const app = {
             subjectsCount: document.getElementById('project-subjects-count').value,
             subjectsDetails: document.getElementById('project-subjects-details').value,
             stylingCall: document.getElementById('project-styling-call').value,
+            publicationApproval: document.getElementById('project-publication-approval').checked,
             paymentStatus: document.getElementById('project-payment-status').value, // Use explicit value from select
             payments: {
                 total: total,
@@ -1166,34 +1168,19 @@ const app = {
         }
     },
 
-    async updateStatus(id, newStatus) {
+    async updateStatus(id, status) {
         try {
-            await Store.updateProjectStatus(id, newStatus);
-            
-            // Log action
+            await Store.updateProjectStatus(id, status);
             const projects = await Store.getProjects();
-            const p = projects.find(proj => String(proj.id) === String(id));
-            let clientDisplayName = '';
-            if (p?.clients?.name) {
-                clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${p.client_id}')">${p.clients.name}</span>)`;
-            } else if (p?.client_id) {
-                const clients = await Store.getClients();
-                const c = clients.find(cust => String(cust.id) === String(p.client_id));
-                if (c) clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${c.id}')">${c.name}</span>)`;
-            }
-            const statusLabel = Store.defaults.statuses.find(s => s.id === newStatus)?.label || newStatus;
-            await Store.logAction('עדכון סטטוס', `סטטוס הפרויקט "${p?.name || 'לא ידוע'}${clientDisplayName}" שונה ל-"${statusLabel}"`, 'project', id);
-
-            // Sync modal if open for this project
-            if (this.editingProjectId === id) {
-                const statusSelect = document.getElementById('project-status');
-                if (statusSelect) statusSelect.value = newStatus;
-                this.toggleNotClosedReason(newStatus);
-            }
-
+            const p = projects.find(proj => proj.id === id);
+            const statusLabel = Store.defaults.statuses.find(s => s.id === status)?.label || status;
+            const clientName = p?.clients?.name ? ` (<span class="log-client-link" onclick="app.viewClient('${p.client_id}')">${p.clients.name}</span>)` : '';
+            await Store.logAction('עדכון סטטוס', `הסטטוס של הפרויקט ${p?.name}${clientName} שונה ל: ${statusLabel}`, 'project', id);
+            
             if (this.currentView === 'projects') await UI.renderProjects();
-            if (this.currentView === 'calendar') await UI.renderCalendar();
-            else await this.navigate(this.currentView);
+            else if (this.currentView === 'calendar') await UI.renderCalendar();
+            else if (this.currentView === 'archive') await UI.renderArchive();
+            else if (this.editingProjectId === id) await this.openProjectModal('פרטי פרויקט', id);
         } catch (error) {
             console.error('Update status error:', error);
         }
@@ -1598,9 +1585,16 @@ const app = {
         }
     },
 
-    changeMonth(delta) {
+    async changeMonth(delta) {
         this.currentCalendarDate.setMonth(this.currentCalendarDate.getMonth() + delta);
-        UI.renderCalendar();
+        await UI.renderCalendar();
+    },
+
+    async goToSelectedDate() {
+        const month = parseInt(document.getElementById('calendar-month-select').value);
+        const year = parseInt(document.getElementById('calendar-year-select').value);
+        this.currentCalendarDate = new Date(year, month, 1);
+        await UI.renderCalendar();
     },
 
     async loadProjectDefaults(projectId) {

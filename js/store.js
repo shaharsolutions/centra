@@ -12,7 +12,8 @@ const Store = {
             { id: 'shooting', label: 'בצילום', class: 'badge-shooting' },
             { id: 'editing', label: 'בעריכה', class: 'badge-editing' },
             { id: 'delivered', label: 'נמסר', class: 'badge-delivered' },
-            { id: 'published', label: 'פורסם', class: 'badge-published' }
+            { id: 'published', label: 'פורסם', class: 'badge-published' },
+            { id: 'archived', label: 'ארכיון', class: 'badge-archived' }
         ],
         locations: [
             { id: 1, title: 'יפו העתיקה', region: 'center', type: 'urban', description: 'סמטאות אבן ציוריות, נמל עתיק ומבני אבן היסטוריים. מושלם לצילומי זוגות ואופנה.' },
@@ -275,6 +276,7 @@ const Store = {
         const localSubjects = JSON.parse(localStorage.getItem('local_project_subjects') || '{}');
         const localTimes = JSON.parse(localStorage.getItem('local_project_times') || '{}');
         const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
+        const localPubApproval = JSON.parse(localStorage.getItem('local_project_pub_approval') || '{}');
 
         const clients = await this.getClients();
         
@@ -305,7 +307,8 @@ const Store = {
                 subjects_count: p.subjects_count || localSubjects[pid]?.count || '',
                 subjects_details: p.subjects_details || localSubjects[pid]?.details || '',
                 shoot_time: p.shoot_time || localTimes[pid] || '',
-                styling_call: p.styling_call || localStyling[pid] || 'none'
+                styling_call: p.styling_call || localStyling[pid] || 'none',
+                publication_approval: p.publication_approval !== undefined ? p.publication_approval : (localPubApproval[pid] || false)
             };
         });
     },
@@ -327,6 +330,7 @@ const Store = {
             subjects_details: project.subjectsDetails,
             shoot_time: project.shootTime || null,
             styling_call: project.stylingCall,
+            publication_approval: project.publicationApproval || false,
             status_date: new Date().toISOString(),
             user_id: Auth.getUserId()
         };
@@ -355,6 +359,7 @@ const Store = {
                     delete fallbackProject.subjects_details;
                     delete fallbackProject.shoot_time;
                     delete fallbackProject.styling_call;
+                    delete fallbackProject.publication_approval;
                     
                     if (project.id && !String(project.id).startsWith('local_')) {
                         const { data, error } = await sb.from('projects').update(fallbackProject).eq('id', project.id).select('*, clients(name)');
@@ -396,6 +401,7 @@ const Store = {
         const localSubjects = JSON.parse(localStorage.getItem('local_project_subjects') || '{}');
         const localTimes = JSON.parse(localStorage.getItem('local_project_times') || '{}');
         const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
+        const localPubApproval = JSON.parse(localStorage.getItem('local_project_pub_approval') || '{}');
 
         const pid = finalProject.id;
         localLocations[pid] = project.location;
@@ -404,6 +410,7 @@ const Store = {
         localSubjects[pid] = { count: project.subjectsCount, details: project.subjectsDetails };
         localTimes[pid] = project.shootTime;
         localStyling[pid] = project.stylingCall;
+        localPubApproval[pid] = project.publicationApproval || false;
 
         localStorage.setItem('local_project_locations', JSON.stringify(localLocations));
         localStorage.setItem('local_project_payment_statuses', JSON.stringify(localPaymentStatuses));
@@ -411,6 +418,7 @@ const Store = {
         localStorage.setItem('local_project_subjects', JSON.stringify(localSubjects));
         localStorage.setItem('local_project_times', JSON.stringify(localTimes));
         localStorage.setItem('local_project_styling', JSON.stringify(localStyling));
+        localStorage.setItem('local_project_pub_approval', JSON.stringify(localPubApproval));
 
         // Add default tasks
         await this.addDefaultsToProject(finalProject.id, finalProject.shoot_date, { ...finalProject, clients: finalProject.clients || (await sb.from('clients').select('name').eq('id', finalProject.client_id).single()).data });
@@ -453,28 +461,49 @@ const Store = {
 
     async autoArchiveProjects() {
         try {
-            const projects = await this.getProjects();
+            const projects = await Store.getProjects();
             const now = new Date();
-            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+            const archiveDelay = this.getArchiveDelay(); // in days, default 30
 
             for (const project of projects) {
-                // Only archive if status is delivered or published
-                if (project.status === 'delivered' || project.status === 'published') {
-                    // Check if status_date is more than a week ago
+                let thresholdDays = null;
+
+                if (project.status === 'delivered') {
+                    if (!project.publication_approval) {
+                        // Delivered + NO approval -> archive after 1 week
+                        thresholdDays = 7;
+                    } else {
+                        // Delivered + WITH approval -> keep in column, don't auto-archive
+                        thresholdDays = null;
+                    }
+                } else if (project.status === 'published') {
+                    // Published -> archive after user-defined delay
+                    thresholdDays = archiveDelay;
+                }
+
+                if (thresholdDays !== null) {
                     const statusDateStr = project.status_date || project.updated_at || project.created_at;
                     const statusDate = statusDateStr ? new Date(statusDateStr) : null;
+                    const thresholdMs = thresholdDays * 24 * 60 * 60 * 1000;
                     
-                    if (statusDate && statusDate < oneWeekAgo) {
+                    if (statusDate && (now.getTime() - statusDate.getTime()) > thresholdMs) {
                         await this.updateProjectStatus(project.id, 'archived');
                         const clientName = project.clients?.name ? ` (<span class="log-client-link" onclick="app.viewClient('${project.client_id}')">${project.clients.name}</span>)` : '';
-                        await this.logAction('ארכוב אוטומטי', `הפרויקט "${project.name}${clientName}" הועבר לארכיון באופן אוטומטי`, 'project', project.id);
-                        console.log(`Auto-archived project: ${project.name}`);
+                        await this.logAction('ארכוב אוטומטי', `הפרויקט "${project.name}${clientName}" הועבר לארכיון באופן אוטומטי מסטטוס ${project.status === 'published' ? 'פורסם' : 'נמסר'}`, 'project', project.id);
                     }
                 }
             }
         } catch (e) {
             console.warn('Auto-archiving failed:', e.message);
         }
+    },
+
+    getArchiveDelay() {
+        return parseInt(localStorage.getItem('settings_archive_delay') || '30');
+    },
+
+    setArchiveDelay(days) {
+        localStorage.setItem('settings_archive_delay', days);
     },
 
     async deleteProject(id) {
