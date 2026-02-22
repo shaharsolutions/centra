@@ -715,37 +715,14 @@ input:focus, select:focus, textarea:focus {
 }
 
 @media (max-width: 768px) {
-    html, body {
-        height: 100%;
-        overflow: hidden;
-    }
-    #app {
-        height: 100vh;
-        height: 100dvh; /* Dynamic viewport height for mobile browsers */
-        overflow: hidden;
-    }
     .sidebar {
         display: none;
     }
     .main-content {
         margin-right: 0;
         padding: 24px 16px;
-        /* Padding-bottom is removed because Safari ignores it in flex/overflow combinations */
-        overflow-y: auto;
-        min-height: 0; /* Required for flex overflow to work */
-        flex: 1;
-        -webkit-overflow-scrolling: touch;
+        padding-bottom: 140px; /* Large space so content never hides behind the fixed mobile nav */
     }
-    
-    /* Dedicated spacer to ensure bottom content isn't swallowed by mobile nav */
-    .main-content::after {
-        content: "";
-        display: block;
-        height: 120px;
-        width: 100%;
-        flex-shrink: 0;
-    }
-    
     .mobile-nav {
         display: flex;
     }
