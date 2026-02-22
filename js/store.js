@@ -48,20 +48,26 @@ const Store = {
     },
 
     async init() {
-        // Silently check if checklist table exists and other limitations
-        this._checklistTableExists = localStorage.getItem('sb_checklists_missing') !== 'true';
-        this._notesColumnExists = localStorage.getItem('sb_checklists_notes_missing') !== 'true';
-        this._rlsChecklistEnabled = localStorage.getItem('sb_checklists_rls_blocked') !== 'true';
+        // Always retry Supabase connectivity on fresh session
+        // Clear cached failure flags so we re-check each time
+        localStorage.removeItem('sb_checklists_missing');
+        localStorage.removeItem('sb_checklists_rls_blocked');
+        localStorage.removeItem('sb_checklists_notes_missing');
 
-        if (this._checklistTableExists !== false) {
-            try {
-                const { error } = await sb.from('project_checklists').select('id', { count: 'exact', head: true }).limit(1);
-                if (error && (error.code === '42P01' || error.status === 404)) {
-                    this._checklistTableExists = false;
-                    localStorage.setItem('sb_checklists_missing', 'true');
-                }
-            } catch (e) {}
-        }
+        this._checklistTableExists = true;
+        this._notesColumnExists = true;
+        this._rlsChecklistEnabled = true;
+
+        try {
+            const { error } = await sb.from('project_checklists').select('id', { count: 'exact', head: true }).limit(1);
+            if (error && (error.code === '42P01' || error.status === 404)) {
+                this._checklistTableExists = false;
+                localStorage.setItem('sb_checklists_missing', 'true');
+            } else if (error && (error.code === '42501' || error.message?.includes('RLS') || error.message?.includes('policy'))) {
+                this._rlsChecklistEnabled = false;
+                localStorage.setItem('sb_checklists_rls_blocked', 'true');
+            }
+        } catch (e) {}
 
         this._actionLogsTableExists = localStorage.getItem('sb_action_logs_missing') !== 'true';
         if (this._actionLogsTableExists !== false) {
@@ -76,6 +82,9 @@ const Store = {
 
         // Clean up any existing duplicates in local storage occasionally
         if (Math.random() < 0.1) this.cleanupDuplicates();
+
+        // Sync local-only tasks to Supabase
+        await this.syncLocalTasksToSupabase().catch(e => console.warn('Sync local tasks failed:', e));
 
         const { data: packages, error } = await sb.from('packages').select('*');
         if (error) {
@@ -860,6 +869,84 @@ const Store = {
         if (uniqueItems.length !== localItems.length) {
             console.log(`Cleaned up ${localItems.length - uniqueItems.length} duplicate tasks from local storage.`);
             localStorage.setItem('local_checklists', JSON.stringify(uniqueItems));
+        }
+    },
+
+    async syncLocalTasksToSupabase() {
+        // Only sync if Supabase is available
+        if (this._checklistTableExists === false || this._rlsChecklistEnabled === false) {
+            console.log('Supabase checklists unavailable, skipping sync.');
+            return;
+        }
+
+        const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        const localOnlyItems = localItems.filter(t => String(t.id).startsWith('local_'));
+        
+        if (localOnlyItems.length === 0) return;
+        
+        console.log(`Syncing ${localOnlyItems.length} local-only tasks to Supabase...`);
+        let syncedCount = 0;
+
+        for (const item of localOnlyItems) {
+            try {
+                const dataToSave = {
+                    project_id: item.project_id || item.projectId || null,
+                    content: item.content,
+                    is_completed: item.is_completed || false,
+                    category: item.category || 'task',
+                    due_date: item.due_date || item.dueDate || null,
+                    user_id: Auth.getUserId()
+                };
+
+                // Try with notes column first
+                if (this._notesColumnExists !== false && item.notes) {
+                    dataToSave.notes = item.notes;
+                }
+
+                const { data, error } = await sb.from('project_checklists').insert([dataToSave]).select();
+                
+                if (error) {
+                    // Handle missing notes column
+                    if (error.message?.includes('notes') || error.code === '42703') {
+                        this._notesColumnExists = false;
+                        delete dataToSave.notes;
+                        const retry = await sb.from('project_checklists').insert([dataToSave]).select();
+                        if (retry.error) throw retry.error;
+                        if (retry.data && retry.data[0]) {
+                            // Replace local ID with Supabase ID
+                            this._replaceLocalId(item.id, retry.data[0].id);
+                            syncedCount++;
+                        }
+                    } else if (error.code === '42501' || error.message?.includes('RLS')) {
+                        // RLS is blocking — stop trying
+                        this._rlsChecklistEnabled = false;
+                        localStorage.setItem('sb_checklists_rls_blocked', 'true');
+                        console.warn('RLS blocking sync, stopping.');
+                        break;
+                    } else {
+                        throw error;
+                    }
+                } else if (data && data[0]) {
+                    // Success — replace local ID with Supabase ID
+                    this._replaceLocalId(item.id, data[0].id);
+                    syncedCount++;
+                }
+            } catch (e) {
+                console.warn(`Failed to sync task "${item.content}":`, e.message);
+            }
+        }
+        
+        if (syncedCount > 0) {
+            console.log(`Successfully synced ${syncedCount} tasks to Supabase.`);
+        }
+    },
+
+    _replaceLocalId(oldId, newId) {
+        const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        const idx = localItems.findIndex(i => i.id === oldId);
+        if (idx !== -1) {
+            localItems[idx].id = newId;
+            localStorage.setItem('local_checklists', JSON.stringify(localItems));
         }
     },
 
