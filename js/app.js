@@ -207,6 +207,29 @@ const app = {
                 }
             });
         });
+
+        // Mobile nav scroll hint: hide arrow after user scrolls
+        const navScroll = document.querySelector('.mobile-nav-scroll');
+        const navHint = document.getElementById('nav-scroll-hint');
+        const mobileNav = document.querySelector('.mobile-nav');
+        if (navScroll && navHint) {
+            let hasScrolled = false;
+            navScroll.addEventListener('scroll', () => {
+                // Hide the bounce arrow after first scroll
+                if (!hasScrolled) {
+                    hasScrolled = true;
+                    navHint.classList.add('hidden-hint');
+                }
+                // Toggle gradient fade based on scroll position (RTL: scrollLeft is negative)
+                const scrollLeft = navScroll.scrollLeft;
+                const maxScroll = navScroll.scrollWidth - navScroll.clientWidth;
+                // In RTL scrollLeft goes from 0 to negative (or stays at 0 for no-scroll)
+                const atEnd = Math.abs(scrollLeft) >= maxScroll - 5;
+                if (mobileNav) {
+                    mobileNav.classList.toggle('scrolled-end', atEnd);
+                }
+            });
+        }
     },
 
     confirmAction(title, desc, onConfirm, isAlert = false) {

@@ -597,32 +597,94 @@ input:focus, select:focus, textarea:focus {
     right: 0;
     background: white;
     border-top: 1px solid var(--border);
-    padding: 12px 8px;
-    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 8px);
-    justify-content: space-around;
-    align-items: center;
     z-index: 1000;
     box-shadow: 0 -4px 12px -2px rgba(0, 0, 0, 0.08);
+    align-items: stretch;
+}
+
+/* Gradient fade on left edge to hint more content */
+.mobile-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 32px;
+    background: linear-gradient(to left, transparent, rgba(255,255,255,0.95));
+    z-index: 2;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.mobile-nav.scrolled-end::before {
+    opacity: 0;
+}
+
+/* Scrollable inner container */
+.mobile-nav-scroll {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 8px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex: 1;
+}
+
+.mobile-nav-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* Scroll hint indicator arrow */
+.mobile-nav-scroll-hint {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-60%);
+    z-index: 3;
+    color: var(--primary);
+    opacity: 0.85;
+    animation: scrollHintBounce 1.2s ease-in-out infinite;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.mobile-nav-scroll-hint i {
+    width: 18px;
+    height: 18px;
+}
+
+.mobile-nav-scroll-hint.hidden-hint {
+    opacity: 0;
+}
+
+@keyframes scrollHintBounce {
+    0%, 100% { transform: translateY(-60%) translateX(0); }
+    50% { transform: translateY(-60%) translateX(-5px); }
 }
 
 .mobile-nav-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     cursor: pointer;
     transition: all 0.25s ease;
-    flex: 1;
-    max-width: 80px;
-    padding: 8px 4px;
+    flex-shrink: 0;
+    min-width: 58px;
+    padding: 8px 6px;
     border-radius: var(--radius-md);
+    white-space: nowrap;
 }
 
 .mobile-nav-item i {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
 }
 
 .mobile-nav-item.active {
@@ -742,19 +804,16 @@ input:focus, select:focus, textarea:focus {
         height: 20px;
     }
     
-    /* Hide text labels in mobile nav on very small screens */
-    .mobile-nav-item span {
-        display: none;
-    }
-    
+    /* Adjust mobile nav items for smaller screens */
     .mobile-nav-item {
-        gap: 0;
-        padding: 10px 4px;
+        min-width: 52px;
+        padding: 8px 5px;
+        font-size: 0.65rem;
     }
     
     .mobile-nav-item i {
-        width: 26px;
-        height: 26px;
+        width: 20px;
+        height: 20px;
     }
 }
 
