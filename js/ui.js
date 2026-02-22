@@ -755,7 +755,7 @@ const UI = {
                     </div>
                     <div class="card-list" style="padding: 20px;">
                         <div style="display: flex; flex-direction: column; gap: 20px;">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+                            <div class="export-grid">
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
                                     <input type="checkbox" class="export-checkbox" value="clients" checked>
                                     <span>לקוחות</span>
@@ -888,7 +888,7 @@ const UI = {
                             <p class="section-desc">בחירת אופן תצוגת הרשימות בפרויקטים.</p>
                         </div>
                     </div>
-                    <div class="card-list" style="padding: 16px; display: flex; gap: 24px;">
+                    <div class="card-list" style="padding: 16px; display: flex; gap: 16px; flex-wrap: wrap;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                             <input type="radio" name="display-mode" value="checkbox" ${displayMode === 'checkbox' ? 'checked' : ''} onchange="app.updateChecklistDisplayMode(this.value)">
                             <span>תיבות סימון (Checkbox)</span>

@@ -717,6 +717,13 @@ input:focus, select:focus, textarea:focus {
     }
 }
 
+/* Export data checkboxes grid */
+.export-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
 @media (max-width: 768px) {
     .sidebar {
         display: none;
@@ -798,6 +805,10 @@ input:focus, select:focus, textarea:focus {
     
     .form-row {
         grid-template-columns: 1fr;
+    }
+
+    .export-grid {
+        grid-template-columns: 1fr; /* Single column on mobile so labels aren't truncated */
     }
 }
 
