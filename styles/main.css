@@ -870,6 +870,13 @@ input:focus, select:focus, textarea:focus {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    max-height: calc(100vh - 200px);
+}
+
+@media (max-width: 768px) {
+    .kanban-column {
+        max-height: calc(100vh - 260px); /* Leave room for mobile top-bar & bottom nav */
+    }
 }
 
 .kanban-column-header {
@@ -903,6 +910,26 @@ input:focus, select:focus, textarea:focus {
     flex-direction: column;
     gap: 12px;
     min-height: 100px;
+    flex: 1; /* Take the remaining height in the column */
+    overflow-y: auto; /* Enable vertical scroll in the category */
+    overflow-x: hidden;
+    padding-right: 4px; /* Space for the scrollbar */
+    padding-bottom: 20px;
+}
+
+/* Custom scrollbar for kanban cards */
+.kanban-cards::-webkit-scrollbar {
+    width: 6px;
+}
+.kanban-cards::-webkit-scrollbar-track {
+    background: transparent;
+}
+.kanban-cards::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 10px;
+}
+.kanban-cards::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
 }
 
 .kanban-card {

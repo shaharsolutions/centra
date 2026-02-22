@@ -597,7 +597,7 @@ const UI = {
                             ondragover="event.preventDefault(); this.style.background='#F9FAFB';"
                             ondragleave="this.style.background='white';"
                             ondrop="app.handlePaymentDrop(event, '${status.id}')"
-                            style="background: white; border-radius: var(--radius-lg); border: 2px solid var(--border); padding: 16px; min-height: 400px; transition: background 0.2s; min-width: 300px; flex: 0 0 300px; scroll-snap-align: start;"
+                            style="background: white; border-radius: var(--radius-lg); border: 2px solid var(--border); padding: 16px; transition: background 0.2s; min-width: 300px; flex: 0 0 300px; scroll-snap-align: start;"
                         >
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
                                 <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">${status.label}</h3>
