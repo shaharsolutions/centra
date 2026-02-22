@@ -730,12 +730,22 @@ input:focus, select:focus, textarea:focus {
     .main-content {
         margin-right: 0;
         padding: 24px 16px;
-        padding-bottom: 120px; /* Extra space for mobile nav with safe area */
+        /* Padding-bottom is removed because Safari ignores it in flex/overflow combinations */
         overflow-y: auto;
         min-height: 0; /* Required for flex overflow to work */
         flex: 1;
         -webkit-overflow-scrolling: touch;
     }
+    
+    /* Dedicated spacer to ensure bottom content isn't swallowed by mobile nav */
+    .main-content::after {
+        content: "";
+        display: block;
+        height: 120px;
+        width: 100%;
+        flex-shrink: 0;
+    }
+    
     .mobile-nav {
         display: flex;
     }
