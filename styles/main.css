@@ -41,6 +41,10 @@
     background: #94a3b8;
 }
 
+html {
+    overflow-x: hidden;
+}
+
 body {
     background-color: var(--bg-main);
     color: var(--text-main);
@@ -730,6 +734,10 @@ input:focus, select:focus, textarea:focus {
 }
 
 @media (max-width: 768px) {
+    #app {
+        overflow-x: hidden; /* Prevent horizontal overflow on mobile */
+        width: 100%;
+    }
     .sidebar {
         display: none;
     }
@@ -737,8 +745,9 @@ input:focus, select:focus, textarea:focus {
         margin-right: 0;
         padding: 24px 16px;
         padding-bottom: 140px; /* Large space so content never hides behind the fixed mobile nav */
-        overflow: initial !important; /* Reset all desktop overflow — let body scroll naturally */
-        max-width: 100%; /* Prevent content from exceeding screen */
+        overflow: initial !important; /* Reset desktop overflow — let body scroll naturally */
+        max-width: 100%; /* Never exceed parent width */
+        box-sizing: border-box;
     }
     .mobile-nav {
         display: flex;
