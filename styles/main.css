@@ -722,6 +722,8 @@ input:focus, select:focus, textarea:focus {
         margin-right: 0;
         padding: 24px 16px;
         padding-bottom: 140px; /* Large space so content never hides behind the fixed mobile nav */
+        overflow: visible !important; /* Override base overflow-y:auto — prevent nested scroll container on Chrome iOS */
+        max-width: 100%; /* Override base max-width: 1400px */
     }
     .mobile-nav {
         display: flex;
