@@ -184,9 +184,9 @@ const UI = {
                                             </div>
                                             <div style="display:flex; align-items:center; gap:4px;">
                                                 <select class="mini-status-select" onclick="event.stopPropagation()" onchange="app.updatePaymentStatus('${p.id}', this.value)" style="font-size: 0.7rem; padding: 1px 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); cursor: pointer;">
-                                                    <option value="not_paid" ${p.payment_status === 'not_paid' ? 'selected' : ''}>💸</option>
-                                                    <option value="deposit" ${p.payment_status === 'deposit' ? 'selected' : ''}>💰</option>
-                                                    <option value="paid_full" ${p.payment_status === 'paid_full' ? 'selected' : ''}>✅</option>
+                                                    <option value="not_paid" ${p.payment_status === 'not_paid' ? 'selected' : ''}>💸 טרם שולם</option>
+                                                    <option value="deposit" ${p.payment_status === 'deposit' ? 'selected' : ''}>💰 מקדמה</option>
+                                                    <option value="paid_full" ${p.payment_status === 'paid_full' ? 'selected' : ''}>✅ שולם</option>
                                                 </select>
                                                 <div class="kanban-card-avatar">${initial}</div>
                                             </div>
@@ -618,9 +618,9 @@ const UI = {
                                         <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-main); display: flex; justify-content: space-between; align-items: start;">
                                             ${p.name}
                                             <select class="mini-status-select" onclick="event.stopPropagation()" onchange="app.updatePaymentStatus('${p.id}', this.value)" style="font-size: 0.65rem; padding: 0 2px; border: none; background: transparent; cursor: pointer;">
-                                                <option value="not_paid" ${p.payment_status === 'not_paid' ? 'selected' : ''}>💸</option>
-                                                <option value="deposit" ${p.payment_status === 'deposit' ? 'selected' : ''}>💰</option>
-                                                <option value="paid_full" ${p.payment_status === 'paid_full' ? 'selected' : ''}>✅</option>
+                                                <option value="not_paid" ${p.payment_status === 'not_paid' ? 'selected' : ''}>💸 טרם שולם</option>
+                                                <option value="deposit" ${p.payment_status === 'deposit' ? 'selected' : ''}>💰 מקדמה</option>
+                                                <option value="paid_full" ${p.payment_status === 'paid_full' ? 'selected' : ''}>✅ שולם</option>
                                             </select>
                                         </div>
                                         <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
