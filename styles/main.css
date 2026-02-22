@@ -763,11 +763,26 @@ input:focus, select:focus, textarea:focus {
     .header-actions {
         width: 100%;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
     }
     .header-actions .btn {
         flex: 1;
         justify-content: center;
         padding: 10px;
+        min-width: 0; /* Allow shrinking */
+    }
+    .header-actions .user-info {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .header-actions .user-email {
+        font-size: 0.8rem !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 60%;
     }
     
     .stats-grid {
