@@ -498,7 +498,8 @@ const Store = {
                     if (statusDate && (now.getTime() - statusDate.getTime()) > thresholdMs) {
                         await this.updateProjectStatus(project.id, 'archived');
                         const clientName = project.clients?.name ? ` (<span class="log-client-link" onclick="app.viewClient('${project.client_id}')">${project.clients.name}</span>)` : '';
-                        await this.logAction('ארכוב אוטומטי', `הפרויקט "${project.name}${clientName}" הועבר לארכיון באופן אוטומטי מסטטוס ${project.status === 'published' ? 'פורסם' : 'נמסר'}`, 'project', project.id);
+                        const projLink = `<span class="log-client-link" onclick="app.viewProject('${project.id}')">${project.name}</span>`;
+                        await this.logAction('ארכוב אוטומטי', `הפרויקט "${projLink}${clientName}" הועבר לארכיון באופן אוטומטי מסטטוס ${project.status === 'published' ? 'פורסם' : 'נמסר'}`, 'project', project.id);
                     }
                 }
             }
@@ -1117,10 +1118,27 @@ const Store = {
             item.is_completed = isCompleted;
             localStorage.setItem('local_checklists', JSON.stringify(localItems));
             
-            // Log action
+            // Build project reference for log
+            let projectRef = '';
+            if (item.project_id) {
+                try {
+                    const projects = await this.getProjects();
+                    const project = projects.find(p => String(p.id) === String(item.project_id));
+                    if (project) {
+                        const projectLink = `<span class="log-client-link" onclick="app.viewProject('${project.id}')">${project.name}</span>`;
+                        const clientLink = project.clients?.name ? ` | <span class="log-client-link" onclick="app.viewClient('${project.client_id}')">${project.clients.name}</span>` : '';
+                        projectRef = ` (${projectLink}${clientLink})`;
+                    }
+                } catch (e) {
+                    console.warn('Could not resolve project for task log');
+                }
+            }
+            
+            // Log action with project reference
+            const taskLink = `<span class="log-client-link" onclick="app.viewTask('${id}')">${item.content}</span>`;
             this.logAction(
                 isCompleted ? 'השלמת משימה' : 'ביטול השלמת משימה',
-                `המשימה "${item.content}" ${isCompleted ? 'סומנה כבוצעה' : 'סומנה כלא בוצעה'}`,
+                `המשימה "${taskLink}" ${isCompleted ? 'סומנה כבוצעה' : 'סומנה כלא בוצעה'}${projectRef}`,
                 'task',
                 id
             );
@@ -1146,7 +1164,24 @@ const Store = {
         localStorage.setItem('local_checklists', JSON.stringify(filtered));
         
         if (itemToDelete) {
-            this.logAction('מחיקת משימה', `המשימה "${itemToDelete.content}" נמחקה`, 'task', id);
+            // Build project reference for log
+            let projectRef = '';
+            if (itemToDelete.project_id) {
+                try {
+                    const projects = await this.getProjects();
+                    const project = projects.find(p => String(p.id) === String(itemToDelete.project_id));
+                    if (project) {
+                        const projectLink = `<span class="log-client-link" onclick="app.viewProject('${project.id}')">${project.name}</span>`;
+                        const clientLink = project.clients?.name ? ` | <span class="log-client-link" onclick="app.viewClient('${project.client_id}')">${project.clients.name}</span>` : '';
+                        projectRef = ` (${projectLink}${clientLink})`;
+                    }
+                } catch (e) {
+                    console.warn('Could not resolve project for task log');
+                }
+            }
+            
+            const taskLink = `<span class="log-client-link" onclick="app.viewTask('${id}')">${itemToDelete.content}</span>`;
+            this.logAction('מחיקת משימה', `המשימה "${taskLink}" נמחקה${projectRef}`, 'task', id);
         }
     },
 
@@ -1170,27 +1205,33 @@ const Store = {
         if (!projectId) return;
         
         let clientName = '';
+        let projectName = '';
         let stylingCall = 'none';
 
         if (projectData) {
             clientName = projectData.clients?.name || '';
+            projectName = projectData.name || '';
             stylingCall = projectData.styling_call || 'none';
         } else {
             let projects = await this.getProjects();
             let currentProjectResource = projects.find(p => String(p.id) === String(projectId));
             stylingCall = currentProjectResource?.styling_call || 'none';
+            projectName = currentProjectResource?.name || '';
             if (currentProjectResource?.clients?.name) clientName = currentProjectResource.clients.name;
         }
 
-        // If client name is still missing, try to fetch it
-        if (!clientName) {
+        // If client name or project name is still missing, try to fetch them
+        if (!clientName || !projectName) {
             try {
-                const { data } = await sb.from('projects').select('clients(name)').eq('id', projectId).single();
-                if (data?.clients?.name) {
+                const { data } = await sb.from('projects').select('name, clients(name)').eq('id', projectId).single();
+                if (data?.clients?.name && !clientName) {
                     clientName = data.clients.name;
                 }
+                if (data?.name && !projectName) {
+                    projectName = data.name;
+                }
             } catch (e) {
-                console.warn('Could not fetch client name for defaults');
+                console.warn('Could not fetch client/project name for defaults');
             }
         }
 
@@ -1208,7 +1249,9 @@ const Store = {
                         dueDate = date.toISOString().split('T')[0];
                     }
                     if (clientName) {
-                        finalContent = `${content} (${clientName})`;
+                        finalContent = projectName
+                            ? `${content} (${clientName} | ${projectName})`
+                            : `${content} (${clientName})`;
                     }
                 }
                 return { projectId, content: finalContent, category: 'shoot', dueDate };
@@ -1222,7 +1265,9 @@ const Store = {
         if (stylingCall !== 'none' && shootDate) {
             const weeks = stylingCall === '1_week' ? 1 : 2;
             const stylingDate = this._calculateStylingDate(shootDate, weeks);
-            const content = `שיחת סטיילינג ${clientName ? '(' + clientName + ')' : ''}`;
+            const content = clientName
+                ? (projectName ? `שיחת סטיילינג (${clientName} | ${projectName})` : `שיחת סטיילינג (${clientName})`)
+                : 'שיחת סטיילינג';
             
             if (existingStylingTasks.length > 0) {
                 // Update only the first one, delete others if they exist
@@ -1285,10 +1330,12 @@ const Store = {
         if (!projectId) return;
 
         let clientName = projectData?.clients?.name || '';
-        if (!clientName && projectData?.client_id) {
+        let projectName = projectData?.name || '';
+        if (!clientName || !projectName) {
              try {
-                const { data } = await sb.from('projects').select('clients(name)').eq('id', projectId).single();
-                if (data?.clients?.name) clientName = data.clients.name;
+                const { data } = await sb.from('projects').select('name, clients(name)').eq('id', projectId).single();
+                if (data?.clients?.name && !clientName) clientName = data.clients.name;
+                if (data?.name && !projectName) projectName = data.name;
             } catch (e) {}
         }
 
@@ -1309,7 +1356,9 @@ const Store = {
                     dueDate = date.toISOString().split('T')[0];
                 }
                 if (clientName) {
-                    finalContent = `${content} (${clientName})`;
+                    finalContent = projectName
+                        ? `${content} (${clientName} | ${projectName})`
+                        : `${content} (${clientName})`;
                 }
             }
             return { projectId, content: finalContent, category, dueDate };

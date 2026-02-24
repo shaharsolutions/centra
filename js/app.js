@@ -688,7 +688,8 @@ const app = {
             if (savedProject?.clients?.name) {
                 clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${savedProject.client_id}')">${savedProject.clients.name}</span>)`;
             }
-            await Store.logAction(action, isNew ? `פרויקט חדש נוצר: ${savedProject.name}${clientDisplayName}` : `פרטי הפרויקט ${savedProject.name}${clientDisplayName} עודכנו`, 'project', savedProject.id);
+            const projectLink = `<span class="log-client-link" onclick="app.viewProject('${savedProject.id}')">${savedProject.name}</span>`;
+            await Store.logAction(action, isNew ? `פרויקט חדש נוצר: ${projectLink}${clientDisplayName}` : `פרטי הפרויקט ${projectLink}${clientDisplayName} עודכנו`, 'project', savedProject.id);
 
             this.closeModal();
             await this.navigate(this.currentView);
@@ -1106,7 +1107,8 @@ const app = {
                 if (p?.clients?.name) {
                     clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${p.client_id}')">${p.clients.name}</span>)`;
                 }
-                await Store.logAction('הערה חדשה', `הערה חדשה נוספה לפרויקט "${p?.name || 'לא ידוע'}${clientDisplayName}": ${content}`, 'note', this.editingProjectId || this.editingClientId);
+                const projLink = p ? `<span class="log-client-link" onclick="app.viewProject('${p.id}')">${p.name}</span>` : 'לא ידוע';
+                await Store.logAction('הערה חדשה', `הערה חדשה נוספה לפרויקט "${projLink}${clientDisplayName}": ${content}`, 'note', this.editingProjectId || this.editingClientId);
                 UI.renderNotes(null, this.editingProjectId);
             }
             input.value = '';
@@ -1198,7 +1200,8 @@ const app = {
             const p = projects.find(proj => proj.id === id);
             const statusLabel = Store.defaults.statuses.find(s => s.id === status)?.label || status;
             const clientName = p?.clients?.name ? ` (<span class="log-client-link" onclick="app.viewClient('${p.client_id}')">${p.clients.name}</span>)` : '';
-            await Store.logAction('עדכון סטטוס', `הסטטוס של הפרויקט ${p?.name}${clientName} שונה ל: ${statusLabel}`, 'project', id);
+            const projLink = p ? `<span class="log-client-link" onclick="app.viewProject('${p.id}')">${p.name}</span>` : '';
+            await Store.logAction('עדכון סטטוס', `הסטטוס של הפרויקט ${projLink}${clientName} שונה ל: ${statusLabel}`, 'project', id);
             
             if (this.currentView === 'projects') await UI.renderProjects();
             else if (this.currentView === 'calendar') await UI.renderCalendar();
@@ -1224,8 +1227,9 @@ const app = {
                 const c = clients.find(cust => String(cust.id) === String(p.client_id));
                 if (c) clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${c.id}')">${c.name}</span>)`;
             }
+            const projLink = p ? `<span class="log-client-link" onclick="app.viewProject('${p.id}')">${p.name}</span>` : 'לא ידוע';
             const statusLabels = { 'not_paid': 'טרם שולם', 'deposit': 'מקדמה שולמה', 'paid_full': 'שולם במלואו' };
-            await Store.logAction('עדכון גבייה', `סטטוס הגבייה לפרויקט "${p?.name || 'לא ידוע'}${clientDisplayName}" עודכן ל-"${statusLabels[newStatus] || newStatus}"`, 'project', id);
+            await Store.logAction('עדכון גבייה', `סטטוס הגבייה לפרויקט "${projLink}${clientDisplayName}" עודכן ל-"${statusLabels[newStatus] || newStatus}"`, 'project', id);
 
             // Sync modal if open for this project
             if (this.editingProjectId === id) {
