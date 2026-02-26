@@ -175,6 +175,7 @@ const Store = {
     async saveClient(client) {
         const dbClient = {
             name: client.name,
+            organization: client.organization || null,
             phone: client.phone,
             source: client.source,
             user_id: Auth.getUserId()
@@ -192,10 +193,28 @@ const Store = {
                 savedClientData = data[0];
             }
         } catch (e) {
-            console.warn('Supabase client save failed, staying local:', e.message);
+            console.warn('Supabase client save failed, attempting fallback:', e.message);
+            if (e.message?.includes('column') || e.status === 400) {
+                try {
+                    const fallbackClient = { ...dbClient };
+                    delete fallbackClient.organization;
+                    
+                    if (client.id && !String(client.id).startsWith('local_')) {
+                        const { data, error } = await sb.from('clients').update(fallbackClient).eq('id', client.id).select();
+                        if (error) throw error;
+                        savedClientData = data[0];
+                    } else {
+                        const { data, error } = await sb.from('clients').insert([fallbackClient]).select();
+                        if (error) throw error;
+                        savedClientData = data[0];
+                    }
+                } catch (innerE) {
+                    console.error('Final Supabase client retry failed:', innerE.message);
+                }
+            }
         }
 
-        const finalClient = savedClientData || {
+        const finalClient = savedClientData ? { ...dbClient, ...savedClientData } : {
             ...dbClient,
             id: client.id || 'local_client_' + Date.now(),
             created_at: new Date().toISOString()
@@ -203,7 +222,7 @@ const Store = {
 
         // Sync with local storage
         const localClients = JSON.parse(localStorage.getItem('local_clients') || '[]');
-        const existingIdx = localClients.findIndex(c => c.id === finalClient.id || (c.name === finalClient.name && c.phone === finalClient.phone));
+        const existingIdx = localClients.findIndex(c => String(c.id) === String(finalClient.id) || (c.name === finalClient.name && c.phone === finalClient.phone));
         if (existingIdx !== -1) localClients[existingIdx] = finalClient;
         else localClients.push(finalClient);
         localStorage.setItem('local_clients', JSON.stringify(localClients));
@@ -244,7 +263,7 @@ const Store = {
         let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
 
         try {
-            let query = sb.from('projects').select('*, clients(name)');
+            let query = sb.from('projects').select('*, clients(name, organization)');
             if (clientId) {
                 query = query.eq('client_id', clientId);
             }
@@ -302,7 +321,7 @@ const Store = {
             if ((!normalizedClients || !normalizedClients.name) && p.client_id) {
                 const foundClient = clients.find(c => String(c.id) === String(p.client_id));
                 if (foundClient) {
-                    normalizedClients = { name: foundClient.name };
+                    normalizedClients = { name: foundClient.name, organization: foundClient.organization };
                 }
             }
             
@@ -346,11 +365,11 @@ const Store = {
 
         try {
             if (project.id && !String(project.id).startsWith('local_')) {
-                const { data, error } = await sb.from('projects').update(dbProject).eq('id', project.id).select('*, clients(name)');
+                const { data, error } = await sb.from('projects').update(dbProject).eq('id', project.id).select('*, clients(name, organization)');
                 if (error) throw error;
                 savedProjectData = data[0];
             } else {
-                const { data, error } = await sb.from('projects').insert([dbProject]).select('*, clients(name)');
+                const { data, error } = await sb.from('projects').insert([dbProject]).select('*, clients(name, organization)');
                 if (error) throw error;
                 savedProjectData = data[0];
             }
@@ -371,11 +390,11 @@ const Store = {
                     delete fallbackProject.publication_approval;
                     
                     if (project.id && !String(project.id).startsWith('local_')) {
-                        const { data, error } = await sb.from('projects').update(fallbackProject).eq('id', project.id).select('*, clients(name)');
+                        const { data, error } = await sb.from('projects').update(fallbackProject).eq('id', project.id).select('*, clients(name, organization)');
                         if (error) throw error;
                         savedProjectData = data[0];
                     } else {
-                        const { data, error } = await sb.from('projects').insert([fallbackProject]).select('*, clients(name)');
+                        const { data, error } = await sb.from('projects').insert([fallbackProject]).select('*, clients(name, organization)');
                         if (error) throw error;
                         savedProjectData = data[0];
                     }
@@ -398,7 +417,7 @@ const Store = {
 
         // Sync with local storage
         const localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
-        const existingIdx = localProjects.findIndex(p => p.id === finalProject.id || (p.name === finalProject.name && p.client_id === finalProject.client_id));
+        const existingIdx = localProjects.findIndex(p => String(p.id) === String(finalProject.id) || (p.name === finalProject.name && p.client_id === finalProject.client_id));
         if (existingIdx !== -1) localProjects[existingIdx] = finalProject;
         else localProjects.push(finalProject);
         localStorage.setItem('local_projects', JSON.stringify(localProjects));
@@ -429,8 +448,9 @@ const Store = {
         localStorage.setItem('local_project_styling', JSON.stringify(localStyling));
         localStorage.setItem('local_project_pub_approval', JSON.stringify(localPubApproval));
 
-        // Add default tasks
-        await this.addDefaultsToProject(finalProject.id, finalProject.shoot_date, { ...finalProject, clients: finalProject.clients || (await sb.from('clients').select('name').eq('id', finalProject.client_id).single()).data });
+        // Add default tasks only on creation or explicit sync
+        const isNew = typeof project.id === 'undefined' || !project.id || String(project.id).startsWith('local_proj_');
+        await this.addDefaultsToProject(finalProject.id, finalProject.shoot_date, { ...finalProject, clients: finalProject.clients || (await sb.from('clients').select('name').eq('id', finalProject.client_id).single()).data }, isNew);
         
         return finalProject;
     },
@@ -615,7 +635,7 @@ const Store = {
 
         // Sync with local storage
         const localPackages = JSON.parse(localStorage.getItem('local_packages') || '[]');
-        const existingIdx = localPackages.findIndex(p => p.id === finalPackage.id);
+        const existingIdx = localPackages.findIndex(p => String(p.id) === String(finalPackage.id));
         if (existingIdx !== -1) localPackages[existingIdx] = finalPackage;
         else localPackages.push(finalPackage);
         localStorage.setItem('local_packages', JSON.stringify(localPackages));
@@ -782,7 +802,7 @@ const Store = {
     async getTaskById(id) {
         if (this._checklistTableExists === false || String(id).startsWith('local_')) {
             const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-            return localItems.find(item => item.id === id);
+            return localItems.find(item => String(item.id) === String(id));
         }
 
         try {
@@ -791,7 +811,7 @@ const Store = {
             return data;
         } catch (e) {
             const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-            return localItems.find(item => item.id === id);
+            return localItems.find(item => String(item.id) === String(id));
         }
     },
 
@@ -944,7 +964,7 @@ const Store = {
 
     _replaceLocalId(oldId, newId) {
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-        const idx = localItems.findIndex(i => i.id === oldId);
+        const idx = localItems.findIndex(i => String(i.id) === String(oldId));
         if (idx !== -1) {
             localItems[idx].id = newId;
             localStorage.setItem('local_checklists', JSON.stringify(localItems));
@@ -1068,8 +1088,8 @@ const Store = {
         // 1. By exact ID match
         // 2. OR if it's a new item (no ID or local ID), by content/project match but ONLY if the item to save also doesn't have a final ID yet
         const existingIdx = localItems.findIndex(i => {
-            if (savedItemId && i.id === savedItemId) return true;
-            if (item.id && i.id === item.id) return true;
+            if (savedItemId && String(i.id) === String(savedItemId)) return true;
+            if (item.id && String(i.id) === String(item.id)) return true;
             
             // If both don't have a real DB ID, match by content to prevent duplicates during creation
             const isLocal = (id) => !id || String(id).startsWith('local_');
@@ -1112,7 +1132,7 @@ const Store = {
         
         // Always update Local storage
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-        const idx = localItems.findIndex(i => i.id === id);
+        const idx = localItems.findIndex(i => String(i.id) === String(id));
         if (idx !== -1) {
             const item = localItems[idx];
             item.is_completed = isCompleted;
@@ -1159,8 +1179,8 @@ const Store = {
 
         // Always delete from Local storage to stay in sync
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-        const itemToDelete = localItems.find(i => i.id === id);
-        const filtered = localItems.filter(i => i.id !== id);
+        const itemToDelete = localItems.find(i => String(i.id) === String(id));
+        const filtered = localItems.filter(i => String(i.id) !== String(id));
         localStorage.setItem('local_checklists', JSON.stringify(filtered));
         
         if (itemToDelete) {
@@ -1201,7 +1221,7 @@ const Store = {
         localStorage.setItem('checklist_defaults', JSON.stringify(defaults));
     },
 
-    async addDefaultsToProject(projectId, shootDate = null, projectData = null) {
+    async addDefaultsToProject(projectId, shootDate = null, projectData = null, forceDefaults = false) {
         if (!projectId) return;
         
         let clientName = '';
@@ -1238,26 +1258,30 @@ const Store = {
         const existingItems = await this.getChecklistItems(projectId);
         const defaults = this.getChecklistDefaults();
         
-        const itemsToSave = [
-            ...defaults.shoot.map(content => {
-                let dueDate = null;
-                let finalContent = content;
-                if (content.includes('תזכורת')) {
-                    if (shootDate) {
-                        const date = new Date(shootDate);
-                        date.setDate(date.getDate() - 1);
-                        dueDate = date.toISOString().split('T')[0];
+        let itemsToSave = [];
+        
+        if (forceDefaults) {
+            itemsToSave = [
+                ...defaults.shoot.map(content => {
+                    let dueDate = null;
+                    let finalContent = content;
+                    if (content.includes('תזכורת')) {
+                        if (shootDate) {
+                            const date = new Date(shootDate);
+                            date.setDate(date.getDate() - 1);
+                            dueDate = date.toISOString().split('T')[0];
+                        }
+                        if (clientName) {
+                            finalContent = projectName
+                                ? `${content} (${clientName} | ${projectName})`
+                                : `${content} (${clientName})`;
+                        }
                     }
-                    if (clientName) {
-                        finalContent = projectName
-                            ? `${content} (${clientName} | ${projectName})`
-                            : `${content} (${clientName})`;
-                    }
-                }
-                return { projectId, content: finalContent, category: 'shoot', dueDate };
-            }),
-            ...defaults.equipment.map(content => ({ projectId, content, category: 'equipment' }))
-        ];
+                    return { projectId, content: finalContent, category: 'shoot', dueDate };
+                }),
+                ...defaults.equipment.map(content => ({ projectId, content, category: 'equipment' }))
+            ];
+        }
 
         // Handle Styling Call Task separately to allow updates/deletions
         const existingStylingTasks = existingItems.filter(i => i.category === 'styling' || i.content.includes('שיחת סטיילינג'));

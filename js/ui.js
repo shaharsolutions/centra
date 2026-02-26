@@ -115,6 +115,7 @@ const UI = {
                         <div class="list-item">
                             <div class="item-info">
                                 <span class="item-name">${c.name}</span>
+                                ${c.organization ? `<span class="item-sub" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; margin-top: -2px; margin-bottom: 2px;">${c.organization}</span>` : ''}
                                 <span class="item-sub">${c.phone} | ${this.getSourceLabel(c.source)}${c.city ? ' | ' + c.city : ''}</span>
                             </div>
                             <div class="item-actions">
@@ -177,6 +178,7 @@ const UI = {
                                     <div class="kanban-card" draggable="true" ondragstart="app.handleCardDragStart(event, '${p.id}')" onclick="app.viewProject('${p.id}')">
                                         <div class="kanban-card-title">${p.name}</div>
                                         <div class="kanban-card-client">${clientName}</div>
+                                        ${p.clients?.organization ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: -4px; margin-bottom: 8px;">${p.clients.organization}</div>` : ''}
                                         <div class="kanban-card-footer">
                                             <div class="kanban-card-date">
                                                 <i data-lucide="calendar" style="width:12px;"></i>
@@ -223,6 +225,7 @@ const UI = {
                             <div class="list-item">
                                 <div class="item-info">
                                     <span class="item-name">${p.name}</span>
+                                    ${p.clients?.organization ? `<span class="item-sub" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; margin-top: -2px; margin-bottom: 2px;">${p.clients.organization}</span>` : ''}
                                     <span class="item-sub">${clientName} | ${p.shoot_date ? new Date(p.shoot_date).toLocaleDateString('he-IL') : '---'}</span>
                                 </div>
                                 <div class="item-actions">

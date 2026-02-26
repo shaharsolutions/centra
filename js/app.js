@@ -398,6 +398,7 @@ const app = {
                 const c = clients.find(cust => cust.id === clientId);
                 if (c) {
                     document.getElementById('client-name').value = c.name;
+                    document.getElementById('client-organization').value = c.organization || '';
                     document.getElementById('client-phone').value = c.phone;
                     document.getElementById('client-source').value = c.source;
 
@@ -409,6 +410,7 @@ const app = {
 
                     // Populate view spans
                     document.getElementById('client-name-view').innerText = c.name;
+                    document.getElementById('client-organization-view').innerText = c.organization || '';
                     document.getElementById('client-phone-view').innerText = c.phone;
                     document.getElementById('client-source-view').innerText = UI.getSourceLabel(c.source);
                     UI.renderClientProjects(clientId);
@@ -616,6 +618,7 @@ const app = {
         const client = {
             id: this.editingClientId,
             name: document.getElementById('client-name').value,
+            organization: document.getElementById('client-organization').value,
             phone: document.getElementById('client-phone').value,
             source: document.getElementById('client-source').value,
             city: document.getElementById('client-city').value,
@@ -1627,7 +1630,7 @@ const app = {
     async loadProjectDefaults(projectId) {
         const projects = await Store.getProjects();
         const project = projects.find(p => p.id === projectId);
-        await Store.addDefaultsToProject(projectId, project?.shoot_date);
+        await Store.addDefaultsToProject(projectId, project?.shoot_date, null, true);
         UI.renderChecklist(projectId);
     },
 
