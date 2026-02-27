@@ -1379,9 +1379,7 @@ const Store = {
                             dueDate = date.toISOString().split('T')[0];
                         }
                         if (clientName) {
-                            finalContent = projectName
-                                ? `${content} (${clientName} | ${projectName})`
-                                : `${content} (${clientName})`;
+                            finalContent = `${content} (${clientName})`;
                         }
                     }
                     return { projectId, content: finalContent, category: 'shoot', dueDate };
@@ -1397,7 +1395,7 @@ const Store = {
             const weeks = stylingCall === '1_week' ? 1 : 2;
             const stylingDate = this._calculateStylingDate(shootDate, weeks);
             const content = clientName
-                ? (projectName ? `שיחת סטיילינג (${clientName} | ${projectName})` : `שיחת סטיילינג (${clientName})`)
+                ? `שיחת סטיילינג (${clientName})`
                 : 'שיחת סטיילינג';
             
             if (existingStylingTasks.length > 0) {
@@ -1487,9 +1485,7 @@ const Store = {
                     dueDate = date.toISOString().split('T')[0];
                 }
                 if (clientName) {
-                    finalContent = projectName
-                        ? `${content} (${clientName} | ${projectName})`
-                        : `${content} (${clientName})`;
+                    finalContent = `${content} (${clientName})`;
                 }
             }
             return { projectId, content: finalContent, category, dueDate };

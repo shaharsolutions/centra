@@ -288,7 +288,7 @@ const UI = {
                             if (isStyling) {
                                 badgeBg = '#D1FAE5';
                                 badgeColor = '#059669';
-                                badgeLabel = 'שיחת סטיילינג';
+                                badgeLabel = `פרויקט: ${projectName}`;
                             } else {
                                 badgeBg = '#E0F2FE';
                                 badgeColor = '#0369A1';
