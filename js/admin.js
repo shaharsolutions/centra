@@ -22,7 +22,7 @@ const Admin = {
                     .from('user_sessions')
                     .select('*')
                     .order('login_time', { ascending: false });
-                if (!error) sessions = data || [];
+                if (!error) sessions = (data || []).filter(s => s.user_email !== 'shaharsolutions@gmail.com');
             } catch (e) {
                 console.warn('user_sessions table may not exist yet');
             }
