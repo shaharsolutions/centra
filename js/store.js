@@ -48,6 +48,28 @@ const Store = {
     },
 
     async init() {
+        // Clear cached data if a different user logged in
+        const currentUserId = Auth.getUserId();
+        const lastUserId = localStorage.getItem('last_user_id');
+        if (currentUserId && lastUserId && currentUserId !== lastUserId) {
+            // Different user - clear all cached data
+            localStorage.removeItem('local_clients');
+            localStorage.removeItem('local_projects');
+            localStorage.removeItem('local_checklists');
+            localStorage.removeItem('local_action_logs');
+            localStorage.removeItem('local_client_extras');
+            localStorage.removeItem('local_project_locations');
+            localStorage.removeItem('local_project_payment_statuses');
+            localStorage.removeItem('local_project_reasons');
+            localStorage.removeItem('local_project_subjects');
+            localStorage.removeItem('local_project_times');
+            localStorage.removeItem('local_project_styling');
+            localStorage.removeItem('local_project_pub_approval');
+        }
+        if (currentUserId) {
+            localStorage.setItem('last_user_id', currentUserId);
+        }
+
         // Always retry Supabase connectivity on fresh session
         // Clear cached failure flags so we re-check each time
         localStorage.removeItem('sb_checklists_missing');
@@ -153,11 +175,15 @@ const Store = {
             console.warn('Error fetching clients from Supabase:', error.message);
         }
         
-        // Merge DB and Local clients
+        // Merge DB and Local clients (only own user's data)
+        const currentUserId = Auth.getUserId();
         const allClients = [...dbClients];
         localClients.forEach(lc => {
             if (!allClients.some(dc => String(dc.id) === String(lc.id))) {
-                allClients.push(lc);
+                // Only include local clients that belong to current user or have no user_id (legacy)
+                if (!lc.user_id || lc.user_id === currentUserId) {
+                    allClients.push(lc);
+                }
             }
         });
 
@@ -288,12 +314,16 @@ const Store = {
             console.warn('Error fetching projects from Supabase:', e.message);
         }
         
-        // Merge DB and Local projects
+        // Merge DB and Local projects (only own user's data)
+        const currentUserId = Auth.getUserId();
         const allProjects = [...dbProjects];
         localProjects.forEach(lp => {
             if (!allProjects.some(dp => String(dp.id) === String(lp.id))) {
                 if (!clientId || String(lp.client_id) === String(clientId)) {
-                    allProjects.push(lp);
+                    // Only include local projects that belong to current user or have no user_id (legacy)
+                    if (!lp.user_id || lp.user_id === currentUserId) {
+                        allProjects.push(lp);
+                    }
                 }
             }
         });
@@ -779,6 +809,7 @@ const Store = {
             const { data, error } = await sb
                 .from('action_logs')
                 .select('*')
+                .eq('user_id', Auth.getUserId())
                 .order('created_at', { ascending: false })
                 .limit(limit);
             if (error) {
@@ -899,6 +930,7 @@ const Store = {
                 const { data, error } = await sb
                     .from('project_checklists')
                     .select('*, projects(name)')
+                    .eq('user_id', Auth.getUserId())
                     .order('created_at', { ascending: false });
                 
                 if (error) {
