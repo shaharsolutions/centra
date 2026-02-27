@@ -60,9 +60,31 @@ const Auth = {
             });
         }
 
-        // Close Terms Modal (using existing close patterns if possible, or adding locally)
-        termsModal?.querySelectorAll('.close-modal').forEach(btn => {
-            btn.addEventListener('click', () => termsModal.classList.add('hidden'));
+        // Open Privacy Modal (from within terms or elsewhere)
+        const openPrivacyBtn = document.getElementById('open-privacy-link');
+        const privacyModal = document.getElementById('privacy-modal');
+        if (openPrivacyBtn && privacyModal) {
+            openPrivacyBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                privacyModal.classList.remove('hidden');
+            });
+        }
+
+        // Approve Terms Button
+        const approveTermsBtn = document.getElementById('approve-terms-btn');
+        const authTermsCheckbox = document.getElementById('auth-terms');
+        if (approveTermsBtn && authTermsCheckbox) {
+            approveTermsBtn.addEventListener('click', () => {
+                authTermsCheckbox.checked = true;
+                termsModal.classList.add('hidden');
+            });
+        }
+
+        // Close Modals
+        document.querySelectorAll('#terms-modal, #privacy-modal').forEach(modal => {
+            modal.querySelectorAll('.close-modal').forEach(btn => {
+                btn.addEventListener('click', () => modal.classList.add('hidden'));
+            });
         });
     },
 
