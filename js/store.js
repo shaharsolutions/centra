@@ -131,6 +131,7 @@ const Store = {
             const { data, error } = await sb
                 .from('clients')
                 .select('*')
+                .eq('user_id', Auth.getUserId())
                 .order('name');
             if (error) throw error;
             dbClients = data || [];
@@ -263,7 +264,7 @@ const Store = {
         let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
 
         try {
-            let query = sb.from('projects').select('*, clients(name, organization)');
+            let query = sb.from('projects').select('*, clients(name, organization)').eq('user_id', Auth.getUserId());
             if (clientId) {
                 query = query.eq('client_id', clientId);
             }
@@ -695,6 +696,80 @@ const Store = {
     async deleteNote(id) {
         const { error } = await sb.from('notes').delete().eq('id', id);
         if (error) throw error;
+    },
+
+    // user_sessions logging
+    async logSessionStart() {
+        if (!Auth.getUserId() || !Auth.session?.user?.email) return;
+        
+        try {
+            const sessionData = {
+                user_id: Auth.getUserId(),
+                user_email: Auth.session.user.email,
+                login_time: new Date().toISOString(),
+                last_active: new Date().toISOString(),
+                duration_minutes: 0
+            };
+            
+            const { data, error } = await sb.from('user_sessions').insert([sessionData]).select();
+            if (error) {
+                console.warn('Could not log session start (table might not exist):', error.message);
+                return null;
+            }
+            if (data && data.length > 0) {
+                localStorage.setItem('current_session_id', data[0].id);
+                localStorage.setItem('session_start_time', data[0].login_time);
+            }
+        } catch (e) {
+            console.warn('Session logging error:', e.message);
+        }
+    },
+
+    async updateSession() {
+        const sessionId = localStorage.getItem('current_session_id');
+        if (!sessionId || !Auth.getUserId()) return;
+        
+        try {
+            const startTimeStr = localStorage.getItem('session_start_time');
+            if (!startTimeStr) return;
+            
+            const startTime = new Date(startTimeStr);
+            const now = new Date();
+            const durationMinutes = Math.floor((now - startTime) / 60000);
+            
+            const { error } = await sb.from('user_sessions').update({
+                last_active: now.toISOString(),
+                duration_minutes: durationMinutes
+            }).eq('id', sessionId);
+            
+            if (error) console.warn('Could not update session:', error.message);
+        } catch (e) {
+            // Silently fail
+        }
+    },
+
+    async logSessionEnd() {
+        const sessionId = localStorage.getItem('current_session_id');
+        if (!sessionId || !Auth.getUserId()) return;
+        
+        try {
+            const startTimeStr = localStorage.getItem('session_start_time');
+            const now = new Date();
+            let durationMinutes = 0;
+            if (startTimeStr) {
+                const startTime = new Date(startTimeStr);
+                durationMinutes = Math.floor((now - startTime) / 60000);
+            }
+            
+            await sb.from('user_sessions').update({
+                logout_time: now.toISOString(),
+                last_active: now.toISOString(),
+                duration_minutes: durationMinutes
+            }).eq('id', sessionId);
+            
+            localStorage.removeItem('current_session_id');
+            localStorage.removeItem('session_start_time');
+        } catch (e) {}
     },
 
     // Action Logs

@@ -10,8 +10,10 @@ const Auth = {
             
             if (event === 'SIGNED_IN') {
                 console.log('User signed in:', session.user.email);
+                if (window.Store) Store.logSessionStart();
             } else if (event === 'SIGNED_OUT') {
                 console.log('User signed out');
+                if (window.Store) Store.logSessionEnd();
                 window.location.reload(); // Simplest way to clear state
             }
         });
@@ -21,6 +23,13 @@ const Auth = {
         this.session = session;
         this.setupEventListeners();
         this.updateUI();
+
+        // Ping session update periodically
+        setInterval(() => {
+            if (this.session && window.Store) {
+                Store.updateSession();
+            }
+        }, 5 * 60 * 1000); // 5 minutes
     },
 
     setupEventListeners() {
@@ -130,6 +139,12 @@ const Auth = {
                 if (window.lucide) lucide.createIcons();
             }
             
+            // Show admin nav if user is admin
+            if (window.Admin && Admin.isAdmin()) {
+                const adminNav = document.getElementById('nav-admin');
+                if (adminNav) adminNav.classList.remove('hidden');
+            }
+
             // Initialize app if not already done
             if (window.app && !window.app.initialized) {
                 window.app.init();

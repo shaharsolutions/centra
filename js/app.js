@@ -177,6 +177,12 @@ const app = {
             });
         });
 
+        // Show admin menu item if user is admin
+        if (window.Admin && window.Admin.isAdmin()) {
+            const adminNav = document.getElementById('nav-admin');
+            if (adminNav) adminNav.classList.remove('hidden');
+        }
+
         document.getElementById('confirm-no-btn').addEventListener('click', () => {
             document.getElementById('confirm-modal').classList.add('hidden');
         });
@@ -315,6 +321,7 @@ const app = {
             case 'locations': await UI.renderLocations(); break;
             case 'logs': await UI.renderLogs(); break;
             case 'settings': await UI.renderSettings(); break;
+            case 'admin': if (window.Admin && Admin.isAdmin()) { Admin.renderAdminPage(); } break;
         }
     },
 
@@ -1723,6 +1730,10 @@ const app = {
             console.error('Weather fetch error:', error);
             container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted);">תקלה בטעינת מזג האוויר</div>';
         }
+    },
+
+    viewAdmin() {
+        this.navigate('admin');
     }
 };
 
