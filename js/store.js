@@ -733,6 +733,14 @@ const Store = {
         if (!Auth.getUserId() || !Auth.session?.user?.email) return;
         
         try {
+            // Upsert into persistent profiles table
+            const profileData = {
+                user_id: Auth.getUserId(),
+                email: Auth.session.user.email,
+                last_seen: new Date().toISOString()
+            };
+            await sb.from('user_profiles').upsert([profileData], { onConflict: 'user_id' });
+
             const sessionData = {
                 user_id: Auth.getUserId(),
                 user_email: Auth.session.user.email,

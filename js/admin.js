@@ -39,8 +39,28 @@ const Admin = {
             // Fetch ALL action_logs
             const { data: allLogs } = await sb.from('action_logs').select('user_id, action, details, created_at').order('created_at', { ascending: false }).limit(50);
 
-            // Build user map from sessions
+            // Fetch ALL user profiles for stable identity
+            let profiles = [];
+            try {
+                const { data } = await sb.from('user_profiles').select('*');
+                profiles = data || [];
+            } catch (pE) {}
+
+            // Build user map
             const userMap = {};
+            
+            // Prime map with profiles
+            profiles.forEach(p => {
+                userMap[p.user_id] = {
+                    user_email: p.email,
+                    user_id: p.user_id,
+                    total_logins: 0,
+                    total_time_minutes: 0,
+                    last_login: null,
+                    total_clients: 0,
+                    total_projects: 0
+                };
+            });
             
             // Also gather unique users from clients/projects even if no sessions
             const addUser = (userId, email) => {
