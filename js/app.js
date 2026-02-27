@@ -260,8 +260,8 @@ const app = {
                             .replace('שתעבירי', isMale ? 'שתעביר' : 'שתעבירי')
                             .replace('שתעביר', isMale ? 'שתעביר' : 'שתעבירי');
 
-        titleEl.innerText = finalTitle;
-        descEl.innerText = finalDesc;
+        titleEl.innerHTML = finalTitle;
+        descEl.innerHTML = finalDesc;
 
         // Reset display
         yesBtn.style.display = isAlert ? 'none' : 'block';

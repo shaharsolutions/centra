@@ -98,6 +98,17 @@ const Admin = {
             const totalClientsCount = (allClients || []).length;
 
             let html = `
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 16px;">
+                    <button onclick="Admin.exportToExcel()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 140px; padding: 6px 16px; text-align: right; flex-direction: row;">
+                        <i data-lucide="download" style="width: 14px; height: 14px; flex-shrink: 0;"></i>
+                        <span style="flex-grow: 1;">ייצוא לאקסל</span>
+                    </button>
+                    <button onclick="Admin.resetUsageData()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 140px; padding: 6px 16px; text-align: right; color: #EF4444; border-color: #FECACA; flex-direction: row;">
+                        <i data-lucide="trash-2" style="width: 14px; height: 14px; flex-shrink: 0;"></i>
+                        <span style="flex-grow: 1;">איפוס נתוני שימוש</span>
+                    </button>
+                </div>
+
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px;">
                     <div style="background: white; border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); text-align: center;">
                         <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">${totalUsers}</div>
@@ -232,6 +243,7 @@ const Admin = {
             html += `</tbody></table></div>`;
             
             container.innerHTML = html;
+            if (window.lucide) lucide.createIcons();
         } catch (error) {
             console.error('Admin page error:', error);
             container.innerHTML = `
@@ -358,6 +370,52 @@ const Admin = {
         // Reinitialize as admin
         app.initialized = false;
         app.init();
+    },
+
+    exportToExcel() {
+        if (!this._adminData) return;
+        const { users } = this._adminData;
+        
+        // Prepare CSV data
+        const headers = ["אימייל", "לקוחות", "פרויקטים", "כניסות", "זמן סה\"כ (דקות)", "כניסה אחרונה"];
+        const rows = users.map(u => [
+            u.user_email,
+            u.total_clients,
+            u.total_projects,
+            u.total_logins,
+            u.total_time_minutes,
+            u.last_login || "N/A"
+        ]);
+
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `centra_usage_stats_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    },
+
+    async resetUsageData() {
+        app.confirmAction(
+            'איפוס נתוני שימוש',
+            'האם בטוח/ה שברצונך לאפס את כל נתוני השימוש?<br><br>פעולה זו תמחק את כל היסטוריית הכניסות (user_sessions) של כל המשתמשים.<br><b>פעולה זו אינה הפיכה!</b>',
+            async () => {
+                try {
+                    const { error } = await sb.from('user_sessions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+                    if (error) throw error;
+                    
+                    alert('נתוני השימוש אופסו בהצלחה.');
+                    this.renderAdminPage(); // Refresh
+                } catch (e) {
+                    console.error('Error resetting usage data:', e);
+                    alert('תקלה באיפוס נתוני השימוש: ' + e.message);
+                }
+            }
+        );
     }
 };
 
