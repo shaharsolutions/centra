@@ -190,6 +190,10 @@ const Auth = {
     },
 
     getUserId() {
+        // If admin is impersonating another user, return that user's ID
+        if (window.Admin && Admin._impersonatingUserId) {
+            return Admin._impersonatingUserId;
+        }
         return this.session?.user?.id;
     },
 

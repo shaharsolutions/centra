@@ -1,4 +1,7 @@
 const Admin = {
+    _impersonatingUserId: null,
+    _impersonatingEmail: null,
+
     isAdmin() {
         return Auth.session?.user?.email === 'shaharsolutions@gmail.com';
     },
@@ -132,6 +135,7 @@ const Admin = {
                                 <th style="padding: 10px 16px; text-align: center;">כניסות</th>
                                 <th style="padding: 10px 16px; text-align: center;">זמן כולל</th>
                                 <th style="padding: 10px 16px;">כניסה אחרונה</th>
+                                <th style="padding: 10px 16px; text-align: center;">פעולות</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -143,17 +147,20 @@ const Admin = {
                 const mins = stat.total_time_minutes % 60;
                 const timeDisplay = hours > 0 ? `${hours} שע' ${mins} דק'` : `${mins} דק'`;
                 
+                const isAdminUser = stat.user_email === 'shaharsolutions@gmail.com';
                 html += `
-                    <tr style="border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;" 
+                    <tr style="border-bottom: 1px solid var(--border); transition: background 0.2s;" 
                         onmouseover="this.style.background='var(--bg-main)'" 
-                        onmouseout="this.style.background='white'"
-                        onclick="Admin.filterByUser('${stat.user_id}')">
-                        <td style="padding: 14px 16px; font-weight: 500;">${stat.user_email}</td>
+                        onmouseout="this.style.background='white'">
+                        <td style="padding: 14px 16px; font-weight: 500; cursor: pointer;" onclick="Admin.filterByUser('${stat.user_id}')">${stat.user_email}</td>
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_clients}</td>
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_projects}</td>
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_logins}</td>
                         <td style="padding: 14px 16px; text-align: center;">${timeDisplay}</td>
                         <td style="padding: 14px 16px; color: var(--text-muted); font-size: 0.9rem;">${lastLogin}</td>
+                        <td style="padding: 14px 16px; text-align: center;">
+                            ${!isAdminUser ? `<button onclick="Admin.startImpersonating('${stat.user_id}', '${stat.user_email}')" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;">👁️ צפייה כמשתמש</button>` : '<span style="color: var(--text-muted); font-size: 0.8rem;">מנהל</span>'}
+                        </td>
                     </tr>
                 `;
             });
@@ -316,6 +323,41 @@ const Admin = {
         if (tableContainer) {
             tableContainer.innerHTML = this._renderProjectsTable(filtered, userMap);
         }
+    },
+
+    startImpersonating(userId, userEmail) {
+        if (!this.isAdmin()) return;
+        this._impersonatingUserId = userId;
+        this._impersonatingEmail = userEmail;
+
+        // Show banner
+        const banner = document.getElementById('impersonation-banner');
+        const emailSpan = document.getElementById('impersonation-email');
+        if (banner) banner.classList.remove('hidden');
+        if (emailSpan) emailSpan.textContent = userEmail;
+
+        // Shift app content down
+        document.getElementById('app').style.marginTop = '48px';
+
+        // Navigate to dashboard as the impersonated user
+        app.initialized = false;
+        app.init();
+    },
+
+    stopImpersonating() {
+        this._impersonatingUserId = null;
+        this._impersonatingEmail = null;
+
+        // Hide banner
+        const banner = document.getElementById('impersonation-banner');
+        if (banner) banner.classList.add('hidden');
+
+        // Reset app content position
+        document.getElementById('app').style.marginTop = '0';
+
+        // Reinitialize as admin
+        app.initialized = false;
+        app.init();
     }
 };
 

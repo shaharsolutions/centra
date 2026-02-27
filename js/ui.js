@@ -254,8 +254,8 @@ const UI = {
     async renderTasks() {
         const allItems = await Store.getAllTasks();
         
-        // Filter out 'shoot' and 'equipment' categories - user requested
-        const filteredTasks = allItems.filter(item => item.category !== 'shoot' && item.category !== 'equipment');
+        // Filter out 'shoot' and 'equipment' categories - user requested, but include reminders
+        const filteredTasks = allItems.filter(item => (item.category !== 'shoot' && item.category !== 'equipment') || (item.content || '').includes('תזכורת'));
         
         // Sort: incomplete first, then by date 
         filteredTasks.sort((a, b) => (a.is_completed === b.is_completed) ? (new Date(b.created_at) - new Date(a.created_at)) : (a.is_completed ? 1 : -1));
@@ -732,11 +732,21 @@ const UI = {
                         <div style="display: flex; flex-direction: column; gap: 16px; max-width: 400px;">
                             <div class="form-group">
                                 <label for="settings-new-password">סיסמה חדשה</label>
-                                <input type="password" id="settings-new-password" placeholder="לפחות 6 תווים" style="width: 100%;">
+                                <div style="position: relative;">
+                                    <input type="password" id="settings-new-password" placeholder="לפחות 6 תווים" style="width: 100%; padding-left: 40px;">
+                                    <button type="button" tabindex="-1" onclick="const input = document.getElementById('settings-new-password'); const icon = this.querySelector('[data-lucide]'); if (input.type === 'password') { input.type = 'text'; icon.setAttribute('data-lucide', 'eye-off'); } else { input.type = 'password'; icon.setAttribute('data-lucide', 'eye'); } if (window.lucide) { lucide.createIcons(); }" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; padding: 4px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+                                        <i data-lucide="eye" style="width: 18px; height: 18px;"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label for="settings-confirm-password">אימות סיסמה</label>
-                                <input type="password" id="settings-confirm-password" placeholder="הקלד שוב את הסיסמה" style="width: 100%;">
+                                <div style="position: relative;">
+                                    <input type="password" id="settings-confirm-password" placeholder="הקלד שוב את הסיסמה" style="width: 100%; padding-left: 40px;">
+                                    <button type="button" tabindex="-1" onclick="const input = document.getElementById('settings-confirm-password'); const icon = this.querySelector('[data-lucide]'); if (input.type === 'password') { input.type = 'text'; icon.setAttribute('data-lucide', 'eye-off'); } else { input.type = 'password'; icon.setAttribute('data-lucide', 'eye'); } if (window.lucide) { lucide.createIcons(); }" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; padding: 4px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+                                        <i data-lucide="eye" style="width: 18px; height: 18px;"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <div id="password-change-error" class="hidden" style="color: #EF4444; background: #FEF2F2; padding: 10px; border-radius: 8px; font-size: 0.85rem;"></div>
