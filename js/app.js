@@ -243,12 +243,16 @@ const app = {
         const isMale = gender === 'male';
 
         // Gender-aware replacements
-        let finalTitle = title.replace('בטוח/ה', isMale ? 'בטוח' : 'בטוחה');
+        let finalTitle = title.replace('בטוח/ה', isMale ? 'בטוח' : 'בטוחה')
+                              .replace('שים לב', isMale ? 'שים לב' : 'שימי לב')
+                              .replace('שימי לב', isMale ? 'שים לב' : 'שימי לב');
         let finalDesc = desc.replace('בטוח/ה', isMale ? 'בטוח' : 'בטוחה')
                             .replace('בטוחה', isMale ? 'בטוח' : 'בטוחה')
                             .replace('זמינה', isMale ? 'זמין' : 'זמינה')
                             .replace('הלקוח/ה', isMale ? 'הלקוח' : 'הלקוחה')
-                            .replace('נמחק/ה', isMale ? 'נמחק' : 'נמחקה');
+                            .replace('נמחק/ה', isMale ? 'נמחק' : 'נמחקה')
+                            .replace('שתעבירי', isMale ? 'שתעביר' : 'שתעבירי')
+                            .replace('שתעביר', isMale ? 'שתעביר' : 'שתעבירי');
 
         titleEl.innerText = finalTitle;
         descEl.innerText = finalDesc;
@@ -557,7 +561,34 @@ const app = {
             UI.renderChecklist(null);
             deleteBtn.style.display = 'none';
         }
+        if (this.updateProjectClientLink) {
+            this.updateProjectClientLink(document.getElementById('project-client').value);
+        }
         if (window.lucide) lucide.createIcons();
+    },
+
+    updateProjectClientLink(clientId) {
+        const btn = document.getElementById('project-client-link-btn');
+        if (btn) {
+            if (clientId) {
+                btn.style.display = 'flex';
+                btn.dataset.clientid = clientId;
+            } else {
+                btn.style.display = 'none';
+                btn.dataset.clientid = '';
+            }
+        }
+    },
+
+    openProjectClientCard() {
+        const btn = document.getElementById('project-client-link-btn');
+        if (btn && btn.dataset.clientid) {
+            const clientModal = document.getElementById('client-modal');
+            if (clientModal) {
+                clientModal.style.zIndex = '1050';
+            }
+            this.openClientModal('פרטי לקוח', btn.dataset.clientid);
+        }
     },
 
     setProjectEditMode(isEdit) {
@@ -605,7 +636,10 @@ const app = {
 
 
     closeModal() {
-        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+        document.querySelectorAll('.modal-overlay').forEach(m => {
+            m.classList.add('hidden');
+            m.style.zIndex = ''; // Reset z-index
+        });
         this.editingClientId = null;
         this.editingProjectId = null;
         this.editingProjectPaymentStatus = null;
@@ -707,7 +741,7 @@ const app = {
 
     async importDefaults(category) {
         if (!this.editingProjectId) {
-            this.confirmAction('שימי לב', 'יש לשמור את הפרויקט בפעם הראשונה לפני שניתן לייבא רשימות נוספות.', null, true);
+            this.confirmAction('שים לב', 'יש לשמור את הפרויקט בפעם הראשונה לפני שניתן לייבא רשימות נוספות.', null, true);
             return;
         }
         
@@ -967,7 +1001,7 @@ const app = {
         
         // Update Static Elements in index.html
         const greeting = document.getElementById('view-title');
-        if (greeting && (greeting.innerText.includes('שלום צלמת!') || greeting.innerText.includes('שלום צלם!'))) {
+        if (greeting && greeting.innerText.includes('שלום')) {
             greeting.innerText = isMale ? 'שלום צלם! 👋' : 'שלום צלמת! 👋';
         }
 
@@ -1003,10 +1037,12 @@ const app = {
     },
 
     viewClient(id) { 
+        this.closeModal();
         this.openClientModal('פרטי לקוח', id);
     },
 
     async viewProject(id) {
+        this.closeModal();
         // First check if project exists
         const projects = await Store.getProjects();
         const projectExists = projects.some(p => String(p.id) === String(id));

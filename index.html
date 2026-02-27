@@ -143,7 +143,7 @@
         <main class="main-content">
             <header class="top-bar">
                 <div class="header-info">
-                    <h1 id="view-title">שלום צלמת! 👋</h1>
+                    <h1 id="view-title">שלום 👋</h1>
                     <p id="view-subtitle">הנה מה שקורה בעסק שלך היום.</p>
                 </div>
                 <div class="header-actions">
@@ -174,7 +174,7 @@
                 <div style="text-align: center;">
                     <i data-lucide="camera" style="width: 48px; height: 48px; color: var(--primary); margin-bottom: 16px;"></i>
                     <h2 style="font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 2rem; color: var(--text-dark);">Centra</h2>
-                    <p style="color: var(--text-muted); margin-top: 8px;" id="auth-subtitle">התחברי למערכת הניהול שלך</p>
+                    <p style="color: var(--text-muted); margin-top: 8px;" id="auth-subtitle">התחבר למערכת הניהול שלך</p>
                 </div>
             </div>
             
@@ -341,9 +341,14 @@
             <form id="project-form" class="modal-form">
                 <div class="form-group">
                     <label for="project-client">לקוח</label>
-                    <select id="project-client" required>
-                        <!-- Populated by JS -->
-                    </select>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select id="project-client" required style="flex: 1;" onchange="if(app.updateProjectClientLink) app.updateProjectClientLink(this.value)">
+                            <!-- Populated by JS -->
+                        </select>
+                        <button type="button" id="project-client-link-btn" class="btn btn-secondary" style="display: none; padding: 0 12px; height: 46px;" title="צפייה בכרטיס לקוח" onclick="if(app.openProjectClientCard) app.openProjectClientCard()">
+                            <i data-lucide="user" style="width: 18px;"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="project-name">שם הפרויקט / חבילה</label>
@@ -649,7 +654,7 @@
 
                 <div class="form-group">
                     <label for="location-description">תיאור</label>
-                    <textarea id="location-description" rows="4" required placeholder="תארי את הלוקיישן - מה יש בו, למה הוא מתאים, באיזה עונה הכי יפה..."></textarea>
+                    <textarea id="location-description" rows="4" required placeholder="תאר את הלוקיישן - מה יש בו, למה הוא מתאים, באיזה עונה הכי יפה..."></textarea>
                 </div>
 
                 <div class="modal-footer">

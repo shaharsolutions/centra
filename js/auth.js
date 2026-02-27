@@ -72,7 +72,7 @@ const Auth = {
             if (result.error) throw result.error;
 
             if (this.isSignUp && result.data.user && !result.data.session) {
-                errorDiv.textContent = 'שימי לב: נשלחה הודעת אימות למייל שלך. יש לאשר אותה כדי להתחבר.';
+                errorDiv.textContent = 'שים לב: נשלחה הודעת אימות למייל שלך. יש לאשר אותה כדי להתחבר.';
                 errorDiv.classList.remove('hidden');
                 errorDiv.style.background = '#ECFDF5';
                 errorDiv.style.color = '#059669';
@@ -97,13 +97,13 @@ const Auth = {
         const rememberGroup = document.getElementById('auth-remember')?.parentElement;
 
         if (this.isSignUp) {
-            subtitle.textContent = 'צרי חשבון חדש ב-Centra';
+            subtitle.textContent = 'צור חשבון חדש ב-Centra';
             submitBtn.textContent = 'הרשמה';
             switchText.textContent = 'כבר יש לך חשבון?';
             switchBtn.textContent = 'התחברות עכשיו';
             if (rememberGroup) rememberGroup.classList.add('hidden');
         } else {
-            subtitle.textContent = 'התחברי למערכת הניהול שלך';
+            subtitle.textContent = 'התחבר למערכת הניהול שלך';
             submitBtn.textContent = 'התחברות';
             switchText.textContent = 'אין לך חשבון?';
             switchBtn.textContent = 'הרשמה עכשיו';
@@ -148,7 +148,7 @@ const Auth = {
         if (window.app && window.app.confirmAction) {
             window.app.confirmAction(
                 'התנתקות מהמערכת',
-                'האם את בטוחה שברצונך להתנתק מהמערכת?',
+                'האם אתה בטוח שברצונך להתנתק מהמערכת?',
                 async () => {
                     await sb.auth.signOut();
                 }
@@ -160,7 +160,7 @@ const Auth = {
                 yesBtn.style.background = 'var(--primary)';
             }
         } else {
-            if (confirm('בטוחה שאת רוצה להתנתק?')) {
+            if (confirm('בטוח שאתה רוצה להתנתק?')) {
                 await sb.auth.signOut();
             }
         }

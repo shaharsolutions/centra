@@ -736,7 +736,7 @@ const UI = {
                             </div>
                             <div class="form-group">
                                 <label for="settings-confirm-password">אימות סיסמה</label>
-                                <input type="password" id="settings-confirm-password" placeholder="הקלידי שוב את הסיסמה" style="width: 100%;">
+                                <input type="password" id="settings-confirm-password" placeholder="הקלד שוב את הסיסמה" style="width: 100%;">
                             </div>
                             
                             <div id="password-change-error" class="hidden" style="color: #EF4444; background: #FEF2F2; padding: 10px; border-radius: 8px; font-size: 0.85rem;"></div>
@@ -850,7 +850,7 @@ const UI = {
                         </div>
                         <div style="margin-top: 16px; padding: 12px; background: #F9FAFB; border-radius: 8px; font-size: 0.85rem; color: var(--text-muted);">
                             <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle; margin-left: 4px;"></i>
-                            <strong>שימי לב:</strong> פרויקטים בסטטוס "נמסר" <u>ללא</u> אישור פרסום יעברו אוטומטית לארכיון לאחר שבוע. פרויקטים <u>עם</u> אישור פרסום יישארו בעמודה עד שתעבירי אותם ל"פורסם".
+                            <strong>${currentGender === 'male' ? 'שים לב' : 'שימי לב'}:</strong> פרויקטים בסטטוס "נמסר" <u>ללא</u> אישור פרסום יעברו אוטומטית לארכיון לאחר שבוע. פרויקטים <u>עם</u> אישור פרסום יישארו בעמודה עד ${currentGender === 'male' ? 'שתעביר' : 'שתעבירי'} אותם ל"פורסם".
                         </div>
                     </div>
                 </section>
