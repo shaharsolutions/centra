@@ -205,7 +205,7 @@ const UI = {
         boardHtml += `</div>`;
 
         document.getElementById('view-container').innerHTML = boardHtml;
-        document.getElementById('view-title').innerText = 'פרויקטים (לוח קנבן)';
+        document.getElementById('view-title').innerText = 'פרויקטים';
         document.getElementById('view-subtitle').innerText = 'מעקב אחרי זרימת העבודה שלך.';
         if (window.lucide) lucide.createIcons();
     },
