@@ -50,6 +50,20 @@ const Auth = {
             const emailInput = document.getElementById('auth-email');
             if (emailInput) emailInput.value = savedEmail;
         }
+        // Open Terms Modal
+        const openTermsBtn = document.getElementById('open-terms-link');
+        const termsModal = document.getElementById('terms-modal');
+        if (openTermsBtn && termsModal) {
+            openTermsBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                termsModal.classList.remove('hidden');
+            });
+        }
+
+        // Close Terms Modal (using existing close patterns if possible, or adding locally)
+        termsModal?.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', () => termsModal.classList.add('hidden'));
+        });
     },
 
     async handleSubmit(e) {
@@ -73,6 +87,10 @@ const Auth = {
 
             let result;
             if (this.isSignUp) {
+                const terms = document.getElementById('auth-terms');
+                if (terms && !terms.checked) {
+                    throw new Error('יש לאשר את תנאי השימוש כדי להמשיך');
+                }
                 result = await sb.auth.signUp({ email, password });
             } else {
                 result = await sb.auth.signInWithPassword({ email, password });
@@ -104,6 +122,7 @@ const Auth = {
         const switchText = document.getElementById('auth-switch-text');
         const switchBtn = document.getElementById('auth-switch-btn');
         const rememberGroup = document.getElementById('auth-remember')?.parentElement;
+        const termsGroup = document.getElementById('auth-terms-group');
 
         if (this.isSignUp) {
             subtitle.textContent = 'צור חשבון חדש ב-Centra';
@@ -111,12 +130,20 @@ const Auth = {
             switchText.textContent = 'כבר יש לך חשבון?';
             switchBtn.textContent = 'התחברות עכשיו';
             if (rememberGroup) rememberGroup.classList.add('hidden');
+            if (termsGroup) {
+                termsGroup.classList.remove('hidden');
+                termsGroup.style.display = 'flex'; // Explicitly set for flex layouts
+            }
         } else {
             subtitle.textContent = 'התחבר למערכת הניהול שלך';
             submitBtn.textContent = 'התחברות';
             switchText.textContent = 'אין לך חשבון?';
             switchBtn.textContent = 'הרשמה עכשיו';
             if (rememberGroup) rememberGroup.classList.remove('hidden');
+            if (termsGroup) {
+                termsGroup.classList.add('hidden');
+                termsGroup.style.display = 'none';
+            }
         }
     },
 
@@ -186,6 +213,7 @@ const Auth = {
         if (message.includes('User already registered')) return 'המשתמש כבר קיים במערכת';
         if (message.includes('Password should be at least 6 characters')) return 'הסיסמה חייבת להכיל לפחות 6 תווים';
         if (message.includes('Email not confirmed')) return 'יש לאשר את האימייל שנשלח אליך';
+        if (message.includes('יש לאשר את תנאי השימוש')) return message;
         return message;
     },
 
