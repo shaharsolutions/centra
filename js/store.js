@@ -1134,6 +1134,12 @@ const Store = {
                         localStorage.setItem('sb_checklists_rls_blocked', 'true');
                         console.warn('RLS blocking sync, stopping.');
                         break;
+                    } else if (error.code === '23503' || error.message?.includes('foreign key')) {
+                        // Foreign Key exception - typically project was deleted before task synced.
+                        // Just drop it locally so it stops spamming the API on every refresh.
+                        console.warn(`Foreign key error for un-synced task "${item.content}". Dropping it to stop infinite retries.`);
+                        const lc = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+                        localStorage.setItem('local_checklists', JSON.stringify(lc.filter(i => String(i.id) !== String(item.id))));
                     } else {
                         throw error;
                     }
