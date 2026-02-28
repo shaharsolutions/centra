@@ -182,7 +182,11 @@ async renderDashboard() {
     const gender = Store.getUserGender();
     document.getElementById('view-title').innerText = gender === 'male' ? 'שלום צלם! 👋' : 'שלום צלמת! 👋';
     document.getElementById('view-subtitle').innerText = 'הנה מה שקורה בעסק שלך היום.';
-    if (window.lucide) lucide.createIcons();
+    if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderClients(searchQuery = '', filterSource = 'all', sortBy = 'name-asc', filterCity = 'all') {
@@ -293,7 +297,11 @@ async renderDashboard() {
             searchInput.setSelectionRange(searchQuery.length, searchQuery.length);
         }
 
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderProjects() {
@@ -353,7 +361,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = boardHtml;
         document.getElementById('view-title').innerText = 'פרויקטים';
         document.getElementById('view-subtitle').innerText = 'מעקב אחרי זרימת העבודה שלך.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderArchive() {
@@ -394,7 +406,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'ארכיון פרויקטים';
         document.getElementById('view-subtitle').innerText = 'פרויקטים שהסתיימו ועברו לארכיון.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderTasks() {
@@ -480,7 +496,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'משימות ורשימות';
         document.getElementById('view-subtitle').innerText = 'משימות כלליות ומשימות מפרויקטים במקום אחד.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     getStatusIcon(statusId) {
@@ -681,7 +701,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'לוח שנה';
         document.getElementById('view-subtitle').innerText = 'כל הפרויקטים והמשימות שלך במקום אחד.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderShoots() {
@@ -724,7 +748,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'לוח צילומים';
         document.getElementById('view-subtitle').innerText = 'רשימת כל ימי הצילום הקרובים.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderPayments() {
@@ -822,7 +850,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'גבייה';
         document.getElementById('view-subtitle').innerText = 'מעקב אחר סטטוס תשלומים של פרויקטים.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderSettings() {
@@ -1109,7 +1141,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'הגדרות';
         document.getElementById('view-subtitle').innerText = 'התאמת המערכת.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderLocations(filterRegion = 'all') {
@@ -1191,7 +1227,11 @@ async renderDashboard() {
         const gender = Store.getUserGender();
         document.getElementById('view-title').innerText = 'לוקיישנים לצילומים';
         document.getElementById('view-subtitle').innerText = gender === 'male' ? 'גלה לוקיישנים מומלצים לצילומים לפי אזורים בארץ.' : 'גלי לוקיישנים מומלצים לצילומים לפי אזורים בארץ.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     getSourceLabel(source) {
@@ -1269,7 +1309,11 @@ async renderDashboard() {
                 <div class="note-content" id="note-content-${n.id}">${n.content}</div>
             </div>
         `).join('');
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderReports() {
@@ -1443,7 +1487,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'דוחות ותובנות';
         document.getElementById('view-subtitle').innerText = 'מבט על הביצועים העסקיים שלך.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     renderWeather(dailyData, cityName) {
@@ -1481,7 +1529,11 @@ async renderDashboard() {
             </div>
         `;
 
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderChecklist(projectId) {
@@ -1538,7 +1590,11 @@ async renderDashboard() {
             }
         }
 
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     async renderLogs() {
@@ -1624,7 +1680,11 @@ async renderDashboard() {
         document.getElementById('view-container').innerHTML = html;
         document.getElementById('view-title').innerText = 'יומן פעולות';
         document.getElementById('view-subtitle').innerText = 'מעקב אחרי 100 הפעולות האחרונות שבוצעו במערכת.';
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide) {
+        lucide.createIcons({
+            root: document.getElementById('app')
+        });
+    }
     },
 
     getEntityLabel(type) {

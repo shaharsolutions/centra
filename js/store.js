@@ -139,6 +139,19 @@ const Store = {
 
         // Clean up any existing duplicates in local storage occasionally
         if (Math.random() < 0.1) this.cleanupDuplicates();
+
+        // Prefetch data to warm up the cache
+        this.prefetchData();
+    },
+
+    async prefetchData() {
+        if (!Auth.getUserId()) return;
+        // Run in background
+        Promise.all([
+            this.getClients(),
+            this.getProjects(),
+            this.getAllTasks()
+        ]).then(() => console.log('Cache warmed up')).catch(e => console.warn('Prefetch failed:', e));
     },
 
     _checklistTableExists: null,
