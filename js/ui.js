@@ -40,7 +40,117 @@ async renderDashboard() {
         `).join('');
     };
 
+    // Build weekly clients contact section
+    const formatPhoneForLinks = (phone) => {
+        if (!phone) return '';
+        let clean = phone.replace(/[^0-9+]/g, '');
+        if (clean.startsWith('0')) clean = '972' + clean.slice(1);
+        if (!clean.startsWith('+')) clean = '+' + clean;
+        return clean;
+    };
+
+    // Build date strings for the week (same approach as the calendar grid)
+    const weekDateStrings = weekDays.map(day => {
+        const y = day.getFullYear();
+        const m = String(day.getMonth() + 1).padStart(2, '0');
+        const d = String(day.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    });
+
+    // Find projects with shoot dates in this week
+    const weekProjectsForContacts = projects.filter(p => {
+        if (!p.shoot_date || p.status === 'archived') return false;
+        const shootDateStr = p.shoot_date.split('T')[0];
+        return weekDateStrings.includes(shootDateStr);
+    });
+
+    // Also find projects that have TASKS due this week
+    const weekTaskProjectIds = new Set();
+    const weekFilteredTasks = tasks.filter(t => {
+        const tDate = String(t.due_date || t.dueDate || '').split('T')[0];
+        return weekDateStrings.includes(tDate);
+    });
+    weekFilteredTasks.forEach(t => {
+        const pid = t.project_id || t.projectId;
+        if (pid) weekTaskProjectIds.add(String(pid));
+    });
+
+    // Merge: projects with shoot dates this week + projects with tasks this week
+    const allWeekProjectIds = new Set();
+    weekProjectsForContacts.forEach(p => allWeekProjectIds.add(String(p.id)));
+    weekTaskProjectIds.forEach(pid => allWeekProjectIds.add(pid));
+
+    let weeklyClientsHtml = '';
+    if (allWeekProjectIds.size > 0) {
+        const allClients = await Store.getClients();
+        const clientMap = {};
+        allClients.forEach(c => { clientMap[String(c.id)] = c; });
+
+        // Build a map of all projects for quick lookup
+        const projectMap = {};
+        projects.forEach(p => { projectMap[String(p.id)] = p; });
+
+        const weekClientMap = {};
+        allWeekProjectIds.forEach(pid => {
+            const project = projectMap[pid];
+            if (!project || !project.client_id) return;
+            const client = clientMap[String(project.client_id)];
+            if (!client) return;
+            const cid = String(project.client_id);
+            if (!weekClientMap[cid]) {
+                weekClientMap[cid] = {
+                    name: client.name,
+                    phone: client.phone || '',
+                    projects: []
+                };
+            }
+            if (!weekClientMap[cid].projects.includes(project.name)) {
+                weekClientMap[cid].projects.push(project.name);
+            }
+        });
+
+        const weekClients = Object.values(weekClientMap);
+        if (weekClients.length > 0) {
+            weeklyClientsHtml = `
+                <div>
+                    <h3 class="section-title" style="font-size:1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="contact" style="width:18px;"></i> לקוחות השבוע
+                    </h3>
+                    <div style="background:white; border-radius:var(--radius-lg); border:1px solid var(--border); box-shadow:var(--shadow-sm); overflow:hidden;">
+                        ${weekClients.map(c => {
+                            const intlPhone = formatPhoneForLinks(c.phone);
+                            const waLink = intlPhone ? 'https://wa.me/' + intlPhone.replace('+', '') : '';
+                            const telLink = c.phone ? 'tel:' + c.phone : '';
+                            return `
+                                <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-weight:600; font-size:0.95rem; color:var(--text-main);">${c.name}</div>
+                                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.projects.join(', ')}</div>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                                        ${telLink ? `
+                                            <a href="${telLink}" onclick="event.stopPropagation()" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:#DBEAFE; color:#2563EB; text-decoration:none; transition: transform 0.15s ease;" title="התקשר ל${c.name}">
+                                                <i data-lucide="phone" style="width:16px; height:16px;"></i>
+                                            </a>
+                                        ` : ''}
+                                        ${waLink ? `
+                                            <a href="${waLink}" target="_blank" onclick="event.stopPropagation()" style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:#D1FAE5; text-decoration:none; transition: transform 0.15s ease;" title="שלח הודעת WhatsApp ל${c.name}">
+                                                <img src="assets/whatsapp.png" alt="WhatsApp" style="width:20px; height:20px;">
+                                            </a>
+                                        ` : ''}
+                                        ${!c.phone ? '<span style="font-size:0.75rem; color:var(--text-muted);">אין טלפון</span>' : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    }
+
     let html = `
+        <!-- Stats Summary -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <h2 class="section-title" style="margin:0;">סיכום נתונים</h2>
             <button class="btn btn-secondary btn-sm" onclick="app.toggleStatExpansion()" style="display:flex; align-items:center; gap:6px; border-radius:30px; padding: 6px 14px;">
@@ -86,6 +196,7 @@ async renderDashboard() {
             </div>
         </div>
 
+        <!-- Weekly Calendar -->
         <div class="dashboard-section" style="margin-top: 32px;">
             <div class="section-header" style="margin-bottom:16px;">
                 <h2 class="section-title">לו"ז שבועי: ${startOfWeekStr} - ${endOfWeekStr}</h2>
@@ -151,13 +262,16 @@ async renderDashboard() {
                     `;
                 }).join('')}
             </div>
+        </div>
 
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:24px;">
+        <div style="margin-top: 32px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px;">
+                <!-- Weekly Tasks -->
                 <div>
                     <h3 class="section-title" style="font-size:1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
                         <i data-lucide="list-todo" style="width:18px;"></i> משימות לשבוע זה
                     </h3>
-                    <div class="dashboard-tasks-card" style="background:white; border-radius:var(--radius-lg); border:1px solid var(--border); box-shadow:var(--shadow-sm); overflow:hidden;">
+                    <div style="background:white; border-radius:var(--radius-lg); border:1px solid var(--border); box-shadow:var(--shadow-sm); overflow:hidden;">
                         ${weekTasks.length === 0 ? 
                             '<div style="padding:24px; text-align:center; color:var(--text-muted); font-size:0.9rem;">אין משימות לשבוע זה</div>' :
                             weekTasks.map(t => `
@@ -170,17 +284,10 @@ async renderDashboard() {
                         }
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <h2 class="section-title" style="margin-top:32px;">פעולות מהירות</h2>
-        <div class="quick-actions">
-            <button class="btn btn-secondary" onclick="app.openClientModal('לקוח חדש')">
-                <i data-lucide="user-plus"></i> הוספת לקוח
-            </button>
-            <button class="btn btn-primary" onclick="app.openProjectModal('פרויקט חדש')">
-                <i data-lucide="plus"></i> פרויקט חדש
-            </button>
+                <!-- Weekly Clients -->
+                ${weeklyClientsHtml ? `<div>${weeklyClientsHtml}</div>` : ''}
+            </div>
         </div>
     `;
     
