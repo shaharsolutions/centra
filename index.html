@@ -9,6 +9,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Centra">
+    <meta name="theme-color" content="#7C3AED">
+    <link rel="manifest" href="manifest.json">
     <meta name="description" content="Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לעסק לצילום.">
     
     <!-- Google Fonts -->
@@ -774,6 +776,46 @@
             </div>
         </div>
     </div>
+    <!-- iOS Install Prompt -->
+    <div id="ios-install-prompt" style="
+        display: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        background: white;
+        border-top: 1px solid #E5E7EB;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+        padding: 20px 24px;
+        direction: rtl;
+        border-radius: 20px 20px 0 0;
+        animation: slideUp 0.4s ease-out;
+    ">
+        <style>
+            @keyframes slideUp {
+                from { transform: translateY(100%); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        </style>
+        <button onclick="dismissIOSPrompt()" style="
+            position: absolute; top: 12px; left: 12px;
+            background: #F3F4F6; border: none; width: 28px; height: 28px;
+            border-radius: 50%; cursor: pointer; font-size: 16px; color: #6B7280;
+            display: flex; align-items: center; justify-content: center;
+        ">✕</button>
+        <div style="display:flex; align-items:center; gap:16px;">
+            <img src="favicon.png" alt="Centra" style="width:48px; height:48px; border-radius:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="flex:1;">
+                <div style="font-weight:700; font-size:1rem; color:#1F2937; margin-bottom:4px;">התקן את Centra</div>
+                <div style="font-size:0.85rem; color:#6B7280; line-height:1.5;">
+                    לחץ על <span style="display:inline-flex; align-items:center; vertical-align:middle; background:#E0F2FE; color:#0369A1; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.8rem;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:3px;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                    שיתוף</span> ואז על <span style="background:#F3E8FF; color:#7E22CE; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.8rem;">הוסף למסך הבית</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="config.js"></script>
     <script src="js/store.js"></script>
@@ -784,6 +826,61 @@
     <script>
         // Initialize Lucide Icons
         lucide.createIcons();
+
+        // Install Prompt Logic (iOS + Android)
+        let deferredPrompt = null;
+
+        function dismissIOSPrompt() {
+            document.getElementById('ios-install-prompt').style.display = 'none';
+            localStorage.setItem('ios_prompt_dismissed', 'true');
+        }
+
+        // Android: Capture the beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const isDismissed = localStorage.getItem('android_prompt_dismissed') === 'true';
+            if (!isDismissed) {
+                setTimeout(() => {
+                    document.getElementById('ios-install-prompt').style.display = 'block';
+                    // Change text for Android
+                    document.getElementById('ios-install-prompt').querySelector('div > div > div:first-child').textContent = 'התקן את Centra';
+                    document.getElementById('ios-install-prompt').querySelector('div > div > div:last-child').innerHTML = `
+                        <button onclick="installAndroidApp()" style="
+                            background: linear-gradient(135deg, #7C3AED, #6D28D9);
+                            color: white; border: none; padding: 10px 24px;
+                            border-radius: 10px; font-weight: 700; font-size: 0.9rem;
+                            cursor: pointer; font-family: inherit; margin-top: 8px;
+                            box-shadow: 0 2px 8px rgba(124,58,237,0.3);
+                        ">התקן עכשיו</button>
+                    `;
+                }, 3000);
+            }
+        });
+
+        async function installAndroidApp() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            document.getElementById('ios-install-prompt').style.display = 'none';
+            if (outcome === 'dismissed') {
+                localStorage.setItem('android_prompt_dismissed', 'true');
+            }
+        }
+
+        // iOS: Show instructional banner
+        (function() {
+            const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+            const isDismissed = localStorage.getItem('ios_prompt_dismissed') === 'true';
+
+            if (isIOS && !isStandalone && !isDismissed) {
+                setTimeout(() => {
+                    document.getElementById('ios-install-prompt').style.display = 'block';
+                }, 3000);
+            }
+        })();
     </script>
 </body>
 </html>
