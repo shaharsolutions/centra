@@ -1,5 +1,6 @@
 # Sensitive information
 js/config.js
+js/config.local.js
 
 # Dependencies
 node_modules/
