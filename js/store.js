@@ -65,6 +65,9 @@ const Store = {
             localStorage.removeItem('local_project_times');
             localStorage.removeItem('local_project_styling');
             localStorage.removeItem('local_project_pub_approval');
+            
+            // CRITICAL: Clear memory cache too!
+            this.invalidateCache();
         }
         if (currentUserId) {
             localStorage.setItem('last_user_id', currentUserId);
@@ -143,9 +146,29 @@ const Store = {
     _notesColumnExists: null,
     _rlsChecklistEnabled: null,
 
+    _cache: {
+        projects: null,
+        clients: null,
+        tasks: null,
+        packages: null
+    },
+
+    invalidateCache(type) {
+        if (type) {
+            this._cache[type] = null;
+        } else {
+            this._cache.projects = null;
+            this._cache.clients = null;
+            this._cache.tasks = null;
+            this._cache.packages = null;
+        }
+    },
+
     // Clients
-    async getClients() {
+    async getClients(forceRefresh = false) {
         if (!Auth.getUserId()) return [];
+        if (!forceRefresh && this._cache.clients) return this._cache.clients;
+
         let dbClients = [];
         let localClients = JSON.parse(localStorage.getItem('local_clients') || '[]');
 
@@ -189,7 +212,7 @@ const Store = {
 
         const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
         
-        return allClients.map(c => ({
+        const results = allClients.map(c => ({
             ...c,
             city: localExtras[c.id]?.city || c.city,
             email: localExtras[c.id]?.email || c.email,
@@ -197,6 +220,9 @@ const Store = {
             facebook: localExtras[c.id]?.facebook || c.facebook,
             website: localExtras[c.id]?.website || c.website
         }));
+
+        this._cache.clients = results;
+        return results;
     },
 
     async saveClient(client) {
@@ -265,6 +291,7 @@ const Store = {
         };
         localStorage.setItem('local_client_extras', JSON.stringify(localExtras));
         
+        this.invalidateCache('clients');
         return finalClient;
     },
 
@@ -281,11 +308,14 @@ const Store = {
         const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
         delete localExtras[id];
         localStorage.setItem('local_client_extras', JSON.stringify(localExtras));
+        this.invalidateCache('clients');
     },
 
     // Projects
-    async getProjects(clientId = null) {
+    async getProjects(clientId = null, forceRefresh = false) {
         if (!Auth.getUserId()) return [];
+        if (!clientId && !forceRefresh && this._cache.projects) return this._cache.projects;
+
         let dbProjects = [];
         let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
 
@@ -337,7 +367,7 @@ const Store = {
         const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
         const localPubApproval = JSON.parse(localStorage.getItem('local_project_pub_approval') || '{}');
 
-        const clients = await this.getClients();
+        const clients = await this.getClients(false);
         
         return allProjects.map(p => {
             // Normalize clients field
@@ -370,6 +400,9 @@ const Store = {
                 publication_approval: p.publication_approval !== undefined ? p.publication_approval : (localPubApproval[pid] || false)
             };
         });
+
+        if (!clientId) this._cache.projects = results;
+        return results;
     },
 
     async saveProject(project) {
@@ -483,6 +516,7 @@ const Store = {
         const isNew = typeof project.id === 'undefined' || !project.id || String(project.id).startsWith('local_proj_');
         await this.addDefaultsToProject(finalProject.id, finalProject.shoot_date, { ...finalProject, clients: finalProject.clients || (await sb.from('clients').select('name').eq('id', finalProject.client_id).single()).data }, isNew);
         
+        this.invalidateCache('projects');
         return finalProject;
     },
 
@@ -592,6 +626,7 @@ const Store = {
                 localStorage.setItem(key, JSON.stringify(data));
             }
         });
+        this.invalidateCache('projects');
     },
 
     // Packages
@@ -929,7 +964,10 @@ const Store = {
         }
     },
 
-    async getAllTasks() {
+    async getAllTasks(forceRefresh = false) {
+        if (!Auth.getUserId()) return [];
+        if (!forceRefresh && this._cache.tasks) return this._cache.tasks;
+
         let dbTasks = [];
         let localTasks = JSON.parse(localStorage.getItem('local_checklists') || '[]');
 
@@ -974,7 +1012,7 @@ const Store = {
 
         // De-duplicate tasks for the UI by content/date/pid
         const seen = new Set();
-        return allTasks.filter(t => {
+        const results = allTasks.filter(t => {
             const date = String(t.due_date || t.dueDate || '').split('T')[0].trim();
             const content = String(t.content || '').trim();
             const pid = String(t.project_id || t.projectId || 'no-proj');
@@ -984,6 +1022,9 @@ const Store = {
             seen.add(key);
             return true;
         });
+
+        this._cache.tasks = results;
+        return results;
     },
 
     cleanupDuplicates() {
@@ -1231,6 +1272,7 @@ const Store = {
             localItems.push(itemToSave);
         }
         localStorage.setItem('local_checklists', JSON.stringify(localItems));
+        this.invalidateCache('tasks');
     },
 
     async toggleChecklistItem(id, isCompleted) {
@@ -1278,6 +1320,7 @@ const Store = {
                 id
             );
         }
+        this.invalidateCache('tasks');
     },
 
     async deleteChecklistItem(id) {
@@ -1318,6 +1361,7 @@ const Store = {
             const taskLink = `<span class="log-client-link" onclick="app.viewTask('${id}')">${itemToDelete.content}</span>`;
             this.logAction('מחיקת משימה', `המשימה "${taskLink}" נמחקה${projectRef}`, 'task', id);
         }
+        this.invalidateCache('tasks');
     },
 
     // Checklist Defaults
@@ -1394,6 +1438,32 @@ const Store = {
                 }),
                 ...defaults.equipment.map(content => ({ projectId, content, category: 'equipment' }))
             ];
+        } else if (shootDate) {
+            // Even if not forcing defaults, if there's a shoot date, update or CREATE the 'Reminder' task
+            const reminderTask = existingItems.find(i => i.content.includes('תזכורת'));
+            const date = new Date(shootDate);
+            date.setDate(date.getDate() - 1);
+            const newDueDate = date.toISOString().split('T')[0];
+            const content = clientName ? `שליחת תזכורת יום לפני (${clientName})` : 'שליחת תזכורת יום לפני';
+
+            if (reminderTask) {
+                if (reminderTask.due_date !== newDueDate || reminderTask.dueDate !== newDueDate || reminderTask.content !== content) {
+                    await this.saveChecklistItem({
+                        ...reminderTask,
+                        dueDate: newDueDate,
+                        content: content,
+                        projectId: projectId
+                    });
+                }
+            } else {
+                // CREATE missing reminder
+                itemsToSave.push({
+                    projectId,
+                    content: content,
+                    category: 'shoot',
+                    dueDate: newDueDate
+                });
+            }
         }
 
         // Handle Styling Call Task separately to allow updates/deletions
