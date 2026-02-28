@@ -1777,6 +1777,146 @@ const Store = {
             console.error('Error deleting location:', e);
             throw e;
         }
+    },
+
+    // =====================
+    // Documents
+    // =====================
+    _documentsTableExists: null,
+
+    async getDocuments(clientId = null, projectId = null) {
+        if (!Auth.getUserId()) return [];
+
+        try {
+            let query = sb.from('client_documents')
+                .select('*')
+                .eq('user_id', Auth.getUserId())
+                .order('created_at', { ascending: false });
+
+            if (clientId) query = query.eq('client_id', clientId);
+            if (projectId) query = query.eq('project_id', projectId);
+
+            const { data, error } = await query;
+            if (error) {
+                if (error.code === '42P01') {
+                    this._documentsTableExists = false;
+                    return [];
+                }
+                throw error;
+            }
+            this._documentsTableExists = true;
+            return data || [];
+        } catch (e) {
+            console.warn('Error fetching documents:', e.message);
+            return [];
+        }
+    },
+
+    async uploadDocument(file, clientId, projectId = null, description = '') {
+        if (!Auth.getUserId() || !clientId) throw new Error('Missing required data');
+
+        const userId = Auth.getUserId();
+        const timestamp = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath = `${userId}/${clientId}/${timestamp}_${safeName}`;
+
+        // 1. Upload file to Supabase Storage
+        const { data: uploadData, error: uploadError } = await sb.storage
+            .from('client-documents')
+            .upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+
+        if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw new Error('שגיאה בהעלאת הקובץ: ' + uploadError.message);
+        }
+
+        // 2. Save metadata to DB
+        const docRecord = {
+            client_id: clientId,
+            project_id: projectId || null,
+            user_id: userId,
+            file_name: file.name,
+            file_path: filePath,
+            file_size: file.size,
+            file_type: file.type || 'application/octet-stream',
+            description: description || null
+        };
+
+        const { data, error } = await sb.from('client_documents').insert([docRecord]).select();
+        if (error) {
+            // Cleanup uploaded file if metadata save failed
+            await sb.storage.from('client-documents').remove([filePath]);
+            throw new Error('שגיאה בשמירת פרטי המסמך: ' + error.message);
+        }
+
+        // Log action
+        const clients = await this.getClients();
+        const client = clients.find(c => String(c.id) === String(clientId));
+        const clientLink = client ? `<span class="log-client-link" onclick="app.viewClient('${clientId}')">${client.name}</span>` : '';
+        let logDetails = `הועלה מסמך "${file.name}"`;
+        if (clientLink) logDetails += ` ללקוח ${clientLink}`;
+        if (projectId) {
+            const projects = await this.getProjects();
+            const project = projects.find(p => String(p.id) === String(projectId));
+            if (project) {
+                logDetails += ` | פרויקט: <span class="log-client-link" onclick="app.viewProject('${projectId}')">${project.name}</span>`;
+            }
+        }
+        this.logAction('העלאת מסמך', logDetails, 'document', data?.[0]?.id);
+
+        return data?.[0];
+    },
+
+    async deleteDocument(docId) {
+        if (!Auth.getUserId()) return;
+
+        // 1. Get document to find file path
+        const { data: doc, error: fetchError } = await sb
+            .from('client_documents')
+            .select('*')
+            .eq('id', docId)
+            .single();
+
+        if (fetchError || !doc) {
+            throw new Error('מסמך לא נמצא');
+        }
+
+        // 2. Delete from Storage
+        const { error: storageError } = await sb.storage
+            .from('client-documents')
+            .remove([doc.file_path]);
+
+        if (storageError) {
+            console.warn('Storage delete warning:', storageError.message);
+        }
+
+        // 3. Delete metadata from DB
+        const { error: dbError } = await sb.from('client_documents').delete().eq('id', docId);
+        if (dbError) {
+            throw new Error('שגיאה במחיקת פרטי המסמך: ' + dbError.message);
+        }
+
+        // Log action
+        this.logAction('מחיקת מסמך', `המסמך "${doc.file_name}" נמחק`, 'document', docId);
+    },
+
+    getDocumentUrl(filePath) {
+        const { data } = sb.storage.from('client-documents').getPublicUrl(filePath);
+        return data?.publicUrl || null;
+    },
+
+    async getDocumentDownloadUrl(filePath) {
+        const { data, error } = await sb.storage
+            .from('client-documents')
+            .createSignedUrl(filePath, 3600); // 1 hour
+        if (error) {
+            console.error('Error creating signed URL:', error);
+            return null;
+        }
+        return data?.signedUrl || null;
     }
 };
 

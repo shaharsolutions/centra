@@ -346,6 +346,49 @@
                     </div>
                 </div>
 
+                <div class="documents-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="paperclip" style="width:16px; height:16px;"></i>
+                        מסמכים
+                    </label>
+                    <div id="client-documents-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+                        <!-- Documents will be loaded here -->
+                    </div>
+                    <div class="upload-document-box" style="margin-top:12px; padding:16px; border:2px dashed var(--border); border-radius:var(--radius-md); background:var(--bg-main); transition:all 0.2s;">
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <label for="client-doc-upload" style="cursor:pointer; display:flex; align-items:center; gap:8px; margin-bottom:0;">
+                                    <div style="background:var(--primary-light); color:var(--primary); width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                                        <i data-lucide="upload" style="width:18px; height:18px;"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:600; font-size:0.85rem;">העלאת מסמך</div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted);">PDF, Word, תמונות ועוד (עד 3MB)</div>
+                                    </div>
+                                </label>
+                                <input type="file" id="client-doc-upload" style="display:none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.zip,.rar" onchange="app.handleDocumentUpload(event, 'client')">
+                            </div>
+                            <div id="client-doc-upload-details" class="hidden" style="display:flex; flex-direction:column; gap:8px;">
+                                <div id="client-doc-file-info" style="font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:8px;">
+                                    <select id="client-doc-project-select" style="width:100%; font-size:0.85rem; padding:8px 12px;">
+                                        <option value="">שיוך לפרויקט (אופציונלי)</option>
+                                    </select>
+                                    <input type="text" id="client-doc-description" placeholder="תיאור קצר (אופציונלי)" style="width:100%; font-size:0.85rem; padding:8px 12px;">
+                                </div>
+                                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="app.cancelDocumentUpload('client')">ביטול</button>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="app.submitDocumentUpload('client')" id="client-doc-submit-btn">
+                                        <i data-lucide="upload" style="width:14px; height:14px;"></i>
+                                        העלאה
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="notes-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
                     <label>הערות ועדכונים</label>
                     <div id="client-notes-list" class="notes-timeline">
@@ -544,6 +587,46 @@
                         <button type="button" class="btn btn-secondary btn-sm import-defaults-btn" onclick="app.importDefaults('equipment')" style="margin-top: 8px; width: 100%; border-style: dashed; justify-content: center; gap: 8px;">
                             <i data-lucide="download" style="width:14px;"></i> ייבוא רשימת ברירת המחדל
                         </button>
+                    </div>
+                </div>
+
+                <div class="documents-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="paperclip" style="width:16px; height:16px;"></i>
+                        מסמכים של הפרויקט
+                    </label>
+                    <div id="project-documents-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+                        <!-- Documents will be loaded here -->
+                    </div>
+                    <div class="upload-document-box" style="margin-top:12px; padding:16px; border:2px dashed var(--border); border-radius:var(--radius-md); background:var(--bg-main); transition:all 0.2s;">
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <label for="project-doc-upload" style="cursor:pointer; display:flex; align-items:center; gap:8px; margin-bottom:0;">
+                                    <div style="background:var(--primary-light); color:var(--primary); width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                                        <i data-lucide="upload" style="width:18px; height:18px;"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:600; font-size:0.85rem;">העלאת מסמך</div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted);">PDF, Word, תמונות ועוד (עד 3MB)</div>
+                                    </div>
+                                </label>
+                                <input type="file" id="project-doc-upload" style="display:none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.zip,.rar" onchange="app.handleDocumentUpload(event, 'project')">
+                            </div>
+                            <div id="project-doc-upload-details" class="hidden" style="display:flex; flex-direction:column; gap:8px;">
+                                <div id="project-doc-file-info" style="font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                                </div>
+                                <div style="display:flex; gap:8px; align-items:center;">
+                                    <input type="text" id="project-doc-description" placeholder="תיאור קצר (אופציונלי)" style="flex:1; font-size:0.85rem; padding:8px 12px;">
+                                </div>
+                                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="app.cancelDocumentUpload('project')">ביטול</button>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="app.submitDocumentUpload('project')" id="project-doc-submit-btn">
+                                        <i data-lucide="upload" style="width:14px; height:14px;"></i>
+                                        העלאה
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

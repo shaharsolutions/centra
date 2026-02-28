@@ -1808,9 +1808,84 @@ async renderDashboard() {
             'package': 'חבילה',
             'location': 'לוקיישן',
             'note': 'הערה',
-            'settings': 'הגדרות'
+            'settings': 'הגדרות',
+            'document': 'מסמך'
         };
         return labels[type] || type;
+    },
+
+    async renderDocuments(clientId = null, projectId = null) {
+        const containerId = projectId ? 'project-documents-list' : 'client-documents-list';
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const docs = await Store.getDocuments(clientId, projectId);
+
+        if (docs.length === 0) {
+            container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding:16px; border:1px dashed var(--border); border-radius:var(--radius-md);">עדיין לא הועלו מסמכים.</div>';
+            return;
+        }
+
+        // If rendering for client (not project-specific), get project names for display
+        let projectNames = {};
+        if (clientId && !projectId) {
+            const projects = await Store.getProjects(clientId);
+            projects.forEach(p => { projectNames[p.id] = p.name; });
+        }
+
+        container.innerHTML = docs.map(doc => {
+            const sizeKB = (doc.file_size / 1024).toFixed(1);
+            const sizeDisplay = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+            const dateStr = new Date(doc.created_at).toLocaleDateString('he-IL', { day:'2-digit', month:'2-digit', year:'2-digit' });
+            const fileIcon = this._getFileIcon(doc.file_type);
+            const projectLabel = doc.project_id && projectNames[doc.project_id] ? 
+                `<span style="background:var(--primary-light); color:var(--primary); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:600;">${projectNames[doc.project_id]}</span>` : '';
+
+            return `
+                <div class="document-card" style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid var(--border); border-radius:var(--radius-md); transition:all 0.2s; background:white;">
+                    <div style="background:${fileIcon.bg}; color:${fileIcon.color}; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <i data-lucide="${fileIcon.icon}" style="width:20px; height:20px;"></i>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:600; font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${doc.file_name}">${doc.file_name}</div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
+                            <span style="font-size:0.75rem; color:var(--text-muted);">${sizeDisplay}</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">•</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">${dateStr}</span>
+                            ${projectLabel}
+                        </div>
+                        ${doc.description ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${doc.description}</div>` : ''}
+                    </div>
+                    <div style="display:flex; gap:6px; flex-shrink:0;">
+                        <button type="button" class="btn-icon" onclick="app.downloadDocument('${doc.file_path}')" title="הורדה" style="color:var(--primary);">
+                            <i data-lucide="download" style="width:16px; height:16px;"></i>
+                        </button>
+                        <button type="button" class="btn-icon" onclick="app.deleteDocument('${doc.id}', '${clientId || ''}', '${projectId || ''}')" title="מחיקה" style="color:#EF4444;">
+                            <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.lucide) {
+            lucide.createIcons({ root: container });
+        }
+    },
+
+    _getFileIcon(mimeType) {
+        if (!mimeType) return { icon: 'file', bg: '#F3F4F6', color: '#6B7280' };
+        
+        if (mimeType.startsWith('image/')) return { icon: 'image', bg: '#DBEAFE', color: '#3B82F6' };
+        if (mimeType === 'application/pdf') return { icon: 'file-text', bg: '#FEE2E2', color: '#EF4444' };
+        if (mimeType.includes('word') || mimeType.includes('document')) return { icon: 'file-text', bg: '#DBEAFE', color: '#2563EB' };
+        if (mimeType.includes('sheet') || mimeType.includes('excel') || mimeType.includes('csv')) return { icon: 'table', bg: '#D1FAE5', color: '#059669' };
+        if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return { icon: 'presentation', bg: '#FEF3C7', color: '#D97706' };
+        if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('tar')) return { icon: 'archive', bg: '#E5E7EB', color: '#4B5563' };
+        if (mimeType.startsWith('video/')) return { icon: 'video', bg: '#EDE9FE', color: '#7C3AED' };
+        if (mimeType.startsWith('audio/')) return { icon: 'music', bg: '#FCE7F3', color: '#DB2777' };
+        
+        return { icon: 'file', bg: '#F3F4F6', color: '#6B7280' };
     }
 };
 

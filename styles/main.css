@@ -1336,3 +1336,30 @@ input:focus, select:focus, textarea:focus {
 .log-client-link:hover {
     color: #4C1D95;
 }
+
+/* Document Cards */
+.document-card:hover {
+    border-color: var(--primary-light);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+    transform: translateY(-1px);
+}
+
+.upload-document-box:hover {
+    border-color: var(--primary-light);
+    background: rgba(124, 58, 237, 0.02);
+}
+
+.documents-section label {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+@media (max-width: 768px) {
+    .document-card {
+        padding: 10px 12px !important;
+    }
+    .document-card > div:first-child {
+        width: 32px !important;
+        height: 32px !important;
+    }
+}

@@ -442,11 +442,32 @@ const app = {
                     document.getElementById('client-phone-view').innerText = c.phone;
                     document.getElementById('client-source-view').innerText = UI.getSourceLabel(c.source);
                     UI.renderClientProjects(clientId);
+                UI.renderDocuments(clientId, null);
                     document.getElementById('client-city-view').innerText = c.city || 'לא צוין';
                     document.getElementById('client-email-view').innerText = c.email || '---';
-                    document.getElementById('client-instagram-view').innerText = c.instagram || '---';
-                    document.getElementById('client-facebook-view').innerText = c.facebook || '---';
-                    document.getElementById('client-website-view').innerText = c.website || '---';
+
+                    const formatLink = (val, platform) => {
+                        if (!val) return '---';
+                        let url = val.trim();
+                        if (!url.startsWith('http')) {
+                            if (platform === 'instagram') {
+                                url = `https://instagram.com/${url.replace('@', '')}`;
+                            } else if (platform === 'facebook') {
+                                if (url.includes(' ')) {
+                                    url = `https://www.facebook.com/search/top?q=${encodeURIComponent(url)}`;
+                                } else {
+                                    url = `https://facebook.com/${url}`;
+                                }
+                            } else {
+                                url = `https://${url}`;
+                            }
+                        }
+                        return `<a href="${url}" target="_blank" dir="ltr" style="color:var(--primary); text-decoration:underline; font-weight:500; direction:ltr; display:inline-block;">${val}</a>`;
+                    };
+
+                    document.getElementById('client-instagram-view').innerHTML = formatLink(c.instagram, 'instagram');
+                    document.getElementById('client-facebook-view').innerHTML = formatLink(c.facebook, 'facebook');
+                    document.getElementById('client-website-view').innerHTML = formatLink(c.website, 'website');
                 }
             });
             this.setClientEditMode(false);
@@ -456,6 +477,9 @@ const app = {
             deleteBtn.style.display = 'none';
             document.getElementById('client-form').reset();
             document.getElementById('client-notes-list').innerHTML = '';
+            document.getElementById('client-projects-list').innerHTML = '';
+            const clientDocsContainer = document.getElementById('client-documents-list');
+            if (clientDocsContainer) clientDocsContainer.innerHTML = '';
             this.setClientEditMode(true);
         }
     },
@@ -573,6 +597,7 @@ const app = {
             this.setProjectEditMode(true);
             UI.renderNotes(null, projectId);
             UI.renderChecklist(projectId);
+            UI.renderDocuments(p.client_id, projectId);
             deleteBtn.style.display = 'block';
         } else {
             driveLink.style.display = 'none';
@@ -1747,6 +1772,151 @@ const app = {
             console.error('Weather fetch error:', error);
             container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted);">תקלה בטעינת מזג האוויר</div>';
         }
+    },
+
+    // =====================
+    // Document Management
+    // =====================
+    _pendingDocFile: null,
+
+    handleDocumentUpload(event, type) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Validate size (3MB max)
+        if (file.size > 3 * 1024 * 1024) {
+            this.confirmAction('קובץ גדול מדי', 'הגודל המקסימלי המותר הוא 3MB.', null, true);
+            event.target.value = '';
+            return;
+        }
+
+        this._pendingDocFile = file;
+        const detailsEl = document.getElementById(`${type}-doc-upload-details`);
+        const fileInfoEl = document.getElementById(`${type}-doc-file-info`);
+        
+        const sizeKB = (file.size / 1024).toFixed(1);
+        const sizeDisplay = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+        
+        fileInfoEl.innerHTML = `
+            <i data-lucide="file" style="width:14px; height:14px;"></i>
+            <strong>${file.name}</strong> (${sizeDisplay})
+        `;
+        detailsEl.classList.remove('hidden');
+        detailsEl.style.display = 'flex';
+
+        // Populate project dropdown for client modal
+        if (type === 'client' && this.editingClientId) {
+            Store.getProjects(this.editingClientId).then(projects => {
+                const select = document.getElementById('client-doc-project-select');
+                if (select) {
+                    select.innerHTML = '<option value="">שיוך לפרויקט (אופציונלי)</option>' +
+                        projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                }
+            });
+        }
+
+        if (window.lucide) lucide.createIcons();
+    },
+
+    cancelDocumentUpload(type) {
+        this._pendingDocFile = null;
+        const fileInput = document.getElementById(`${type}-doc-upload`);
+        if (fileInput) fileInput.value = '';
+        const detailsEl = document.getElementById(`${type}-doc-upload-details`);
+        if (detailsEl) {
+            detailsEl.classList.add('hidden');
+            detailsEl.style.display = 'none';
+        }
+        const descInput = document.getElementById(`${type}-doc-description`);
+        if (descInput) descInput.value = '';
+    },
+
+    async submitDocumentUpload(type) {
+        if (!this._pendingDocFile) return;
+
+        const submitBtn = document.getElementById(`${type}-doc-submit-btn`);
+        const originalBtnHtml = submitBtn.innerHTML;
+        
+        try {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner" style="width:14px; height:14px;"></span> מעלה...';
+
+            let clientId, projectId, description;
+
+            if (type === 'client') {
+                clientId = this.editingClientId;
+                projectId = document.getElementById('client-doc-project-select')?.value || null;
+                description = document.getElementById('client-doc-description')?.value || '';
+            } else {
+                // For project upload, get client_id from the project or from the dropdown
+                projectId = this.editingProjectId || null;
+                const clientDropdown = document.getElementById('project-client');
+                clientId = clientDropdown?.value || null;
+                
+                // If not from dropdown, try from stored project
+                if (!clientId && projectId) {
+                    const projects = await Store.getProjects();
+                    const project = projects.find(p => String(p.id) === String(projectId));
+                    clientId = project?.client_id;
+                }
+                description = document.getElementById('project-doc-description')?.value || '';
+            }
+
+            if (!clientId) {
+                this.confirmAction('שגיאה', 'חיבור ללקוח נדרש להעלאת מסמך.', null, true);
+                return;
+            }
+
+            await Store.uploadDocument(this._pendingDocFile, clientId, projectId, description);
+            
+            // Reset UI
+            this.cancelDocumentUpload(type);
+
+            // Refresh document lists
+            if (type === 'client') {
+                UI.renderDocuments(clientId, null);
+            } else {
+                UI.renderDocuments(clientId, projectId);
+            }
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            this.confirmAction('שגיאה בהעלאה', error.message || 'חלה שגיאה בהעלאת המסמך.', null, true);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml;
+        }
+    },
+
+    async downloadDocument(filePath) {
+        try {
+            const url = await Store.getDocumentDownloadUrl(filePath);
+            if (url) {
+                window.open(url, '_blank');
+            } else {
+                this.confirmAction('שגיאה', 'לא ניתן ליצור קישור הורדה.', null, true);
+            }
+        } catch (error) {
+            console.error('Download error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בהורדת המסמך.', null, true);
+        }
+    },
+
+    async deleteDocument(docId, clientId, projectId) {
+        this.confirmAction('מחיקת מסמך', 'האם בטוח/ה שברצונך למחוק את המסמך? פעולה זו בלתי הפיכה.', async () => {
+            try {
+                await Store.deleteDocument(docId);
+                // Refresh document lists
+                if (projectId) {
+                    UI.renderDocuments(clientId || null, projectId);
+                } else if (clientId) {
+                    UI.renderDocuments(clientId, null);
+                }
+            } catch (error) {
+                console.error('Delete document error:', error);
+                this.confirmAction('שגיאה', error.message || 'חלה שגיאה במחיקת המסמך.', null, true);
+            }
+        });
     },
 
     viewAdmin() {
