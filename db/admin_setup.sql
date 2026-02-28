@@ -1,7 +1,25 @@
 -- ============================================
--- Admin Setup - Fixed Version
+-- Admin Setup - Fixed Version (v2)
 -- Run this in Supabase SQL Editor
 -- ============================================
+
+-- 0. Create user_profiles table (stores emails for admin visibility)
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id),
+    email TEXT NOT NULL,
+    last_seen TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Users can manage their own profile
+DROP POLICY IF EXISTS "Users can manage their own profile" ON user_profiles;
+CREATE POLICY "Users can manage their own profile" ON user_profiles
+    FOR ALL USING (
+        auth.uid() = user_id 
+        OR 
+        auth.jwt() ->> 'email' = 'shaharsolutions@gmail.com'
+    ) WITH CHECK (auth.uid() = user_id);
 
 -- 1. Create user_sessions table
 CREATE TABLE IF NOT EXISTS user_sessions (

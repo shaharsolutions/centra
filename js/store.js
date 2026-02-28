@@ -778,20 +778,27 @@ const Store = {
 
     // user_sessions logging
     async logSessionStart() {
-        if (!Auth.getUserId() || !Auth.session?.user?.email) return;
+        if (!Auth.session?.user?.id || !Auth.session?.user?.email) return;
         
+        // Never log sessions during impersonation — it corrupts user data
+        if (window.Admin && Admin._impersonatingUserId) return;
+        
+        // Always use the real auth session ID, NOT Auth.getUserId() which may be impersonated
+        const realUserId = Auth.session.user.id;
+        const realEmail = Auth.session.user.email;
+
         try {
             // Upsert into persistent profiles table
             const profileData = {
-                user_id: Auth.getUserId(),
-                email: Auth.session.user.email,
+                user_id: realUserId,
+                email: realEmail,
                 last_seen: new Date().toISOString()
             };
             await sb.from('user_profiles').upsert([profileData], { onConflict: 'user_id' });
 
             const sessionData = {
-                user_id: Auth.getUserId(),
-                user_email: Auth.session.user.email,
+                user_id: realUserId,
+                user_email: realEmail,
                 login_time: new Date().toISOString(),
                 last_active: new Date().toISOString(),
                 duration_minutes: 0
