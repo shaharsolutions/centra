@@ -101,7 +101,8 @@ const app = {
                         const projects = await Store.getProjects();
                         const p = projects.find(proj => String(proj.id) === String(this.editingProjectId));
                         await Store.deleteProject(this.editingProjectId);
-                        await Store.logAction('מחיקת פרויקט', `הפרויקט ${p?.name || 'לא ידוע'} נמחק`, 'project', this.editingProjectId);
+                        const clientNameText = p?.clients?.name ? ` (${p.clients.name})` : '';
+                        await Store.logAction('מחיקת פרויקט', `הפרויקט ${p?.name || 'לא ידוע'}${clientNameText} נמחק`, 'project', this.editingProjectId);
                         this.closeModal();
                         await this.navigate(this.currentView);
                     } catch (error) {
