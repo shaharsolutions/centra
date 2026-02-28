@@ -162,6 +162,12 @@ body {
     transition: display 0.2s ease;
 }
 
+.quick-add-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .btn {
     display: inline-flex;
     align-items: center;
@@ -230,7 +236,17 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+}
+
+.stat-card:nth-child(1) { border-right: 4px solid #7C3AED; }
+.stat-card:nth-child(2) { border-right: 4px solid #3B82F6; }
+.stat-card:nth-child(3) { border-right: 4px solid #10B981; }
 
 .stat-card .icon-label {
     display: flex;
@@ -604,11 +620,14 @@ input:focus, select:focus, textarea:focus {
     bottom: 0;
     left: 0;
     right: 0;
-    background: white;
-    border-top: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(226, 232, 240, 0.5);
     z-index: 1000;
-    box-shadow: 0 -4px 12px -2px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -8px 24px -4px rgba(0, 0, 0, 0.08);
     align-items: stretch;
+    padding-top: 4px;
 }
 
 /* Gradient fade on left edge to hint more content */
@@ -638,7 +657,7 @@ input:focus, select:focus, textarea:focus {
     padding: 10px 16px;
     padding-right: calc(16px + env(safe-area-inset-right, 0px));
     padding-left: calc(16px + env(safe-area-inset-left, 0px));
-    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 8px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 8px) + 8px);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -754,49 +773,87 @@ input:focus, select:focus, textarea:focus {
     }
     .top-bar {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 20px;
+        align-items: center; /* Center for a clean mobile dashboard look */
+        text-align: center;
+        gap: 16px;
+        margin-bottom: 24px;
     }
     .header-info h1 {
-        font-size: 1.5rem;
+        font-size: 1.75rem;
+    }
+    .header-info p {
+        font-size: 0.95rem;
     }
     .header-actions {
         width: 100%;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
     }
-    .header-actions .btn {
+    .quick-add-group {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+    }
+    .quick-add-group .btn {
         flex: 1;
+        padding: 12px;
+        font-size: 0.9rem;
         justify-content: center;
-        padding: 10px;
-        min-width: 0; /* Allow shrinking */
+    }
+    
+    .header-actions .user-profile {
+        width: 100%;
+        background: white;
+        padding: 12px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
     }
     .header-actions .user-info {
         width: 100%;
+        display: flex;
         justify-content: space-between;
-        flex-wrap: wrap;
+        align-items: center;
         gap: 8px;
     }
     .header-actions .user-email {
-        font-size: 0.8rem !important;
+        font-size: 0.85rem !important;
+        color: var(--text-muted);
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 60%;
+        white-space: nowrap;
+        max-width: 180px;
     }
     
     .stats-grid {
         grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .stat-card {
+        padding: 16px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .stat-card .value {
+        font-size: 1.75rem;
     }
     
     .list-item {
         flex-direction: column;
         align-items: flex-start;
-        gap: 12px;
+        padding: 16px;
+        gap: 8px;
+        border-radius: var(--radius-md);
+        margin: 0 8px 8px 8px;
+        border: 1px solid var(--border);
     }
     
     .list-item .badge {
         align-self: flex-start;
+        padding: 2px 8px;
+        font-size: 0.70rem;
     }
 
     .section-header {
@@ -817,18 +874,24 @@ input:focus, select:focus, textarea:focus {
 
     .item-actions {
         width: 100%;
-        justify-content: flex-start;
-        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
     }
     
     .item-actions .btn {
         flex: 1;
         justify-content: center;
+        padding: 8px;
+        font-size: 0.8rem;
     }
 
     .modal {
-        width: 95%;
-        padding: 20px;
+        width: 92%;
+        padding: 24px 20px;
+        border-radius: var(--radius-md);
+    }
+    .modal-header h3 {
+        font-size: 1.25rem;
     }
     
     .form-row {
@@ -851,14 +914,31 @@ input:focus, select:focus, textarea:focus {
     
     /* Adjust mobile nav items for smaller screens */
     .mobile-nav-item {
-        min-width: 52px;
-        padding: 8px 5px;
+        min-width: 50px;
+        padding: 6px 4px;
         font-size: 0.65rem;
     }
     
     .mobile-nav-item i {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
+    }
+}
+
+/* Fix for Impersonation Banner on Mobile */
+@media (max-width: 768px) {
+    #impersonation-banner {
+        flex-direction: column;
+        padding: 8px;
+        gap: 8px;
+        font-size: 0.85rem;
+    }
+    #impersonation-banner button {
+        width: 100%;
+        padding: 4px;
+    }
+    body.impersonating .main-content {
+        padding-top: 80px;
     }
 }
 
