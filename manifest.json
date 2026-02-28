@@ -2,7 +2,7 @@
     "name": "Centra - ניהול עסק לצילום",
     "short_name": "Centra",
     "description": "מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לעסק לצילום",
-    "start_url": "/",
+    "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#7C3AED",
