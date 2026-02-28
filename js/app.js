@@ -1091,8 +1091,16 @@ const app = {
         this.setClientEditMode(true);
     },
 
-    viewClient(id) { 
+    async viewClient(id) { 
         this.closeModal();
+        const clients = await Store.getClients();
+        const clientExists = clients.some(c => String(c.id) === String(id));
+        
+        if (!clientExists) {
+            this.confirmAction('לקוח נמחק', 'הלקוח שניסית לפתוח כבר אינו קיים במערכת.', null, true);
+            return;
+        }
+
         this.openClientModal('פרטי לקוח', id);
     },
 
