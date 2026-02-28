@@ -5,6 +5,8 @@ const app = {
     editingPackageId: null,
     editingTaskId: null,
     currentCalendarDate: new Date(),
+    dashboardWeekOffset: 0, 
+    isStatsExpanded: false,
 
     initialized: false,
 
@@ -293,6 +295,21 @@ const app = {
         setTimeout(() => {
             modal.classList.remove('hidden');
         }, 10);
+    },
+
+    async changeDashboardWeek(offset) {
+        this.dashboardWeekOffset += offset;
+        await UI.renderDashboard();
+    },
+
+    async goToTodayDashboard() {
+        this.dashboardWeekOffset = 0;
+        await UI.renderDashboard();
+    },
+
+    async toggleStatExpansion() {
+        this.isStatsExpanded = !this.isStatsExpanded;
+        await UI.renderDashboard();
     },
 
     async navigate(view) {

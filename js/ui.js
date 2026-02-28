@@ -1,42 +1,188 @@
 const UI = {
-    async renderDashboard() {
-        const projects = await Store.getProjects();
-        const openJobs = projects.filter(p => ['closed', 'shooting', 'editing'].includes(p.status)).length;
-        const waitingPayment = projects.filter(p => (p.payments?.total || 0) > (p.payments?.deposit || 0) && p.status !== 'delivered').length;
-        const inEditing = projects.filter(p => p.status === 'editing').length;
+async renderDashboard() {
+    const projects = await Store.getProjects();
+    const tasks = await Store.getAllTasks();
+    
+    const openProjectsList = projects.filter(p => ['closed', 'shooting', 'editing'].includes(p.status));
+    const waitingPaymentList = projects.filter(p => (p.payments?.total || 0) > (p.payments?.deposit || 0) && p.status !== 'delivered');
+    const inEditingList = projects.filter(p => p.status === 'editing');
 
-        const html = `
-            <div class="stats-grid">
-                <div class="stat-card">
+    // Calculate Week View
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const startOfWeek = new Date(today);
+    // Start of week (Sunday in Israel)
+    startOfWeek.setDate(today.getDate() - today.getDay() + (app.dashboardWeekOffset * 7));
+    
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        weekDays.push(d);
+    }
+
+    const startOfWeekStr = weekDays[0].toLocaleDateString('he-IL', {day:'numeric', month:'numeric'});
+    const endOfWeekStr = weekDays[6].toLocaleDateString('he-IL', {day:'numeric', month:'numeric'});
+
+    // Filter tasks for the week
+    const weekTasks = tasks.filter(t => {
+        const d = new Date(t.due_date || t.dueDate);
+        return d >= weekDays[0] && d <= new Date(weekDays[6].getTime() + 86400000);
+    }).sort((a,b) => (a.is_completed === b.is_completed) ? 0 : (a.is_completed ? 1 : -1));
+
+    const renderStatProjects = (list) => {
+        if (list.length === 0) return '<div style="padding:10px; font-size:0.85rem; color:var(--text-muted); text-align:center;">אין פרויקטים</div>';
+        return list.map(p => `
+            <div onclick="event.stopPropagation(); app.viewProject('${p.id}')" style="padding:10px; border-bottom:1px solid var(--border); font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" class="stat-project-row">
+                <span style="font-weight:600;">${p.name}${p.clients?.name ? ` (${p.clients.name})` : ''}</span>
+                <span class="badge ${Store.defaults.statuses.find(s => s.id === p.status)?.class || ''}" style="font-size:0.7rem;">${Store.defaults.statuses.find(s => s.id === p.status)?.label || p.status}</span>
+            </div>
+        `).join('');
+    };
+
+    let html = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h2 class="section-title" style="margin:0;">סיכום נתונים</h2>
+            <button class="btn btn-secondary btn-sm" onclick="app.toggleStatExpansion()" style="display:flex; align-items:center; gap:6px; border-radius:30px; padding: 6px 14px;">
+                <i data-lucide="${app.isStatsExpanded ? 'chevron-up' : 'chevron-down'}" style="width:14px; height:14px;"></i>
+                <span style="font-weight:600; font-size:0.8rem;">${app.isStatsExpanded ? 'הסתר פירוט' : 'הצג פירוט'}</span>
+            </button>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div class="icon-label"><i data-lucide="briefcase"></i> פרויקטים פתוחים</div>
-                    <div class="value">${openJobs}</div>
+                    <div class="value">${openProjectsList.length}</div>
                 </div>
-                <div class="stat-card">
-                    <div class="icon-label"><i data-lucide="credit-card"></i> מחכים לתשלום</div>
-                    <div class="value">${waitingPayment}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="icon-label"><i data-lucide="pen-tool"></i> בעריכה</div>
-                    <div class="value">${inEditing}</div>
-                </div>
+                ${app.isStatsExpanded ? `
+                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); margin-left:-18px; margin-right:-18px; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+                        ${renderStatProjects(openProjectsList)}
+                    </div>
+                ` : ''}
             </div>
 
-            <h2 class="section-title">פעולות מהירות</h2>
-            <div class="quick-actions">
-                <button class="btn btn-secondary" onclick="app.openClientModal('לקוח חדש')">
-                    <i data-lucide="user-plus"></i> הוספת לקוח
-                </button>
-                <button class="btn btn-primary" onclick="app.openProjectModal('פרויקט חדש')">
-                    <i data-lucide="plus"></i> פרויקט חדש
-                </button>
+            <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="icon-label"><i data-lucide="credit-card"></i> מחכים לתשלום</div>
+                    <div class="value">${waitingPaymentList.length}</div>
+                </div>
+                ${app.isStatsExpanded ? `
+                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); margin-left:-18px; margin-right:-18px; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+                        ${renderStatProjects(waitingPaymentList)}
+                    </div>
+                ` : ''}
             </div>
-        `;
-        
-        document.getElementById('view-container').innerHTML = html;
-        const gender = Store.getUserGender();
-        document.getElementById('view-title').innerText = gender === 'male' ? 'שלום צלם! 👋' : 'שלום צלמת! 👋';
-        document.getElementById('view-subtitle').innerText = 'הנה מה שקורה בעסק שלך היום.';
-        if (window.lucide) lucide.createIcons();
+
+            <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="icon-label"><i data-lucide="pen-tool"></i> בעריכה</div>
+                    <div class="value">${inEditingList.length}</div>
+                </div>
+                ${app.isStatsExpanded ? `
+                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); margin-left:-18px; margin-right:-18px; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+                        ${renderStatProjects(inEditingList)}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+
+        <div class="dashboard-section" style="margin-top: 32px;">
+            <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h2 class="section-title" style="margin:0;">לו"ז שבועי: ${startOfWeekStr} - ${endOfWeekStr}</h2>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="app.changeDashboardWeek(-1)" title="השבוע הקודם"><i data-lucide="chevron-right"></i></button>
+                    <button class="btn btn-secondary btn-sm" onclick="app.goToTodayDashboard()" style="font-weight:600; font-size:0.8rem; padding: 0 10px;">היום</button>
+                    <button class="btn btn-secondary btn-sm" onclick="app.changeDashboardWeek(1)" title="השבוע הבא"><i data-lucide="chevron-left"></i></button>
+                </div>
+            </div>
+            
+            <div class="weekly-calendar-grid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:12px; margin-bottom:24px;">
+                ${weekDays.map(day => {
+                    const y = day.getFullYear();
+                    const m = String(day.getMonth() + 1).padStart(2, '0');
+                    const d = String(day.getDate()).padStart(2, '0');
+                    const dateStr = `${y}-${m}-${d}`;
+
+                    const isToday = day.getTime() === today.getTime();
+                    const dayName = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'][day.getDay()];
+                    
+                    const dayProjects = projects.filter(p => p.shoot_date && p.shoot_date.split('T')[0] === dateStr && p.status !== 'archived');
+                    const dayTasks = tasks.filter(t => {
+                        const tDate = String(t.due_date || t.dueDate || '').split('T')[0];
+                        return tDate === dateStr;
+                    });
+                    
+                    return `
+                        <div class="weekly-day ${isToday ? 'today' : ''}" style="background: ${isToday ? '#F5F3FF' : 'white'}; border-radius:12px; padding:10px; border:1px solid ${isToday ? 'var(--primary)' : 'var(--border)'}; text-align:right; min-height:110px; display:flex; flex-direction:column; gap:6px; box-shadow: var(--shadow-sm);">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted)">${dayName}</div>
+                                <div style="font-size:1rem; font-weight:800; color:var(--text-main)">${day.getDate()}</div>
+                            </div>
+                            
+                            <div style="flex:1; display:flex; flex-direction:column; gap:4px; max-height:100px; overflow-y:auto; scrollbar-width: none;">
+                                ${dayProjects.map(p => {
+                                    const shootTime = p.shoot_time ? `<div style="font-size:0.65rem; color:var(--text-muted); margin-bottom:2px; display:flex; align-items:center; gap:2px; justify-content:flex-end;"><i data-lucide="clock" style="width:8px; height:8px;"></i> כניסה: ${p.shoot_time}</div>` : '';
+                                    const clientName = p.clients?.name ? ` (${p.clients.name})` : '';
+                                    return `
+                                    <div style="margin-top:2px;">
+                                        ${shootTime}
+                                        <div onclick="app.viewProject('${p.id}')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #BAE6FD;">
+                                            <i data-lucide="camera" style="width:10px; height:10px; flex-shrink:0;"></i>
+                                            <span style="overflow:hidden; text-overflow:ellipsis;">${p.name}${clientName}</span>
+                                        </div>
+                                    </div>`;
+                                }).join('')}
+
+                                ${dayTasks.map(t => {
+                                    return `
+                                    <div onclick="app.viewTask('${t.id}')" style="background:#F3E8FF; color:#7E22CE; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #E9D5FF; opacity: ${t.is_completed ? '0.6' : '1'}">
+                                        <i data-lucide="check-circle-2" style="width:10px; height:10px; flex-shrink:0;"></i>
+                                        <span style="overflow:hidden; text-overflow:ellipsis; ${t.is_completed ? 'text-decoration:line-through' : ''}">${t.content}</span>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:24px;">
+                <div>
+                    <h3 class="section-title" style="font-size:1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="list-todo" style="width:18px;"></i> משימות לשבוע זה
+                    </h3>
+                    <div class="dashboard-tasks-card" style="background:white; border-radius:var(--radius-lg); border:1px solid var(--border); box-shadow:var(--shadow-sm); overflow:hidden;">
+                        ${weekTasks.length === 0 ? 
+                            '<div style="padding:24px; text-align:center; color:var(--text-muted); font-size:0.9rem;">אין משימות לשבוע זה</div>' :
+                            weekTasks.map(t => `
+                                <div class="dashboard-task-item" style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; opacity: ${t.is_completed ? '0.6' : '1'};">
+                                    <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="app.toggleChecklistItem('${t.id}', this.checked, null, true)" style="width:16px; height:16px;">
+                                    <span style="font-size:0.9rem; ${t.is_completed ? 'text-decoration:line-through' : ''}; flex:1;">${t.content}</span>
+                                    <span style="font-size:0.75rem; color:var(--text-muted);">${new Date(t.due_date || t.dueDate).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'})}</span>
+                                </div>
+                            `).join('')
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-title" style="margin-top:32px;">פעולות מהירות</h2>
+        <div class="quick-actions">
+            <button class="btn btn-secondary" onclick="app.openClientModal('לקוח חדש')">
+                <i data-lucide="user-plus"></i> הוספת לקוח
+            </button>
+            <button class="btn btn-primary" onclick="app.openProjectModal('פרויקט חדש')">
+                <i data-lucide="plus"></i> פרויקט חדש
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('view-container').innerHTML = html;
+    const gender = Store.getUserGender();
+    document.getElementById('view-title').innerText = gender === 'male' ? 'שלום צלם! 👋' : 'שלום צלמת! 👋';
+    document.getElementById('view-subtitle').innerText = 'הנה מה שקורה בעסק שלך היום.';
+    if (window.lucide) lucide.createIcons();
     },
 
     async renderClients(searchQuery = '', filterSource = 'all', sortBy = 'name-asc', filterCity = 'all') {
