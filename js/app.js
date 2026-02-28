@@ -1542,7 +1542,7 @@ const app = {
         }
     },
 
-    openTaskModal(task) {
+    async openTaskModal(task) {
         this.editingTaskId = task.id;
         document.getElementById('task-content').value = task.content;
         const taskDateEl = document.getElementById('task-due-date');
@@ -1556,8 +1556,33 @@ const app = {
         document.getElementById('task-notes').value = task.notes || '';
         
         const projectInfo = document.getElementById('task-project-info');
-        if (task.projects) {
-            projectInfo.innerText = `משויך לפרויקט: ${task.projects.name}`;
+        let projectName = '';
+        let clientName = '';
+        const pid = task.project_id || task.projectId;
+        if (pid) {
+            try {
+                const projects = await Store.getProjects();
+                const proj = projects.find(p => String(p.id) === String(pid));
+                if (proj) {
+                    projectName = proj.name;
+                    clientName = proj.clients?.name || '';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        if (!projectName && task.projects) {
+            projectName = task.projects.name;
+            clientName = task.projects.clients?.name || '';
+        }
+
+        if (projectName) {
+            if (clientName) {
+                projectInfo.innerText = `משויך לפרויקט: ${projectName} (${clientName})`;
+            } else {
+                projectInfo.innerText = `משויך לפרויקט: ${projectName}`;
+            }
             projectInfo.style.display = 'block';
         } else {
             projectInfo.style.display = 'none';
