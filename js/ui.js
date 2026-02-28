@@ -651,6 +651,10 @@ async renderDashboard() {
                             <i data-lucide="chevron-right"></i>
                             <span class="desktop-only">הקודם</span>
                         </button>
+                        <button class="btn btn-secondary btn-sm" onclick="app.currentCalendarDate = new Date(); app.navigate('calendar')" style="display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="calendar"></i>
+                            <span>היום</span>
+                        </button>
                         <button class="btn btn-secondary btn-sm" onclick="app.changeMonth(1)" style="display: flex; align-items: center; gap: 4px;">
                             <span class="desktop-only">הבא</span>
                             <i data-lucide="chevron-left"></i>
@@ -671,11 +675,6 @@ async renderDashboard() {
                             })()}
                         </select>
                     </div>
-
-                    <button class="btn btn-secondary btn-sm" onclick="app.currentCalendarDate = new Date(); app.navigate('calendar')" style="display: flex; align-items: center; gap: 4px;">
-                        <i data-lucide="calendar"></i>
-                        <span>היום</span>
-                    </button>
                 </div>
 
                 <div class="calendar-grid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;">
