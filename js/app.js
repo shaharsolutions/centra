@@ -87,7 +87,10 @@ const app = {
                         console.error('Delete client error:', error);
                         this.confirmAction('שגיאה', 'לא ניתן למחוק את הלקוח. יש למחוק תחילה את כל הפרויקטים המשויכים אליו.', null, true);
                     }
-                }
+                },
+                false,
+                'כן, למחוק',
+                '#EF4444'
             );
         });
 
@@ -108,7 +111,10 @@ const app = {
                         console.error('Delete project error:', error);
                         this.confirmAction('שגיאה', 'חלה שגיאה במחיקת הפרויקט. נא לנסות שוב.', null, true);
                     }
-                }
+                },
+                false,
+                'כן, למחוק',
+                '#EF4444'
             );
         });
 
@@ -240,7 +246,7 @@ const app = {
         }
     },
 
-    confirmAction(title, desc, onConfirm, isAlert = false) {
+    confirmAction(title, desc, onConfirm, isAlert = false, yesText = null, yesColor = null) {
         const modal = document.getElementById('confirm-modal');
         const titleEl = document.getElementById('confirm-title');
         const descEl = document.getElementById('confirm-desc');
@@ -265,7 +271,9 @@ const app = {
         titleEl.innerHTML = finalTitle;
         descEl.innerHTML = finalDesc;
 
-        // Reset display
+        // Reset button styles and text
+        yesBtn.innerText = yesText || 'כן, המשך';
+        yesBtn.style.background = yesColor || 'var(--primary)';
         yesBtn.style.display = isAlert ? 'none' : 'block';
         noBtn.innerText = isAlert ? 'הבנתי' : 'סגירה';
 
@@ -1196,7 +1204,7 @@ const app = {
                 console.error('Delete note error:', error);
                 this.confirmAction('שגיאה', 'חלה שגיאה במחיקת ההערה.', null, true);
             }
-        });
+        }, false, 'כן, למחוק', '#EF4444');
     },
 
     editNote(event, id, type) {
@@ -1371,7 +1379,7 @@ const app = {
         this.confirmAction('מחיקת חבילה', 'האם בטוח/ה שברצונך למחוק את החבילה?', async () => {
             await Store.deletePackage(id);
             await this.navigate('settings');
-        });
+        }, false, 'כן, למחוק', '#EF4444');
     },
 
     async deleteChecklistItem(id, projectId) {
@@ -1379,7 +1387,7 @@ const app = {
             await Store.deleteChecklistItem(id);
             if (projectId && projectId !== 'undefined') await UI.renderChecklist(projectId);
             await this.navigate(this.currentView);
-        });
+        }, false, 'כן, למחוק', '#EF4444');
     },
 
     // Checklist Actions

@@ -119,6 +119,14 @@ const Admin = {
 
             let html = `
                 <div style="display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 16px;">
+                    <button onclick="Admin.seedDemoData()" class="btn btn-secondary btn-sm" id="btn-seed-demo" style="display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 140px; padding: 6px 16px; text-align: right; color: var(--primary); border-color: var(--primary-light); flex-direction: row;">
+                        <i data-lucide="database" style="width: 14px; height: 14px; flex-shrink: 0;"></i>
+                        <span style="flex-grow: 1;">הוסף נתוני דמו</span>
+                    </button>
+                    <button onclick="Admin.deleteDemoData()" class="btn btn-secondary btn-sm" id="btn-delete-demo" style="display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 140px; padding: 6px 16px; text-align: right; color: #EF4444; border-color: #FECACA; flex-direction: row;">
+                        <i data-lucide="trash" style="width: 14px; height: 14px; flex-shrink: 0;"></i>
+                        <span style="flex-grow: 1;">מחק נתוני דמו</span>
+                    </button>
                     <button onclick="Admin.exportToExcel()" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 140px; padding: 6px 16px; text-align: right; flex-direction: row;">
                         <i data-lucide="download" style="width: 14px; height: 14px; flex-shrink: 0;"></i>
                         <span style="flex-grow: 1;">ייצוא לאקסל</span>
@@ -368,8 +376,8 @@ const Admin = {
         if (banner) banner.classList.remove('hidden');
         if (emailSpan) emailSpan.textContent = userEmail;
 
-        // Shift app content down
-        document.getElementById('app').style.marginTop = '48px';
+        // Flag impersonation on body for CSS adjustments
+        document.body.classList.add('impersonation-active');
 
         // Navigate to dashboard as the impersonated user
         app.initialized = false;
@@ -384,8 +392,8 @@ const Admin = {
         const banner = document.getElementById('impersonation-banner');
         if (banner) banner.classList.add('hidden');
 
-        // Reset app content position
-        document.getElementById('app').style.marginTop = '0';
+        // Reset body class
+        document.body.classList.remove('impersonation-active');
 
         // Reinitialize as admin
         app.initialized = false;
@@ -428,13 +436,224 @@ const Admin = {
                     const { error } = await sb.from('user_sessions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
                     if (error) throw error;
                     
-                    alert('נתוני השימוש אופסו בהצלחה.');
+                    app.confirmAction(
+                        'סיום פעולה',
+                        '<b>נתוני השימוש אופסו בהצלחה.</b>',
+                        null,
+                        true,
+                        'סגור',
+                        'var(--primary)'
+                    );
                     this.renderAdminPage(); // Refresh
                 } catch (e) {
                     console.error('Error resetting usage data:', e);
-                    alert('תקלה באיפוס נתוני השימוש: ' + e.message);
+                    app.confirmAction(
+                        'שגיאה',
+                        `<b>תקלה באיפוס נתוני השימוש:</b><br>${e.message}`,
+                        null,
+                        true,
+                        'סגור',
+                        '#EF4444'
+                    );
                 }
-            }
+            },
+            false,
+            'כן, לאפס',
+            '#EF4444'
+        );
+    },
+
+    async seedDemoData() {
+        app.confirmAction(
+            'הוספת נתוני דמו',
+            'האם אתה בטוח שברצונך להוסיף <b>נתוני דמו</b>?<br><br>פעולה זו תיצור 3 משתמשים חדשים עם לקוחות, פרויקטים ומשימות לדוגמה לצורך הדגמה.',
+            async () => {
+                const btn = document.getElementById('btn-seed-demo');
+                const originalHtml = btn ? btn.innerHTML : '';
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = 'מייצר נתונים...';
+                }
+
+                try {
+                    const photographers = [
+                        { id: '11111111-1111-1111-1111-111111111111', email: 'demo.maya@centra.pro', name: 'מאיה צילום אמנותי' },
+                        { id: '22222222-2222-2222-2222-222222222222', email: 'demo.itai@centra.pro', name: 'איתי סטודיו' },
+                        { id: '33333333-3333-3333-3333-333333333333', email: 'demo.noa@centra.pro', name: 'נועה צילומי חוץ' }
+                    ];
+
+                    for (const ph of photographers) {
+                        console.log(`Seeding data for: ${ph.name}`);
+                        // 1. Create Profile
+                        const { error: profErr } = await sb.from('user_profiles').upsert({
+                            user_id: ph.id,
+                            email: ph.email,
+                            full_name: ph.name,
+                            last_seen: new Date().toISOString()
+                        }, { onConflict: 'user_id' });
+
+                        if (profErr) {
+                            console.error(`Profile error for ${ph.name}:`, profErr);
+                        }
+
+                        // 2. Create Clients and Projects with matching logic
+                        const demoClients = [
+                            { name: 'משפחת לוי', org: '', type: 'private', email: 'family@demo.com' },
+                            { name: 'חברת אינובייט', org: 'אינובייט בע"מ', type: 'business', email: 'hr@innovate.demo' },
+                            { name: 'שירה כהן', org: '', type: 'private', email: 'shira@demo.com' }
+                        ];
+
+                        const projectPool = {
+                            private: ['חתונה', 'בוק בת מצווה', 'צילומי משפחה', 'צילומי הריון'],
+                            business: ['צילומי תדמית', 'צילומי מוצר', 'יום גיבוש', 'צילומי אדריכלות']
+                        };
+
+                        for (const clientData of demoClients) {
+                            const { data: client } = await sb.from('clients').insert({
+                                user_id: ph.id,
+                                name: clientData.name,
+                                organization: clientData.org,
+                                email: clientData.email,
+                                phone: `050-123${Math.floor(1000 + Math.random() * 9000)}`
+                            }).select().single();
+
+                            if (!client) continue;
+
+                            // 3. Create Projects (1-2 per client)
+                            const numProjects = Math.floor(Math.random() * 2) + 1;
+                            const availableTypes = projectPool[clientData.type];
+                            
+                            for (let j = 0; j < numProjects; j++) {
+                                const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+                                const statuses = ['not_paid', 'deposit', 'paid_full'];
+                                
+                                const { data: project, error: pErr } = await sb.from('projects').insert({
+                                    user_id: ph.id,
+                                    client_id: client.id,
+                                    name: type,
+                                    status: ['new', 'quote', 'shooting', 'editing', 'delivered'][Math.floor(Math.random() * 5)],
+                                    shoot_date: new Date(Date.now() + (Math.random() * 60 - 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                                    payments: { total: 2500, deposit: 500 },
+                                    payment_status: statuses[Math.floor(Math.random() * statuses.length)]
+                                }).select().single();
+
+                                if (pErr) console.error('Project creation failed:', pErr);
+                                if (!project) continue;
+
+                                // 4. Create Tasks
+                                const tasks = [
+                                    { project_id: project.id, content: 'פגישת היכרות', is_completed: true, user_id: ph.id, category: 'shoot' },
+                                    { project_id: project.id, content: 'הכנת ציוד וגיבוי סוללות', is_completed: true, user_id: ph.id, category: 'equipment' },
+                                    { project_id: project.id, content: 'יום הצילום', is_completed: project.status !== 'new' && project.status !== 'quote', user_id: ph.id, category: 'shoot' },
+                                    { project_id: project.id, content: 'עריכה וסינון תמונות', is_completed: project.status === 'delivered', user_id: ph.id, category: 'shoot' }
+                                ];
+                                await sb.from('project_checklists').insert(tasks);
+                            }
+                        }
+
+                        // 5. Add a simulated session
+                        const { error: sErr } = await sb.from('user_sessions').insert({
+                            id: crypto.randomUUID(), // Explicit UUID to avoid DB default issues or collisions
+                            user_id: ph.id,
+                            user_email: ph.email,
+                            login_time: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
+                            duration_minutes: Math.floor(Math.random() * 120) + 10
+                        });
+                        if (sErr) console.error(`Session error for ${ph.name}:`, sErr);
+                    }
+
+                    app.confirmAction(
+                        'סיום פעולה',
+                        '<b>נתוני הדמו נוצרו בהצלחה!</b><br><br>כעת נוספו למערכת 3 צלמים פיקטיביים עם לקוחות ופרויקטים תואמים.',
+                        null,
+                        true,
+                        'מעולה',
+                        'var(--primary)'
+                    );
+                    this.renderAdminPage();
+                } catch (error) {
+                    console.error('Error seeding demo data:', error);
+                    app.confirmAction(
+                        'שגיאה',
+                        `<b>תקלה ביצירת נתונים:</b><br>${error.message}`,
+                        null,
+                        true,
+                        'סגור',
+                        '#EF4444'
+                    );
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                    if (window.lucide) lucide.createIcons();
+                }
+            },
+            false,
+            'כן, הוסף',
+            'var(--primary)'
+        );
+    },
+
+    async deleteDemoData() {
+        app.confirmAction(
+            'מחיקת נתוני דמו',
+            'האם אתה בטוח שברצונך <b>למחוק</b> את כל נתוני הדמו?<br><br>פעולה זו תמחק את 3 המשתמשים הפיקטיביים ואת כל הנתונים הקשורים אליהם מהדאטאבייס.',
+            async () => {
+                const btn = document.getElementById('btn-delete-demo');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = 'מוחק נתונים...';
+                }
+
+                try {
+                    const demoUserIds = [
+                        '11111111-1111-1111-1111-111111111111',
+                        '22222222-2222-2222-2222-222222222222',
+                        '33333333-3333-3333-3333-333333333333'
+                    ];
+
+                    // Delete from all tables for these users
+                    for (const userId of demoUserIds) {
+                        await sb.from('project_checklists').delete().eq('user_id', userId);
+                        await sb.from('projects').delete().eq('user_id', userId);
+                        await sb.from('clients').delete().eq('user_id', userId);
+                        await sb.from('user_sessions').delete().eq('user_id', userId);
+                        await sb.from('user_profiles').delete().eq('user_id', userId);
+                        await sb.from('action_logs').delete().eq('user_id', userId);
+                    }
+
+                    app.confirmAction(
+                        'סיום פעולה',
+                        '<b>נתוני הדמו נמחקו בהצלחה.</b><br>כל המשתמשים הפיקטיביים והנתונים הקשורים אליהם הוסרו.',
+                        null,
+                        true,
+                        'סגור',
+                        'var(--primary)'
+                    );
+                    this.renderAdminPage();
+                } catch (error) {
+                    console.error('Error deleting demo data:', error);
+                    app.confirmAction(
+                        'שגיאה',
+                        `<b>תקלה במחיקת נתונים:</b><br>${error.message}`,
+                        null,
+                        true,
+                        'סגור',
+                        '#EF4444'
+                    );
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = 'מחיקת נתוני דמו';
+                    }
+                    this.renderAdminPage();
+                    if (window.lucide) lucide.createIcons();
+                }
+            },
+            false,
+            'כן, למחוק',
+            '#EF4444'
         );
     }
 };
