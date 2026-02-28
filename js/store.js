@@ -984,7 +984,7 @@ const Store = {
         }
 
         try {
-            const { data, error } = await sb.from('project_checklists').select('*, projects(name)').eq('id', id).single();
+            const { data, error } = await sb.from('project_checklists').select('*, projects(name)').eq('id', id).maybeSingle();
             if (error) throw error;
             return data;
         } catch (e) {

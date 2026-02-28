@@ -17,6 +17,52 @@ const app = {
         this.applyGender();
         this.addEventListeners();
         
+        // Initialize Flatpickr for date inputs
+        if (window.flatpickr) {
+            flatpickr("input[type='date']", {
+                locale: "he",
+                altInput: true,
+                altFormat: "d/m/Y",
+                dateFormat: "Y-m-d",
+                disableMobile: true, // Ensures modern UI on mobile instead of native
+                onReady: function(selectedDates, dateStr, instance) {
+                    const yearInput = instance.currentYearElement;
+                    const yearWrapper = yearInput.parentNode;
+                    yearWrapper.style.display = 'none'; // Hide the entire wrapper with arrows
+
+                    const yearSelect = document.createElement('select');
+                    yearSelect.className = 'flatpickr-monthDropdown-months flatpickr-year-select'; 
+                    
+                    const currentYear = new Date().getFullYear();
+                    const selectedYear = instance.currentYear;
+                    
+                    const minYear = Math.min(currentYear - 2, selectedYear);
+                    const maxYear = Math.max(currentYear + 3, selectedYear);
+                    
+                    for (let i = minYear; i <= maxYear; i++) {
+                        const option = document.createElement('option');
+                        option.value = i;
+                        option.text = i;
+                        if (i === selectedYear) option.selected = true;
+                        yearSelect.appendChild(option);
+                    }
+                    
+                    yearSelect.addEventListener('change', function(e) {
+                        yearInput.value = e.target.value;
+                        instance.changeYear(e.target.value);
+                    });
+                    
+                    instance.yearSelectElement = yearSelect;
+                    yearWrapper.parentNode.insertBefore(yearSelect, yearWrapper.nextSibling);
+                },
+                onYearChange: function(selectedDates, dateStr, instance) {
+                    if (instance.yearSelectElement) {
+                        instance.yearSelectElement.value = instance.currentYear;
+                    }
+                }
+            });
+        }
+        
         // Cleanup tasks linked to deleted projects
         await Store.cleanupOrphanTasks().catch(e => console.error('Cleanup orphan tasks failed:', e));
         
@@ -566,7 +612,12 @@ const app = {
             this.editingProjectPaymentStatus = p.payment_status || 'not_paid';
             document.getElementById('project-client').value = p.client_id;
             document.getElementById('project-name').value = p.name;
-            document.getElementById('project-date').value = p.shoot_date || '';
+            const projectDateEl = document.getElementById('project-date');
+            if (projectDateEl._flatpickr) {
+                projectDateEl._flatpickr.setDate(p.shoot_date || '');
+            } else {
+                projectDateEl.value = p.shoot_date || '';
+            }
             document.getElementById('project-time').value = p.shoot_time || '';
             document.getElementById('project-location').value = p.location || '';
             document.getElementById('project-subjects-count').value = p.subjects_count || '';
@@ -616,6 +667,10 @@ const app = {
         } else {
             driveLink.style.display = 'none';
             document.getElementById('project-form').reset();
+            const projectDateEl = document.getElementById('project-date');
+            if (projectDateEl._flatpickr) {
+                projectDateEl._flatpickr.clear();
+            }
             if (selectedClientId) {
                 document.getElementById('project-client').value = selectedClientId;
             }
@@ -1136,6 +1191,13 @@ const app = {
         const task = await Store.getTaskById(id);
         if (task) {
             this.openTaskModal(task);
+        } else {
+            this.confirmAction(
+                'משימה נמחקה',
+                'המשימה שניסית לפתוח הוסרה מהמערכת.',
+                null,
+                true // isAlert
+            );
         }
     },
 
@@ -1483,7 +1545,13 @@ const app = {
     openTaskModal(task) {
         this.editingTaskId = task.id;
         document.getElementById('task-content').value = task.content;
-        document.getElementById('task-due-date').value = task.due_date ? task.due_date.split('T')[0] : '';
+        const taskDateEl = document.getElementById('task-due-date');
+        const taskDateVal = task.due_date ? task.due_date.split('T')[0] : '';
+        if (taskDateEl._flatpickr) {
+            taskDateEl._flatpickr.setDate(taskDateVal);
+        } else {
+            taskDateEl.value = taskDateVal;
+        }
         document.getElementById('task-completed-checkbox').checked = task.is_completed;
         document.getElementById('task-notes').value = task.notes || '';
         
@@ -1504,7 +1572,12 @@ const app = {
     openNewTaskModal() {
         this.editingTaskId = null;
         document.getElementById('task-content').value = '';
-        document.getElementById('task-due-date').value = '';
+        const taskDateEl = document.getElementById('task-due-date');
+        if (taskDateEl._flatpickr) {
+            taskDateEl._flatpickr.clear();
+        } else {
+            taskDateEl.value = '';
+        }
         document.getElementById('task-completed-checkbox').checked = false;
         document.getElementById('task-notes').value = '';
         

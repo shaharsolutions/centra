@@ -1363,3 +1363,466 @@ input:focus, select:focus, textarea:focus {
         height: 32px !important;
     }
 }
+
+/* --- Flatpickr Styling Overrides --- */
+.flatpickr-calendar {
+    font-family: var(--font-primary);
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    direction: rtl;
+    width: 300px; /* Force minimum width to avoid crowding */
+}
+.flatpickr-calendar.arrowTop:before,
+.flatpickr-calendar.arrowTop:after,
+.flatpickr-calendar.arrowBottom:before,
+.flatpickr-calendar.arrowBottom:after {
+    display: none; /* Hide confusing arrows for cleaner look */
+}
+.flatpickr-months .flatpickr-month {
+    height: 40px;
+}
+.flatpickr-current-month {
+    font-family: var(--font-secondary);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+    font-weight: 700;
+}
+.flatpickr-current-month input.cur-year {
+    font-weight: 700;
+}
+span.flatpickr-weekday {
+    font-family: var(--font-primary);
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.flatpickr-day {
+    border-radius: 10px;
+    font-weight: 500;
+    color: var(--text-dark);
+    margin: 4px; /* Increase spacing */
+    height: 38px;
+    line-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.flatpickr-day.selected, 
+.flatpickr-day.startRange, 
+.flatpickr-day.endRange, 
+.flatpickr-day.selected.inRange, 
+.flatpickr-day.startRange.inRange, 
+.flatpickr-day.endRange.inRange, 
+.flatpickr-day.selected:focus, 
+.flatpickr-day.startRange:focus, 
+.flatpickr-day.endRange:focus, 
+.flatpickr-day.selected:hover, 
+.flatpickr-day.startRange:hover, 
+.flatpickr-day.endRange:hover, 
+.flatpickr-day.selected.prevMonthDay, 
+.flatpickr-day.startRange.prevMonthDay, 
+.flatpickr-day.endRange.prevMonthDay, 
+.flatpickr-day.selected.nextMonthDay, 
+.flatpickr-day.startRange.nextMonthDay, 
+.flatpickr-day.endRange.nextMonthDay {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+.flatpickr-day:hover,
+.flatpickr-day.prevMonthDay:hover,
+.flatpickr-day.nextMonthDay:hover,
+.flatpickr-day:focus,
+.flatpickr-day.prevMonthDay:focus,
+.flatpickr-day.nextMonthDay:focus {
+    background: var(--bg-color);
+    border-color: transparent;
+}
+.flatpickr-day.today {
+    border-color: var(--primary-color);
+    background: rgba(124, 58, 237, 0.05); /* very light primary variant */
+}
+.flatpickr-day.today:hover,
+.flatpickr-day.today:focus {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Full override for flatpickr squish */
+.flatpickr-calendar {
+    width: 320px !important;
+}
+.flatpickr-innerContainer, .flatpickr-rContainer, .flatpickr-days, .dayContainer {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+}
+.dayContainer {
+    justify-content: space-around !important;
+}
+.flatpickr-day {
+    flex-basis: 14% !important;
+    max-width: 14% !important;
+    margin: 2px 0 !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    border-radius: 50% !important;
+}
+
+/* Ensure Month/Year section gives enough room */
+.flatpickr-current-month {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    align-items: center;
+    padding-top: 10px;
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months,
+.flatpickr-current-month input.cur-year {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+    padding: 0 4px;
+    box-sizing: border-box;
+}
+
+/* Day grid spacing */
+.flatpickr-days {
+    width: 100% !important;
+    display: flex;
+    justify-content: center;
+}
+.dayContainer {
+    width: 260px !important; 
+    min-width: 260px !important;
+    max-width: 100% !important;
+    justify-content: space-around;
+}
+
+.flatpickr-weekdaycontainer {
+    padding: 10px 0;
+}
+.flatpickr-calendar {
+    width: 320px !important; 
+    direction: auto !important; /* Switch to auto to inherit proper rendering based on locale */
+    padding: 10px;
+}
+.flatpickr-innerContainer {
+    width: 100%;
+}
+.dayContainer {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 280px !important;
+}
+.flatpickr-days {
+    max-width: 100% !important;
+}
+.flatpickr-day {
+    max-width: 38px;
+    flex-basis: 14% !important;
+}
+/* Fine tune flatpickr arrows */
+span.flatpickr-weekday {
+    color: var(--primary-color) !important;
+    font-size: 1rem;
+}
+.flatpickr-day {
+    font-size: 1.05rem;
+}
+.flatpickr-calendar {
+    width: 320px !important;
+}
+.flatpickr-months {
+    padding: 10px 0;
+    margin-bottom: 10px;
+}
+.flatpickr-month {
+    height: 45px !important;
+}
+/* Extra flex rules to prevent smushing */
+.flatpickr-days {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+}
+.dayContainer {
+    display: flex !important;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+}
+
+/* Ensure Calendar works well in RTL mode */
+.flatpickr-calendar {
+    transform: none !important;
+}
+.flatpickr-day {
+    flex-basis: 14.2857143% !important; /* Proper 7 days split */
+    justify-content: center !important;
+}
+
+/* Fix the actual display and spacing of dates in Flatpickr */
+.flatpickr-days {
+    width: 300px !important;
+}
+.dayContainer {
+    width: 300px !important;
+    min-width: 300px !important;
+    max-width: 300px !important;
+}
+.flatpickr-day {
+    max-width: 38px;
+    height: 38px;
+    line-height: 38px;
+    margin: 2px !important; 
+    border: 1px solid transparent;
+}
+/* Critical fix for Flatpickr squished layout */
+.flatpickr-calendar {
+    width: 320px !important;
+}
+.dayContainer {
+    width: 320px !important;
+    min-width: 320px !important;
+    max-width: 320px !important;
+}
+.flatpickr-day {
+    max-width: 40px !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    margin: 2px !important;
+}
+
+/* Restore the true un-squished fix */
+.flatpickr-calendar {
+    width: 320px !important;
+}
+.flatpickr-innerContainer, .flatpickr-rContainer, .flatpickr-days, .dayContainer {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+}
+.dayContainer {
+    justify-content: space-around !important;
+}
+.flatpickr-day {
+    flex-basis: 14% !important;
+    max-width: 14% !important;
+    margin: 2px 0 !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    border-radius: 50% !important;
+}
+/* Fine tune flatpickr header arrows */
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+    padding: 10px;
+    top: 5px;
+    height: 40px;
+}
+.flatpickr-months .flatpickr-prev-month svg,
+.flatpickr-months .flatpickr-next-month svg {
+    width: 14px;
+    height: 14px;
+    fill: var(--primary-color) !important;
+}
+/* Adjust Hebrew year/month layout properly */
+.flatpickr-current-month {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    align-items: center;
+    padding-top: 10px;
+}
+.flatpickr-monthDropdown-months {
+    display: inline-block !important;
+    width: auto !important;
+    margin: 0 !important;
+}
+.numInputWrapper {
+    width: auto !important;
+}
+.numInputWrapper .arrowUp, .numInputWrapper .arrowDown {
+    display: none !important; /* hide year arrows */
+}
+input.cur-year {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+    padding: 0 4px !important;
+    height: auto !important;
+}
+
+/* Ensure year/month fields have the right width and spacing in Arabic/Hebrew */
+.flatpickr-months .flatpickr-month {
+    height: 52px !important;
+}
+.flatpickr-current-month {
+    padding-top: 14px;
+}
+.flatpickr-current-month .numInputWrapper {
+    width: 6ch !important;
+}
+.flatpickr-current-month .numInputWrapper span {
+    display: none !important;
+}
+
+/* Year Input Extra Space (Removed to fix double year) */
+
+.flatpickr-monthDropdown-months {
+    display: inline-block !important;
+    width: auto !important;
+    padding-left: 5px !important;
+}
+
+/* Complete override of Flatpickr month dropdown width fix (Removed to fix double year) */
+
+/* Add a bit of negative margin or push for the right arrow in RTL */
+.flatpickr-calendar.showTimeInput.hasTime .flatpickr-time {
+    border-top: 1px solid var(--border-color) !important;
+}
+/* Critical fix for day numbers being cut off and not centered */
+.flatpickr-day {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}
+
+/* Reset and ensure the days container is a proper flexbox wrapper */
+.flatpickr-days {
+    display: flex !important;
+    width: 100% !important;
+    margin: 0 auto;
+}
+.dayContainer {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    width: 320px !important;
+    min-width: 320px !important;
+    max-width: 320px !important;
+    box-sizing: border-box !important;
+    padding: 0 10px !important;
+}
+span.flatpickr-weekday {
+    display: inline-block !important;
+    flex: 1 !important;
+    text-align: center !important;
+}
+.flatpickr-weekdaycontainer {
+    display: flex !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+    padding: 10px 10px !important;
+}
+.flatpickr-day {
+    flex-basis: 14.2857143% !important; /* 100 / 7 */
+    max-width: 14.2857143% !important;
+    box-sizing: border-box !important;
+    height: 40px !important;
+    line-height: normal !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Reset margins and border radius for perfect circles */
+.flatpickr-day {
+     margin: 2px 0 !important;
+     width: 38px !important;
+     height: 38px !important;
+     max-width: 38px !important;
+     border-radius: 50% !important;
+}
+/* Fine tune flex layout to perfectly center the 38px circles within their 14% grids */
+.flatpickr-day {
+    flex-basis: 14.2857% !important;
+    max-width: 14.2857% !important;
+    margin: 2px 0 !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.flatpickr-day::after {
+    content: ''; /* Empty pseudo-element hack to force box sizing if needed */
+}
+/* Flatpickr Reset */
+.flatpickr-day {
+    max-width: 38px !important;
+    height: 38px !important;
+    line-height: normal !important; /* Reset line-height to let flex center it */
+}
+
+/* Let's clear out all padding constraints that could squeeze the buttons */
+.dayContainer {
+    padding: 0 !important;
+}
+.flatpickr-calendar {
+    padding: 15px 10px !important;
+}
+
+/* Ensure the calendar wrapper allows full width but forces items to respect max-width */
+.flatpickr-calendar {
+    width: 320px !important;
+}
+.flatpickr-innerContainer {
+    width: 300px !important;
+}
+
+/* Ensure proper wrapping of the days in flex */
+.dayContainer {
+    width: 300px !important;
+    min-width: 300px !important;
+    max-width: 300px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: space-evenly !important; /* space them out evenly inside the 300px box */
+}
+
+/* Let flex-box do the center alignment natively */
+.flatpickr-day {
+    flex: 1 0 14.2857% !important; /* flex-grow, flex-shrink, flex-basis */
+    max-width: 40px !important; /* Cap width to be a square */
+    height: 40px !important;
+    line-height: 40px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    border-radius: 50% !important;
+}
+
+/* Completely hide the original numbered year input wrapper */
+.flatpickr-current-month .numInputWrapper {
+    display: none !important;
+}
+/* Ensure our new select drop-down shows up nicely */
+.flatpickr-year-select {
+    display: inline-block !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 4px !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    height: auto !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer;
+    font-family: inherit;
+    color: inherit;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-left: 14px !important; /* give room for the arrow we can add */
+}
+.flatpickr-year-select:focus {
+    outline: none;
+}
