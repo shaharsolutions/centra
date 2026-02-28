@@ -50,36 +50,36 @@ async renderDashboard() {
         </div>
         <div class="stats-grid">
             <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="stat-card-header">
                     <div class="icon-label"><i data-lucide="briefcase"></i> פרויקטים פתוחים</div>
                     <div class="value">${openProjectsList.length}</div>
                 </div>
                 ${app.isStatsExpanded ? `
-                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); margin-left:-18px; margin-right:-18px; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
                         ${renderStatProjects(openProjectsList)}
                     </div>
                 ` : ''}
             </div>
 
             <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="stat-card-header">
                     <div class="icon-label"><i data-lucide="credit-card"></i> מחכים לתשלום</div>
                     <div class="value">${waitingPaymentList.length}</div>
                 </div>
                 ${app.isStatsExpanded ? `
-                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); margin-left:-18px; margin-right:-18px; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
                         ${renderStatProjects(waitingPaymentList)}
                     </div>
                 ` : ''}
             </div>
 
             <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="stat-card-header">
                     <div class="icon-label"><i data-lucide="pen-tool"></i> בעריכה</div>
                     <div class="value">${inEditingList.length}</div>
                 </div>
                 ${app.isStatsExpanded ? `
-                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); margin-left:-18px; margin-right:-18px; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+                    <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
                         ${renderStatProjects(inEditingList)}
                     </div>
                 ` : ''}
@@ -87,12 +87,18 @@ async renderDashboard() {
         </div>
 
         <div class="dashboard-section" style="margin-top: 32px;">
-            <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                <h2 class="section-title" style="margin:0;">לו"ז שבועי: ${startOfWeekStr} - ${endOfWeekStr}</h2>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn btn-secondary btn-sm" onclick="app.changeDashboardWeek(-1)" title="השבוע הקודם"><i data-lucide="chevron-right"></i></button>
-                    <button class="btn btn-secondary btn-sm" onclick="app.goToTodayDashboard()" style="font-weight:600; font-size:0.8rem; padding: 0 10px;">היום</button>
-                    <button class="btn btn-secondary btn-sm" onclick="app.changeDashboardWeek(1)" title="השבוע הבא"><i data-lucide="chevron-left"></i></button>
+            <div class="section-header" style="margin-bottom:16px;">
+                <h2 class="section-title">לו"ז שבועי: ${startOfWeekStr} - ${endOfWeekStr}</h2>
+                <div class="dashboard-nav-btns">
+                    <button class="btn btn-secondary btn-sm" onclick="app.changeDashboardWeek(-1)" title="השבוע הקודם" style="display:flex; align-items:center; gap:4px;">
+                        <i data-lucide="chevron-right"></i>
+                        <span class="desktop-hide">השבוע הקודם</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="app.goToTodayDashboard()" style="font-weight:600; font-size:0.85rem; padding: 0 12px; height: 34px; display:flex; align-items:center;">היום</button>
+                    <button class="btn btn-secondary btn-sm" onclick="app.changeDashboardWeek(1)" title="השבוע הבא" style="display:flex; align-items:center; gap:4px;">
+                        <span class="desktop-hide">השבוע הבא</span>
+                        <i data-lucide="chevron-left"></i>
+                    </button>
                 </div>
             </div>
             

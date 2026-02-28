@@ -613,6 +613,22 @@ input:focus, select:focus, textarea:focus {
     gap: 16px;
 }
 
+.dashboard-nav-btns {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.desktop-hide {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .desktop-hide {
+        display: inline;
+    }
+}
+
 /* Mobile Navigation */
 .mobile-nav {
     display: none;
@@ -832,12 +848,59 @@ input:focus, select:focus, textarea:focus {
     }
     .stat-card {
         padding: 16px;
-        flex-direction: row;
+        flex-direction: column; /* Stack vertically on mobile */
+        align-items: stretch;
+    }
+    .stat-card .icon-label {
+        font-size: 0.9rem;
+    }
+    .stat-card-header {
+        display: flex;
         justify-content: space-between;
         align-items: center;
+        width: 100%;
     }
     .stat-card .value {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
+        margin: 0;
+    }
+    .stat-expansion {
+        margin-left: -16px !important;
+        margin-right: -16px !important;
+        border-radius: 0 !important;
+    }
+    
+    .dashboard-nav-btns {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    .dashboard-nav-btns .btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    /* Weekly Calendar Mobile */
+    .weekly-calendar-grid {
+        display: flex !important;
+        overflow-x: auto;
+        gap: 12px;
+        padding: 4px 16px 16px 16px;
+        margin-left: -16px;
+        margin-right: -16px;
+        scrollbar-width: none;
+    }
+    .weekly-calendar-grid::-webkit-scrollbar {
+        display: none;
+    }
+    .weekly-day {
+        flex: 0 0 calc(50% - 10px); /* Show nearly 2 days at once */
+        min-height: 150px;
+    }
+    .weekly-day.today {
+        border-width: 2px !important;
     }
     
     .list-item {
