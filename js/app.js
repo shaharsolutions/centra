@@ -43,6 +43,12 @@ const app = {
         document.getElementById('quick-add-project-btn').addEventListener('click', () => {
             this.openProjectModal('פרויקט חדש');
         });
+        const quickAddTaskBtn = document.getElementById('quick-add-task-btn');
+        if (quickAddTaskBtn) {
+            quickAddTaskBtn.addEventListener('click', () => {
+                this.openNewTaskModal();
+            });
+        }
 
         // Modal Close
         document.querySelectorAll('.close-modal').forEach(btn => {
@@ -172,9 +178,13 @@ const app = {
             await this.handleTaskSubmit();
         });
 
-        document.getElementById('delete-task-btn').addEventListener('click', () => {
+        document.getElementById('delete-task-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const taskIdToDrop = this.editingTaskId;
             this.confirmAction('מחיקת משימה', 'האם בטוח/ה שברצונך למחוק משימה זו?', async () => {
-                await Store.deleteChecklistItem(this.editingTaskId);
+                if (taskIdToDrop) {
+                    await Store.deleteChecklistItem(taskIdToDrop);
+                }
                 this.closeModal();
                 await this.navigate(this.currentView);
             });
@@ -694,7 +704,9 @@ const app = {
     closeModal() {
         document.querySelectorAll('.modal-overlay').forEach(m => {
             m.classList.add('hidden');
-            m.style.zIndex = ''; // Reset z-index
+            if (m.id === 'client-modal') {
+                m.style.zIndex = ''; // Reset z-index
+            }
         });
         this.editingClientId = null;
         this.editingProjectId = null;
@@ -1483,13 +1495,41 @@ const app = {
             projectInfo.style.display = 'none';
         }
 
+        const deleteBtn = document.getElementById('delete-task-btn');
+        if (deleteBtn) deleteBtn.style.display = 'block';
+
+        document.getElementById('task-modal').classList.remove('hidden');
+    },
+
+    openNewTaskModal() {
+        this.editingTaskId = null;
+        document.getElementById('task-content').value = '';
+        document.getElementById('task-due-date').value = '';
+        document.getElementById('task-completed-checkbox').checked = false;
+        document.getElementById('task-notes').value = '';
+        
+        const projectInfo = document.getElementById('task-project-info');
+        if (projectInfo) projectInfo.style.display = 'none';
+
+        const deleteBtn = document.getElementById('delete-task-btn');
+        if (deleteBtn) deleteBtn.style.display = 'none';
+
         document.getElementById('task-modal').classList.remove('hidden');
     },
 
     async handleTaskSubmit() {
-        const task = await Store.getTaskById(this.editingTaskId);
+        let task = this.editingTaskId ? await Store.getTaskById(this.editingTaskId) : null;
+        
+        const isNew = !task;
+        const taskId = isNew ? 'local_' + Date.now() : task.id;
+        const projectId = isNew ? null : task.project_id;
+        const category = isNew ? 'task' : task.category;
+        
         const updatedTask = {
-            ...task,
+            ...(task || {}),
+            id: taskId,
+            projectId,
+            category,
             content: document.getElementById('task-content').value,
             dueDate: document.getElementById('task-due-date').value,
             isCompleted: document.getElementById('task-completed-checkbox').checked,
@@ -1498,9 +1538,13 @@ const app = {
 
         try {
             await Store.saveChecklistItem(updatedTask);
+            if (isNew) {
+                await Store.logAction('משימה חדשה', `משימה כללית חדשה נוספה: ${updatedTask.content}`, 'task', taskId);
+            }
             this.closeModal();
             if (this.currentView === 'tasks') await UI.renderTasks();
-            if (task.project_id) UI.renderChecklist(task.project_id);
+            else if (this.currentView === 'dashboard') await UI.renderDashboard();
+            if (updatedTask.projectId) UI.renderChecklist(updatedTask.projectId);
         } catch (error) {
             console.error('Save task error:', error);
             this.confirmAction('שגיאה', 'חלה שגיאה בשמירת המשימה.', null, true);
