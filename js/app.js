@@ -418,10 +418,12 @@ const app = {
         document.getElementById('client-modal').classList.remove('hidden');
         const deleteBtn = document.getElementById('delete-client-btn');
         const editToggle = document.getElementById('edit-client-toggle');
+        const addProjectBtn = document.getElementById('client-add-project-btn');
         
         if (clientId) {
             editToggle.style.display = 'flex';
             deleteBtn.style.display = 'block';
+            if (addProjectBtn) addProjectBtn.style.display = 'flex';
             Store.getClients().then(clients => {
                 const c = clients.find(cust => cust.id === clientId);
                 if (c) {
@@ -475,6 +477,7 @@ const app = {
         } else {
             editToggle.style.display = 'none';
             deleteBtn.style.display = 'none';
+            if (addProjectBtn) addProjectBtn.style.display = 'none';
             document.getElementById('client-form').reset();
             document.getElementById('client-notes-list').innerHTML = '';
             document.getElementById('client-projects-list').innerHTML = '';
@@ -602,6 +605,9 @@ const app = {
         } else {
             driveLink.style.display = 'none';
             document.getElementById('project-form').reset();
+            if (selectedClientId) {
+                document.getElementById('project-client').value = selectedClientId;
+            }
             document.getElementById('project-notes-list').innerHTML = '';
             document.getElementById('project-status').value = 'new';
             document.getElementById('project-payment-status').value = 'not_paid';
@@ -1098,19 +1104,8 @@ const app = {
         
         if (!projectExists) {
             // Project doesn't exist - maybe it was deleted
-            // Check if there's a task that references this project and show it instead
-            const tasks = await Store.getAllTasks();
-            const orphanTask = tasks.find(t => String(t.project_id) === String(id));
-            
-            if (orphanTask) {
-                // Show the task details instead
-                alert('הפרויקט שהמשימה מקושרת אליו נמחק. מציג את פרטי המשימה.');
-                this.openTaskModal(orphanTask);
-                return;
-            } else {
-                alert('הפרויקט לא נמצא. ייתכן שנמחק.');
-                return;
-            }
+            this.confirmAction('פרויקט נמחק', 'הפרויקט שניסית לפתוח כבר אינו קיים במערכת.', null, true);
+            return;
         }
         
         this.openProjectModal('פרטי פרויקט', id);
@@ -1917,6 +1912,33 @@ const app = {
                 this.confirmAction('שגיאה', error.message || 'חלה שגיאה במחיקת המסמך.', null, true);
             }
         });
+    },
+
+    async changeDocumentProject(docId, newProjectId, clientId) {
+        try {
+            if (newProjectId && String(newProjectId).startsWith('local_')) {
+                // Revert UI dropdown visually to the actual db state
+                UI.renderDocuments(clientId, null);
+                this.confirmAction('שים לב', 'לא ניתן לשייך מסמך לפרויקט שלא סונכרן לענן. לחץ על כפתור העריכה של הפרויקט ושמור אותו שוב ונסה שנית.', null, true);
+                return;
+            }
+
+            await Store.updateDocumentProject(docId, newProjectId);
+            // Document successfully updated. Refresh UI.
+            UI.renderDocuments(clientId, null);
+            
+            const docs = await Store.getDocuments(clientId, null);
+            const updatedDoc = docs.find(d => d.id === docId);
+            if (updatedDoc) {
+                const actionText = newProjectId ? `שיוך המסמך "${updatedDoc.file_name}" שונה/התווסף לפרויקט` : `שיוך פרויקט הוסר מהמסמך "${updatedDoc.file_name}"`;
+                await Store.logAction('עדכון מסמך', actionText, 'document', docId);
+            }
+        } catch (error) {
+            console.error('Update document project error:', error);
+            this.confirmAction('שגיאה', error.message || 'חלה שגיאה בעדכון שיוך המסמך.', null, true);
+            // Revert UI automatically by rendering from DB state
+            UI.renderDocuments(clientId, null);
+        }
     },
 
     viewAdmin() {

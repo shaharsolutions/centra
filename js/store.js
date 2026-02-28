@@ -420,8 +420,13 @@ const Store = {
 
     async saveProject(project) {
         let savedProjectData = null;
+        let cId = project.clientId;
+        if (cId && String(cId).startsWith('local_')) {
+            cId = null;
+        }
+
         const dbProject = {
-            client_id: project.clientId,
+            client_id: cId,
             name: project.name,
             shoot_date: project.shootDate || null,
             status: project.status || 'new',
@@ -431,7 +436,7 @@ const Store = {
             notes: project.notes,
             location: project.location,
             not_closed_reason: project.notClosedReason,
-            subjects_count: project.subjectsCount,
+            subjects_count: project.subjectsCount === '' ? null : project.subjectsCount,
             subjects_details: project.subjectsDetails,
             shoot_time: project.shootTime || null,
             styling_call: project.stylingCall,
@@ -746,6 +751,8 @@ const Store = {
 
     // Notes (Journal)
     async getNotes(clientId = null, projectId = null) {
+        if (projectId && String(projectId).startsWith('local_')) return [];
+
         let query = sb.from('notes').select('*');
         if (clientId) query = query.eq('client_id', clientId);
         if (projectId) query = query.eq('project_id', projectId);
@@ -928,7 +935,9 @@ const Store = {
         let dbItems = [];
         let localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
         
-        if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
+        const isLocalProject = projectId && String(projectId).startsWith('local_');
+
+        if (!isLocalProject && this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
             try {
                 const { data, error } = await sb
                     .from('project_checklists')
@@ -1086,8 +1095,13 @@ const Store = {
 
         for (const item of localOnlyItems) {
             try {
+                let pId = item.project_id || item.projectId || null;
+                if (pId && String(pId).startsWith('local_')) {
+                    pId = null;
+                }
+
                 const dataToSave = {
-                    project_id: item.project_id || item.projectId || null,
+                    project_id: pId,
                     content: item.content,
                     is_completed: item.is_completed || false,
                     category: item.category || 'task',
@@ -1186,8 +1200,12 @@ const Store = {
         if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
             try {
                 let res;
+                let cleanProjectId = projectId;
+                if (cleanProjectId && String(cleanProjectId).startsWith('local_')) {
+                    cleanProjectId = null;
+                }
                 const dataToSave = {
-                    project_id: projectId,
+                    project_id: cleanProjectId,
                     content: item.content,
                     is_completed: isCompleted,
                     category: item.category || 'task',
@@ -1786,6 +1804,7 @@ const Store = {
 
     async getDocuments(clientId = null, projectId = null) {
         if (!Auth.getUserId()) return [];
+        if (projectId && String(projectId).startsWith('local_')) return [];
 
         try {
             let query = sb.from('client_documents')
@@ -1901,6 +1920,24 @@ const Store = {
 
         // Log action
         this.logAction('מחיקת מסמך', `המסמך "${doc.file_name}" נמחק`, 'document', docId);
+    },
+
+    async updateDocumentProject(docId, newProjectId) {
+        if (!docId) return;
+
+        let pId = newProjectId;
+        if (pId && String(pId).startsWith('local_')) {
+            pId = null;
+        }
+
+        const { error } = await sb.from('client_documents')
+            .update({ project_id: pId || null })
+            .eq('id', docId)
+            .eq('user_id', Auth.getUserId());
+        
+        if (error) {
+            throw new Error('שגיאה בעדכון שיוך המסמך: ' + error.message);
+        }
     },
 
     getDocumentUrl(filePath) {

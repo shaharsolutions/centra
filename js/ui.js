@@ -1828,9 +1828,10 @@ async renderDashboard() {
 
         // If rendering for client (not project-specific), get project names for display
         let projectNames = {};
+        let clientProjects = [];
         if (clientId && !projectId) {
-            const projects = await Store.getProjects(clientId);
-            projects.forEach(p => { projectNames[p.id] = p.name; });
+            clientProjects = await Store.getProjects(clientId);
+            clientProjects.forEach(p => { projectNames[p.id] = p.name; });
         }
 
         container.innerHTML = docs.map(doc => {
@@ -1838,8 +1839,22 @@ async renderDashboard() {
             const sizeDisplay = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
             const dateStr = new Date(doc.created_at).toLocaleDateString('he-IL', { day:'2-digit', month:'2-digit', year:'2-digit' });
             const fileIcon = this._getFileIcon(doc.file_type);
-            const projectLabel = doc.project_id && projectNames[doc.project_id] ? 
-                `<span style="background:var(--primary-light); color:var(--primary); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:600;">${projectNames[doc.project_id]}</span>` : '';
+
+            let projectDisplay = '';
+            if (clientId && !projectId) {
+                // Interactive dropdown to re-assign projects from the client view
+                const options = clientProjects.map(p => 
+                    `<option value="${p.id}" ${String(doc.project_id) === String(p.id) ? 'selected' : ''}>${p.name}</option>`
+                ).join('');
+                projectDisplay = `
+                    <select onchange="app.changeDocumentProject('${doc.id}', this.value, '${clientId}')" style="font-size:0.75rem; padding:2px; border-radius:4px; border:1px solid var(--border); max-width:140px; background:var(--bg-main); text-overflow:ellipsis; cursor:pointer;" title="שנה פרויקט">
+                        <option value="">ללא שיוך פרויקט</option>
+                        ${options}
+                    </select>
+                `;
+            } else if (doc.project_id && projectNames[doc.project_id]) {
+                projectDisplay = `<span style="background:var(--primary-light); color:var(--primary); padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:600;">${projectNames[doc.project_id]}</span>`;
+            }
 
             return `
                 <div class="document-card" style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid var(--border); border-radius:var(--radius-md); transition:all 0.2s; background:white;">
@@ -1852,7 +1867,7 @@ async renderDashboard() {
                             <span style="font-size:0.75rem; color:var(--text-muted);">${sizeDisplay}</span>
                             <span style="font-size:0.75rem; color:var(--text-muted);">•</span>
                             <span style="font-size:0.75rem; color:var(--text-muted);">${dateStr}</span>
-                            ${projectLabel}
+                            ${projectDisplay}
                         </div>
                         ${doc.description ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${doc.description}</div>` : ''}
                     </div>

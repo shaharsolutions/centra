@@ -340,8 +340,14 @@
                 </div>
 
                 <div class="projects-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
-                    <label>פרויקטים של הלקוח</label>
-                    <div id="client-projects-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <label style="margin:0;">פרויקטים של הלקוח</label>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="const cId = app.editingClientId; app.closeModal(); app.openProjectModal('פרויקט חדש', null, cId);" style="padding:4px 8px; font-size:0.75rem; display:none; gap:4px; align-items:center;" id="client-add-project-btn">
+                            <i data-lucide="plus" style="width:14px; height:14px;"></i>
+                            פרויקט חדש
+                        </button>
+                    </div>
+                    <div id="client-projects-list" style="display:flex; flex-direction:column; gap:8px;">
                         <!-- Projects will be loaded here -->
                     </div>
                 </div>
