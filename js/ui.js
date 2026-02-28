@@ -1377,41 +1377,42 @@ async renderDashboard() {
         const sortedMonths = Object.keys(monthlyData).sort();
 
         const html = `
-            <div class="reports-container" style="display: flex; flex-direction: column; gap: 24px;">
+            <div class="reports-container" style="display: flex; flex-direction: column; gap: 24px; padding-bottom: 20px;">
                 <!-- Key Metrics Grid -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
-                    <div class="report-card" style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--primary);">
-                            <i data-lucide="briefcase"></i>
+                <div class="reports-grid">
+                    <div class="report-card" style="background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--primary);">
+                            <i data-lucide="briefcase" style="width:20px; height:20px;"></i>
                             <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin: 0;">פרויקטים פעילים</h3>
                         </div>
-                        <div style="font-size: 2rem; font-weight: 700; color: var(--text-main);">${activeProjects}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">מתוך ${totalProjects} פרויקטים סה"כ</div>
+                        <div style="font-size: 1.75rem; font-weight: 700; color: var(--text-main);">${activeProjects}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">מתוך ${totalProjects} פרויקטים סה"כ</div>
                     </div>
 
-                    <div class="report-card" style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: #10B981;">
-                            <i data-lucide="trending-up"></i>
+                    <div class="report-card" style="background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: #10B981;">
+                            <i data-lucide="trending-up" style="width:20px; height:20px;"></i>
                             <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin: 0;">הכנסות שנגבו</h3>
                         </div>
-                        <div style="font-size: 2rem; font-weight: 700; color: var(--text-main);">₪${collectedRevenue.toLocaleString()}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">מתוך צפי של ₪${totalRevenue.toLocaleString()}</div>
+                        <div style="font-size: 1.75rem; font-weight: 700; color: var(--text-main);">₪${collectedRevenue.toLocaleString()}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">מתוך צפי של ₪${totalRevenue.toLocaleString()}</div>
                     </div>
 
-                    <div class="report-card" style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: #F59E0B;">
-                            <i data-lucide="clock"></i>
+                    <div class="report-card" style="background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: #F59E0B;">
+                            <i data-lucide="clock" style="width:20px; height:20px;"></i>
                             <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin: 0;">חובות פתוחים</h3>
                         </div>
-                        <div style="font-size: 2rem; font-weight: 700; color: var(--text-main);">₪${pendingRevenue.toLocaleString()}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">תשלומים שטרם הוסדרו</div>
+                        <div style="font-size: 1.75rem; font-weight: 700; color: var(--text-main);">₪${pendingRevenue.toLocaleString()}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">תשלומים שטרם הוסדרו</div>
                     </div>
                 </div>
 
                 <!-- Detailed Charts Section -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
+                <!-- Detailed Charts Section -->
+                <div class="chart-grid">
                     <!-- Status Distribution -->
-                    <div style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                    <div style="background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
                         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 20px;">סטטוס פרויקטים</h3>
                         <div style="display: flex; flex-direction: column; gap: 16px;">
                             ${Object.entries(statusCounts).sort((a,b) => b[1] - a[1]).map(([status, count]) => {
@@ -1419,12 +1420,12 @@ async renderDashboard() {
                                 const percentage = totalProjects > 0 ? (count / totalProjects * 100).toFixed(0) : 0;
                                 return `
                                     <div style="display: flex; flex-direction: column; gap: 6px;">
-                                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
                                             <span style="font-weight: 500;">${statusInfo.label}</span>
                                             <span style="color: var(--text-muted);">${count} (${percentage}%)</span>
                                         </div>
                                         <div style="height: 8px; background: var(--bg-main); border-radius: 4px; overflow: hidden;">
-                                            <div style="height: 100%; width: ${percentage}%; background: ${statusInfo.color};"></div>
+                                            <div style="height: 100%; width: ${percentage}%; background: ${statusInfo.color}; transition: width 0.3s ease;"></div>
                                         </div>
                                     </div>
                                 `;
@@ -1433,58 +1434,58 @@ async renderDashboard() {
                     </div>
 
                     <!-- Monthly Activity -->
-                    <div style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
+                    <div style="background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
                         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 20px;">פעילות חודשית (פרויקטים)</h3>
-                        <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 160px; gap: 8px; margin-top: 20px;">
+                        <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 160px; gap: 6px; margin-top: 20px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
                             ${sortedMonths.map(month => {
                                 const data = monthlyData[month];
                                 const maxCount = Math.max(...Object.values(monthlyData).map(d => d.count), 1);
                                 const heightPercentage = (data.count / maxCount * 100).toFixed(0);
                                 const monthLabel = month.split('-')[1];
                                 return `
-                                    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%;">
+                                    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; min-width: 0;">
                                         <div style="flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center;">
-                                            <div title="${month}: ${data.count} פרויקטים" style="width: 100%; height: ${heightPercentage}%; background: var(--primary-light); border-radius: 4px 4px 0 0; min-height: ${data.count > 0 ? '4px' : '0'};"></div>
+                                            <div title="${month}: ${data.count} פרויקטים" style="width: 80%; height: ${heightPercentage}%; background: var(--primary-light); border-radius: 4px 4px 0 0; min-height: ${data.count > 0 ? '4px' : '0'}; transition: height 0.3s ease;"></div>
                                         </div>
-                                        <span style="font-size: 0.75rem; color: var(--text-muted);">${monthLabel}</span>
+                                        <span style="font-size: 0.65rem; color: var(--text-muted);">${monthLabel}</span>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
                     </div>
-                </div>
 
-                <!-- Income by Month Table -->
-                <div style="background: white; padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
-                    <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 20px;">פירוט הכנסות חודשי</h3>
-                    <div style="overflow-x: auto;">
-                        <table style="width: 100%; border-collapse: collapse; text-align: right;">
-                            <thead>
-                                <tr style="border-bottom: 2px solid var(--border);">
-                                    <th style="padding: 12px; font-weight: 600; color: var(--text-muted);">חודש</th>
-                                    <th style="padding: 12px; font-weight: 600; color: var(--text-muted);">פרויקטים</th>
-                                    <th style="padding: 12px; font-weight: 600; color: var(--text-muted);">הכנסה חזויה</th>
-                                    <th style="padding: 12px; font-weight: 600; color: var(--text-muted);">ממוצע לפרויקט</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${sortedMonths.reverse().map(month => {
-                                    const data = monthlyData[month];
-                                    if (data.count === 0 && data.revenue === 0) return '';
-                                    const [y, m] = month.split('-');
-                                    const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
-                                    const avg = data.count > 0 ? (data.revenue / data.count).toFixed(0) : 0;
-                                    return `
-                                        <tr style="border-bottom: 1px solid var(--border);">
-                                            <td style="padding: 12px; font-weight: 500;">${monthNames[parseInt(m)-1]} ${y}</td>
-                                            <td style="padding: 12px;">${data.count}</td>
-                                            <td style="padding: 12px; font-weight: 600; color: #10B981;">₪${data.revenue.toLocaleString()}</td>
-                                            <td style="padding: 12px; color: var(--text-muted);">₪${parseInt(avg).toLocaleString()}</td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
+                    <!-- Income by Month Table -->
+                    <div style="background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border); grid-column: 1 / -1;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 20px;">פירוט הכנסות חודשי</h3>
+                        <div style="overflow-x: auto; margin: 0 -4px;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 0.9rem;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--border);">
+                                        <th style="padding: 12px 8px; font-weight: 600; color: var(--text-muted);">חודש</th>
+                                        <th style="padding: 12px 8px; font-weight: 600; color: var(--text-muted);">פרויקטים</th>
+                                        <th style="padding: 12px 8px; font-weight: 600; color: var(--text-muted);">הכנסה</th>
+                                        <th style="padding: 12px 8px; font-weight: 600; color: var(--text-muted);">ממוצע</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${sortedMonths.reverse().map(month => {
+                                        const data = monthlyData[month];
+                                        if (data.count === 0 && data.revenue === 0) return '';
+                                        const [y, m] = month.split('-');
+                                        const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+                                        const avg = data.count > 0 ? (data.revenue / data.count).toFixed(0) : 0;
+                                        return `
+                                            <tr style="border-bottom: 1px solid var(--border);">
+                                                <td style="padding: 12px 8px; font-weight: 500;">${monthNames[parseInt(m)-1]} ${y.slice(-2)}'</td>
+                                                <td style="padding: 12px 8px;">${data.count}</td>
+                                                <td style="padding: 12px 8px; font-weight: 600; color: #10B981;">₪${data.revenue.toLocaleString()}</td>
+                                                <td style="padding: 12px 8px; color: var(--text-muted);">₪${parseInt(avg).toLocaleString()}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>

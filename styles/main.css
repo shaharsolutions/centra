@@ -629,6 +629,28 @@ input:focus, select:focus, textarea:focus {
     }
 }
 
+/* Reports Responsive Classes */
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+}
+
+@media (max-width: 768px) {
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
+    .chart-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Mobile Navigation */
 .mobile-nav {
     display: none;
