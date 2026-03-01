@@ -44,6 +44,11 @@ const Auth = {
             switchBtn.addEventListener('click', () => this.toggleMode());
         }
 
+        const googleBtn = document.getElementById('google-auth-btn');
+        if (googleBtn) {
+            googleBtn.addEventListener('click', () => this.signInWithGoogle());
+        }
+
         // Remember Me: auto-fill email if saved
         const savedEmail = localStorage.getItem('remember_email');
         if (savedEmail) {
@@ -137,18 +142,40 @@ const Auth = {
         }
     },
 
+    async signInWithGoogle() {
+        const errorDiv = document.getElementById('auth-error');
+        if (errorDiv) errorDiv.classList.add('hidden');
+
+        try {
+            const { error } = await sb.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin
+                }
+            });
+            if (error) throw error;
+        } catch (error) {
+            if (errorDiv) {
+                errorDiv.textContent = this.getHebrewError(error.message);
+                errorDiv.classList.remove('hidden');
+            }
+        }
+    },
+
     toggleMode() {
         this.isSignUp = !this.isSignUp;
         const subtitle = document.getElementById('auth-subtitle');
         const submitBtn = document.getElementById('auth-submit-btn');
         const switchText = document.getElementById('auth-switch-text');
         const switchBtn = document.getElementById('auth-switch-btn');
+        const googleBtn = document.getElementById('google-auth-btn');
         const rememberGroup = document.getElementById('auth-remember')?.parentElement;
         const termsGroup = document.getElementById('auth-terms-group');
 
         if (this.isSignUp) {
             subtitle.textContent = 'צור חשבון חדש ב-Centra';
             submitBtn.textContent = 'הרשמה';
+            if (googleBtn) googleBtn.querySelector('span').textContent = 'הרשמה עם Google';
             switchText.textContent = 'כבר יש לך חשבון?';
             switchBtn.textContent = 'התחברות עכשיו';
             if (rememberGroup) rememberGroup.classList.add('hidden');
@@ -159,6 +186,7 @@ const Auth = {
         } else {
             subtitle.textContent = 'התחבר למערכת הניהול שלך';
             submitBtn.textContent = 'התחברות';
+            if (googleBtn) googleBtn.querySelector('span').textContent = 'התחברות עם Google';
             switchText.textContent = 'אין לך חשבון?';
             switchBtn.textContent = 'הרשמה עכשיו';
             if (rememberGroup) rememberGroup.classList.remove('hidden');
