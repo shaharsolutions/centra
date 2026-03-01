@@ -226,12 +226,18 @@ const app = {
 
         document.getElementById('delete-task-btn').addEventListener('click', (e) => {
             e.preventDefault();
-            const taskIdToDrop = this.editingTaskId;
+            const taskId = this.editingTaskId;
+            const projectId = this.editingProjectId;
+            if (!taskId) return;
+            
             this.confirmAction('מחיקת משימה', 'האם בטוח/ה שברצונך למחוק משימה זו?', async () => {
-                if (taskIdToDrop) {
-                    await Store.deleteChecklistItem(taskIdToDrop);
-                }
+                await Store.deleteChecklistItem(taskId);
                 this.closeModal();
+                if (this.currentView === 'tasks') {
+                    await UI.renderTasks();
+                } else if (projectId) {
+                    await UI.renderChecklist(projectId);
+                }
                 await this.navigate(this.currentView);
             });
         });

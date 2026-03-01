@@ -956,6 +956,7 @@ const Store = {
         }
 
         // Merge and de-duplicate by ID
+        // Merge and de-duplicate by ID to ensure we don't have visual glitches
         const localProjectItems = localItems.filter(item => String(item.project_id) === String(projectId));
         const allItems = [...dbItems];
         
@@ -965,16 +966,7 @@ const Store = {
             }
         });
 
-        // Final de-duplicate by content/category for UI cleanliness
-        const seen = new Set();
-        return allItems.filter(t => {
-            const content = String(t.content || '').trim();
-            const category = String(t.category || '');
-            const key = `${content}-${category}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
+        return allItems;
     },
 
     async getTaskById(id) {
@@ -1039,21 +1031,8 @@ const Store = {
             }
         });
 
-        // De-duplicate tasks for the UI by content/date/pid
-        const seen = new Set();
-        const results = allTasks.filter(t => {
-            const date = String(t.due_date || t.dueDate || '').split('T')[0].trim();
-            const content = String(t.content || '').trim();
-            const pid = String(t.project_id || t.projectId || 'no-proj');
-            const key = `${pid}-${content}-${date}`;
-            
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-
-        this._cache.tasks = results;
-        return results;
+        this._cache.tasks = allTasks;
+        return allTasks;
     },
 
     cleanupDuplicates() {
