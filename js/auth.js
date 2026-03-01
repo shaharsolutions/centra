@@ -150,7 +150,7 @@ const Auth = {
             const { error } = await sb.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: window.location.origin
+                    redirectTo: 'https://shaharsolutions.github.io/Centra/index.html'
                 }
             });
             if (error) throw error;
