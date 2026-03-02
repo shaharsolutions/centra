@@ -244,7 +244,7 @@ async renderDashboard() {
                                     <div style="margin-top:2px;">
                                         ${shootTime}
                                         <div onclick="app.viewProject('${p.id}')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #BAE6FD;">
-                                            <i data-lucide="camera" style="width:10px; height:10px; flex-shrink:0;"></i>
+                                            <img src="favicon.png" alt="" style="width:10px; height:10px; flex-shrink:0; object-fit:contain;">
                                             <span style="overflow:hidden; text-overflow:ellipsis;">${p.name}${clientName}</span>
                                         </div>
                                     </div>`;
@@ -252,9 +252,14 @@ async renderDashboard() {
 
                                 ${dayTasks.map(t => {
                                     return `
-                                    <div onclick="app.viewTask('${t.id}')" style="background:#F3E8FF; color:#7E22CE; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #E9D5FF; opacity: ${t.is_completed ? '0.6' : '1'}">
-                                        <i data-lucide="check-circle-2" style="width:10px; height:10px; flex-shrink:0;"></i>
-                                        <span style="overflow:hidden; text-overflow:ellipsis; ${t.is_completed ? 'text-decoration:line-through' : ''}">${t.content}</span>
+                                    <div style="display: flex; align-items: stretch; gap: 4px; margin-top: 2px;">
+                                        <div onclick="app.viewTask('${t.id}')" style="background:#F3E8FF; color:#7E22CE; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #E9D5FF; opacity: ${t.is_completed ? '0.6' : '1'}; flex: 1; min-width: 0;">
+                                            <i data-lucide="check-circle-2" style="width:10px; height:10px; flex-shrink:0;"></i>
+                                            <span style="overflow:hidden; text-overflow:ellipsis; ${t.is_completed ? 'text-decoration:line-through' : ''}">${t.content}</span>
+                                        </div>
+                                        <button class="btn-icon" style="color:#EF4444; background:#F3E8FF; border:1px solid #E9D5FF; border-radius:6px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; flex-shrink:0;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')" title="מחיקה">
+                                            <i data-lucide="trash-2" style="width:12px; height:12px;"></i>
+                                        </button>
                                     </div>`;
                                 }).join('')}
                             </div>
@@ -276,9 +281,12 @@ async renderDashboard() {
                             '<div style="padding:24px; text-align:center; color:var(--text-muted); font-size:0.9rem;">אין משימות לשבוע זה</div>' :
                             weekTasks.map(t => `
                                 <div class="dashboard-task-item" style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; opacity: ${t.is_completed ? '0.6' : '1'};">
-                                    <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="app.toggleChecklistItem('${t.id}', this.checked, null, true)" style="width:16px; height:16px;">
-                                    <span style="font-size:0.9rem; ${t.is_completed ? 'text-decoration:line-through' : ''}; flex:1;">${t.content}</span>
-                                    <span style="font-size:0.75rem; color:var(--text-muted);">${new Date(t.due_date || t.dueDate).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'})}</span>
+                                    <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="app.toggleChecklistItem('${t.id}', this.checked, null, true)" style="width:16px; height:16px; flex-shrink:0;">
+                                    <span style="font-size:0.9rem; ${t.is_completed ? 'text-decoration:line-through' : ''}; flex:1; cursor:pointer;" onclick="app.viewTask('${t.id}')">${t.content}</span>
+                                    <span style="font-size:0.75rem; color:var(--text-muted); flex-shrink:0;">${new Date(t.due_date || t.dueDate).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'})}</span>
+                                    <button class="btn-icon" style="color:#EF4444; flex-shrink:0;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
+                                        <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
+                                    </button>
                                 </div>
                             `).join('')
                         }
@@ -430,7 +438,9 @@ async renderDashboard() {
                 <div class="kanban-column" data-status="${status.id}" ondragover="event.preventDefault()" ondrop="app.handleCardDrop(event, '${status.id}')">
                     <div class="kanban-column-header">
                         <div class="kanban-column-title">
-                            <i data-lucide="${this.getStatusIcon(status.id)}" style="width:16px;"></i>
+                            ${this.getStatusIcon(status.id) === 'camera' ? 
+                                `<img src="favicon.png" style="width:16px; height:16px; object-fit:contain; vertical-align:middle; margin-left:4px;">` : 
+                                `<i data-lucide="${this.getStatusIcon(status.id)}" style="width:16px;"></i>`}
                             ${status.label}
                         </div>
                         <span class="kanban-column-count">${statusProjects.length}</span>
@@ -598,7 +608,7 @@ async renderDashboard() {
                                 </button>
                                 ` : ''}
                                 <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
-                                    <i data-lucide="trash-2" style="width:14px;"></i>
+                                    <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
                                 </button>
                             </div>
                         </div>
@@ -756,7 +766,7 @@ async renderDashboard() {
                                     ${dayProjects.map(p => {
                                          const clientName = p.clients?.name || '';
                                          const displayName = clientName ? p.name + ' (' + clientName + ')' : p.name;
-                                         return '<div class="calendar-event project" draggable="true" ondragstart="event.dataTransfer.setData(\'projectId\', \'' + p.id + '\')" onclick="event.stopPropagation(); app.viewProject(\'' + p.id + '\')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="פרויקט: ' + displayName + '"><i data-lucide="camera" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:2px;"></i>' + displayName + '</div>';
+                                         return '<div class="calendar-event project" draggable="true" ondragstart="event.dataTransfer.setData(\'projectId\', \'' + p.id + '\')" onclick="event.stopPropagation(); app.viewProject(\'' + p.id + '\')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="פרויקט: ' + displayName + '"><img src="favicon.png" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:4px; object-fit:contain;">' + displayName + '</div>';
                                      }).join('')}
                                     ${dayTasks.map(t => {
                                         const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
@@ -1673,10 +1683,10 @@ async renderDashboard() {
                         `<input type="checkbox" ${item.is_completed ? 'checked' : ''} ${!item.id ? 'disabled' : ''} onclick="app.toggleChecklistItem('${item.id}', this.checked, '${projectId}')">` : 
                         `<i data-lucide="circle" style="width:8px; height:8px; fill:var(--primary); color:var(--primary);"></i>`
                     }
-                    <span class="checklist-text" ${item.id ? `onclick="app.editChecklistItem('${item.id}', '${item.content}', '${category}', '${projectId}')"` : ''}>${item.content}</span>
+                    <span class="checklist-text" ${item.id ? `onclick="app.viewTask('${item.id}')"` : ''}>${item.content}</span>
                     ${item.id ? `
-                        <button type="button" class="btn-icon delete-btn" onclick="app.deleteChecklistItem('${item.id}', '${projectId}')">
-                            <i data-lucide="x"></i>
+                        <button type="button" class="btn-icon delete-btn" style="color:#EF4444;" onclick="event.stopPropagation(); app.deleteChecklistItem('${item.id}', '${projectId}')">
+                            <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
                         </button>
                     ` : ''}
                 </div>
@@ -1690,7 +1700,7 @@ async renderDashboard() {
         if (equipmentContainer) equipmentContainer.innerHTML = renderItems(equipmentItems, 'equipment');
 
         // Add a "Load Defaults" button if both lists are empty
-        const checklistSection = document.querySelector('.project-checklist-section');
+        const checklistSection = document.getElementById('project-checklists-container') || document.querySelector('.project-checklists');
         if (checklistSection) {
             let loadBtn = document.getElementById('load-defaults-btn');
             if (items.length === 0) {
@@ -1704,10 +1714,8 @@ async renderDashboard() {
         }
 
         if (window.lucide) {
-        lucide.createIcons({
-            root: document.getElementById('app')
-        });
-    }
+            lucide.createIcons();
+        }
     },
 
     async renderLogs() {

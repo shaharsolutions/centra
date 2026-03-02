@@ -546,6 +546,25 @@ const Store = {
         if (error) throw error;
     },
 
+    async updateProjectNotClosedReason(id, reason) {
+        const { error } = await sb.from('projects').update({ 
+            not_closed_reason: reason
+        }).eq('id', id);
+        if (error) throw error;
+        
+        // Also sync to local storage
+        const localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
+        const idx = localProjects.findIndex(p => String(p.id) === String(id));
+        if (idx !== -1) {
+            localProjects[idx].not_closed_reason = reason;
+            localStorage.setItem('local_projects', JSON.stringify(localProjects));
+        }
+        
+        const localReasons = JSON.parse(localStorage.getItem('local_project_reasons') || '{}');
+        localReasons[id] = reason;
+        localStorage.setItem('local_project_reasons', JSON.stringify(localReasons));
+    },
+
     async updateProjectStylingCall(id, styling_call) {
         // Try getting project first to ensure we have the shoot date
         const projects = await this.getProjects();

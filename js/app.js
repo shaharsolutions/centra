@@ -165,24 +165,12 @@ const app = {
             );
         });
 
-        document.getElementById('project-status').addEventListener('change', (e) => {
-            this.toggleNotClosedReason(e.target.value);
-        });
-
         document.getElementById('edit-client-toggle').addEventListener('click', () => {
             this.setClientEditMode(true);
         });
 
         document.getElementById('cancel-edit-client').addEventListener('click', () => {
             this.setClientEditMode(false);
-        });
-
-        // Auto-save project status changes
-        document.getElementById('project-status').addEventListener('change', async (e) => {
-            if (this.editingProjectId) {
-                const newStatus = e.target.value;
-                await this.updateStatus(this.editingProjectId, newStatus);
-            }
         });
 
         // Auto-save styling call changes
@@ -307,6 +295,7 @@ const app = {
         const modal = document.getElementById('confirm-modal');
         const titleEl = document.getElementById('confirm-title');
         const descEl = document.getElementById('confirm-desc');
+        const inputContainer = document.getElementById('confirm-input-container');
         const yesBtn = document.getElementById('confirm-yes-btn');
         const noBtn = document.getElementById('confirm-no-btn');
 
@@ -329,7 +318,13 @@ const app = {
         descEl.innerHTML = finalDesc;
 
         // Reset display
+        if (inputContainer) inputContainer.classList.add('hidden');
         yesBtn.style.display = isAlert ? 'none' : 'block';
+        
+        // Dynamic style based on action type
+        const isDelete = title.includes('מחיקה') || title.includes('מחק');
+        yesBtn.innerText = isDelete ? 'כן, למחוק' : 'כן, בצע';
+        yesBtn.style.background = isDelete ? '#EF4444' : '#7C3AED';
         noBtn.innerText = isAlert ? 'הבנתי' : 'סגירה';
 
         // Use clonal replacement to clear ALL old listeners
@@ -357,6 +352,82 @@ const app = {
         // Delay showing to avoid catching the current event bubble
         setTimeout(() => {
             modal.classList.remove('hidden');
+        }, 10);
+    },
+
+    setProjectStatus(status, skipUpdate = false) {
+        // Update hidden input
+        const statusEl = document.getElementById('project-status');
+        if (statusEl) statusEl.value = status;
+        
+        // Update UI buttons
+        const buttons = document.querySelectorAll('.status-picker-btn');
+        buttons.forEach(btn => {
+            if (btn.getAttribute('data-status') === status) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Trigger logic
+        this.toggleNotClosedReason(status);
+        if (!skipUpdate && this.editingProjectId) {
+            this.updateStatus(this.editingProjectId, status);
+        }
+    },
+
+    promptAction(title, desc, placeholder, onConfirm) {
+        const modal = document.getElementById('confirm-modal');
+        const titleEl = document.getElementById('confirm-title');
+        const descEl = document.getElementById('confirm-desc');
+        const inputContainer = document.getElementById('confirm-input-container');
+        const input = document.getElementById('confirm-input');
+        const yesBtn = document.getElementById('confirm-yes-btn');
+        const noBtn = document.getElementById('confirm-no-btn');
+
+        const gender = Store.getUserGender();
+    const isMale = gender === 'male';
+
+    // Gender-aware replacements
+    let finalTitle = title.replace('בטוח/ה', isMale ? 'בטוח' : 'בטוחה')
+                          .replace('שים לב', isMale ? 'שים לב' : 'שימי לב');
+    let finalDesc = desc.replace('בטוח/ה', isMale ? 'בטוח' : 'בטוחה')
+                        .replace('שתף/י', isMale ? 'שתף' : 'שתפי')
+                        .replace('שתף', isMale ? 'שתף' : 'שתפי')
+                        .replace('שתפי', isMale ? 'שתף' : 'שתפי')
+                        .replace('שלח/י', isMale ? 'שלח' : 'שלחי')
+                        .replace('הזן/י', isMale ? 'הזן' : 'הזיני');
+
+    titleEl.innerHTML = finalTitle;
+    descEl.innerHTML = finalDesc;
+        
+        if (inputContainer) {
+            inputContainer.classList.remove('hidden');
+            input.value = '';
+            input.placeholder = placeholder || 'הזינו כאן...';
+        }
+
+        yesBtn.style.display = 'block';
+        yesBtn.innerText = 'שמירה';
+        yesBtn.style.background = '#7C3AED'; // Project default primary
+        noBtn.innerText = 'ביטול';
+
+        const newYesBtn = yesBtn.cloneNode(true);
+        const newNoBtn = noBtn.cloneNode(true);
+        yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+        noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+
+        newNoBtn.addEventListener('click', () => modal.classList.add('hidden'), { once: true });
+        newYesBtn.addEventListener('click', async () => {
+            const val = input.value.trim();
+            modal.classList.add('hidden');
+            if (onConfirm) await onConfirm(val);
+        }, { once: true });
+
+        setTimeout(() => {
+            modal.classList.remove('hidden');
+            input.focus();
         }, 10);
     },
 
@@ -630,7 +701,7 @@ const app = {
             document.getElementById('project-subjects-details').value = p.subjects_details || '';
             document.getElementById('project-styling-call').value = p.styling_call || 'none';
             document.getElementById('project-publication-approval').checked = p.publication_approval || false;
-            document.getElementById('project-status').value = p.status || 'new';
+            this.setProjectStatus(p.status || 'new', true);
             document.getElementById('project-payment-status').value = p.payment_status || 'not_paid';
             document.getElementById('not-closed-reason').value = p.not_closed_reason || '';
             this.toggleNotClosedReason(p.status || 'new');
@@ -681,7 +752,8 @@ const app = {
                 document.getElementById('project-client').value = selectedClientId;
             }
             document.getElementById('project-notes-list').innerHTML = '';
-            document.getElementById('project-status').value = 'new';
+            this.setProjectStatus('new', true);
+            document.getElementById('proj-total-price').value = '';
             document.getElementById('project-payment-status').value = 'not_paid';
             this.toggleNotClosedReason('new');
             this.setProjectEditMode(true);
@@ -1153,7 +1225,7 @@ const app = {
         }
 
         // SEO/Meta
-        document.title = 'ניהול עסק לצילום | Centra';
+        document.title = 'Centra - ניהול עסק לצילום';
         const metaDesc = document.querySelector('meta[name="description"]');
         if (metaDesc) {
             metaDesc.content = 'Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לעסק לצילום.';
@@ -1366,6 +1438,28 @@ const app = {
     },
 
     async updateStatus(id, status) {
+        if (status === 'not_closed') {
+            this.promptAction(
+                'סיבת אי סגירה',
+                'הפרויקט הועבר לסטטוס "לא נסגר".<br>למה זה קרה?',
+                'למשל: מחיר יקר מדי, לא זמין בתאריך, הלקוח התחרט...',
+                async (reason) => {
+                    if (reason) {
+                        try {
+                            await Store.updateProjectNotClosedReason(id, reason);
+                        } catch (e) {
+                            console.error('Update reason error:', e);
+                        }
+                    }
+                    this.actuallyUpdateStatus(id, status);
+                }
+            );
+        } else {
+            this.actuallyUpdateStatus(id, status);
+        }
+    },
+
+    async actuallyUpdateStatus(id, status) {
         try {
             await Store.updateProjectStatus(id, status);
             const projects = await Store.getProjects();
@@ -1798,7 +1892,13 @@ const app = {
                     const bg = isStyling ? '#ECFDF5' : '#F3E8FF';
                     const color = isStyling ? '#059669' : '#7E22CE';
                     const clickAction = `app.viewTask('${t.id}')`;
-                    return `<div onclick="document.getElementById('day-details-popup')?.remove(); ${clickAction}" style="background:${bg}; color:${color}; padding:8px 12px; border-radius:6px; margin-bottom:4px; cursor:pointer; font-size:0.85rem; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through;' : ''}">${t.content}</div>`;
+                return `
+                <div style="display: flex; align-items: stretch; gap: 8px; margin-bottom: 4px;">
+                    <div onclick="document.getElementById('day-details-popup')?.remove(); ${clickAction}" style="background:${bg}; color:${color}; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:0.85rem; ${t.is_completed ? 'opacity:0.6; text-decoration:line-through;' : ''}; flex: 1;">${t.content}</div>
+                    <button class="btn-icon" style="color:#EF4444; background:${bg}; border-radius:6px; padding: 0 8px;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
+                        <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+                    </button>
+                </div>`;
                 }).join('')}
             </div>`;
         }

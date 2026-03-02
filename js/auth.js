@@ -200,9 +200,18 @@ const Auth = {
     updateUI() {
         const overlay = document.getElementById('auth-overlay');
         const userProfile = document.getElementById('user-profile-info');
-        
+        const isLoginPage = window.location.pathname.includes('login.html');
+        const isIndexPage = window.location.pathname.includes('index.html') || window.location.pathname.endsWith('/');
+
         if (this.session) {
-            overlay.classList.add('hidden');
+            if (overlay) overlay.classList.add('hidden');
+            
+            // Redirect from login to index if session exists
+            if (isLoginPage) {
+                window.location.href = 'index.html';
+                return;
+            }
+
             if (userProfile) {
                 userProfile.innerHTML = `
                     <div class="user-info" style="display: flex; align-items: center; gap: 12px;">
@@ -227,7 +236,12 @@ const Auth = {
                 window.app.init();
             }
         } else {
-            overlay.classList.remove('hidden');
+            if (overlay) {
+                overlay.classList.remove('hidden');
+            } else if (isIndexPage) {
+                // If on index and no session and no overlay (meaning it's separated), redirect to login
+                window.location.href = 'login.html';
+            }
         }
     },
 
@@ -237,13 +251,16 @@ const Auth = {
             e.stopPropagation();
         }
 
+        const performLogout = async () => {
+            await sb.auth.signOut();
+            window.location.href = 'login.html';
+        };
+
         if (window.app && window.app.confirmAction) {
             window.app.confirmAction(
                 'התנתקות מהמערכת',
                 'האם אתה בטוח שברצונך להתנתק מהמערכת?',
-                async () => {
-                    await sb.auth.signOut();
-                }
+                performLogout
             );
             // Change button text in the modal to be more specific
             const yesBtn = document.getElementById('confirm-yes-btn');
@@ -261,19 +278,19 @@ const Auth = {
                 descEl.innerHTML = 'בטוח שאתה רוצה להתנתק?';
                 document.getElementById('confirm-yes-btn').onclick = async () => {
                     modal.classList.add('hidden');
-                    await sb.auth.signOut();
+                    performLogout();
                 };
                 document.getElementById('confirm-no-btn').onclick = () => modal.classList.add('hidden');
                 modal.classList.remove('hidden');
             } else {
                 // Last resort: just sign out if no UI is available
-                await sb.auth.signOut();
+                performLogout();
             }
         }
     },
 
     getHebrewError(message) {
-        if (message.includes('Invalid login credentials')) return 'אימייל או סיסימה לא נכונים';
+        if (message.includes('Invalid login credentials')) return 'אימייל או סיסמה לא נכונים';
         if (message.includes('User already registered')) return 'המשתמש כבר קיים במערכת';
         if (message.includes('Password should be at least 6 characters')) return 'הסיסמה חייבת להכיל לפחות 6 תווים';
         if (message.includes('Email not confirmed')) return 'יש לאשר את האימייל שנשלח אליך';

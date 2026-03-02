@@ -590,12 +590,25 @@ input:focus, select:focus, textarea:focus {
 }
 
 .checklist-item .delete-btn {
-    opacity: 0;
-    padding: 2px;
+    opacity: 0.7;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: #EF4444;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
 }
 
 .checklist-item:hover .delete-btn {
     opacity: 1;
+    background: #FEE2E2;
+}
+
+.delete-btn:hover {
+    color: #DC2626 !important; /* Shaded red */
+    background: #FEE2E2 !important; /* Light red bg */
 }
 
 .add-checklist-box {
@@ -1838,4 +1851,48 @@ span.flatpickr-weekday {
 }
 .flatpickr-year-select:focus {
     outline: none;
+}
+
+/* Status Picker Buttons */
+.status-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.status-picker-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all 0.2s ease;
+    background: #f8fafc;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-width: 80px;
+    flex: 1;
+}
+
+.status-picker-btn:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.status-picker-btn.active {
+    background: #7C3AED;
+    color: white;
+    border-color: #7C3AED;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+}
+
+.status-picker-btn.active[data-status="not_closed"] {
+    background: #EF4444;
+    border-color: #EF4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
