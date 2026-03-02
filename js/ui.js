@@ -184,10 +184,7 @@ async renderDashboard() {
                 <div class="stat-card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div style="flex: 1;">
                         <div class="icon-label"><i data-lucide="credit-card"></i> מחכים לתשלום</div>
-                        <div style="display: flex; align-items: baseline; gap: 8px;">
-                            <div class="value">${waitingPaymentList.length}</div>
-                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">פרויקטים</span>
-                        </div>
+                        <div class="value">${waitingPaymentList.length}</div>
                     </div>
                     ${totalWaitingAmount > 0 ? `
                         <div style="background: #FFF1F2; color: #E11D48; padding: 6px 12px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; border: 1px solid #FFE4E6; box-shadow: var(--shadow-sm); margin-top: -4px;">
