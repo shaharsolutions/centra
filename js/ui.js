@@ -180,17 +180,18 @@ async renderDashboard() {
                 ` : ''}
             </div>
 
-            <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer; position: relative;">
-                <div class="stat-card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div style="flex: 1;">
-                        <div class="icon-label"><i data-lucide="credit-card"></i> מחכים לתשלום</div>
-                        <div class="value">${waitingPaymentList.length}</div>
+            <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">
+                <div class="stat-card-header">
+                    <div class="icon-label">
+                        <i data-lucide="credit-card"></i> 
+                        <span>מחכים לתשלום</span>
+                        ${totalWaitingAmount > 0 ? `
+                            <span style="background: #FFF1F2; color: #E11D48; padding: 2px 8px; border-radius: 6px; font-weight: 800; font-size: 0.75rem; border: 1px solid #FFE4E6; margin-right: 4px; display: inline-flex; align-items: center; vertical-align: middle;">
+                                ₪${totalWaitingAmount.toLocaleString()}
+                            </span>
+                        ` : ''}
                     </div>
-                    ${totalWaitingAmount > 0 ? `
-                        <div style="background: #FFF1F2; color: #E11D48; padding: 6px 12px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; border: 1px solid #FFE4E6; box-shadow: var(--shadow-sm); margin-top: -4px;">
-                            ₪${totalWaitingAmount.toLocaleString()}
-                        </div>
-                    ` : ''}
+                    <div class="value">${waitingPaymentList.length}</div>
                 </div>
                 ${app.isStatsExpanded ? `
                     <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
