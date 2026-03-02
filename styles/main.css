@@ -15,18 +15,10 @@
     --category-spacing: 25px;
 }
 
-/* Impersonation Banner Adjustment */
-.impersonation-active #app {
-    margin-top: 48px;
-}
-.impersonation-active .sidebar {
-    top: 48px;
-    height: calc(100vh - 48px);
-}
 
 @media (max-width: 768px) {
     .impersonation-active .main-content {
-        padding-top: 60px; /* Account for banner + mobile top bar */
+        padding-top: 10px; /* Minor offset if needed, but pill is now floating */
     }
 }
 

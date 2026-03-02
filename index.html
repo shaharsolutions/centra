@@ -36,16 +36,22 @@
 <body>
     <!-- Impersonation Banner -->
     <div id="impersonation-banner" class="hidden" style="
-        position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
+        position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 900;
         background: linear-gradient(135deg, #F59E0B, #D97706); color: white;
-        padding: 10px 20px; display: flex; align-items: center; justify-content: center; gap: 16px;
-        font-size: 0.95rem; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        padding: 8px 16px; display: flex; align-items: center; justify-content: center; gap: 12px;
+        font-size: 0.85rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-radius: 999px;
+        white-space: nowrap;
+        pointer-events: auto;
     ">
-        <span>👁️ צופה כמשתמש: <span id="impersonation-email"></span></span>
+        <span>👁️ צופה כמשתמש: <span id="impersonation-email">לא ידוע</span></span>
         <button onclick="Admin.stopImpersonating()" style="
-            background: white; color: #D97706; border: none; padding: 6px 16px;
-            border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.85rem;
-        ">חזרה למנהל</button>
+            background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); 
+            padding: 4px 12px; border-radius: 999px; font-weight: 700; cursor: pointer; font-size: 0.75rem;
+            transition: all 0.2s;
+        " onmouseover="this.style.background='white'; this.style.color='#D97706'" onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.color='white'">
+            חזרה למנהל
+        </button>
     </div>
     <div id="app">
         <!-- Sidebar Navigation -->
@@ -76,7 +82,7 @@
                     <span>משימות</span>
                 </li>
                 <li data-view="shoots">
-                    <img src="favicon.png" alt="Shoots" style="width: 18px; height: 18px; margin-left: 12px; object-fit: contain;">
+                    <i data-lucide="camera"></i>
                     <span>לוח צילומים</span>
                 </li>
                 <li data-view="payments">
@@ -133,7 +139,7 @@
                     <span>משימות</span>
                 </div>
                 <div class="mobile-nav-item" data-view="shoots">
-                    <img src="favicon.png" alt="Shoots" style="width: 20px; height: 20px; object-fit: contain;">
+                    <i data-lucide="camera"></i>
                     <span>צילומים</span>
                 </div>
                 <div class="mobile-nav-item" data-view="payments">

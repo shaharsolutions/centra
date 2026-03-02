@@ -6,6 +6,9 @@ async renderDashboard() {
     const openProjectsList = projects.filter(p => ['closed', 'shooting', 'editing'].includes(p.status));
     const waitingPaymentList = projects.filter(p => (p.payments?.total || 0) > (p.payments?.deposit || 0) && p.status !== 'delivered');
     const inEditingList = projects.filter(p => p.status === 'editing');
+    
+    // Calculate total waiting amount (balance)
+    const totalWaitingAmount = waitingPaymentList.reduce((sum, p) => sum + ((p.payments?.total || 0) - (p.payments?.deposit || 0)), 0);
 
     // Calculate Week View
     const today = new Date();
@@ -30,14 +33,20 @@ async renderDashboard() {
         return d >= weekDays[0] && d <= new Date(weekDays[6].getTime() + 86400000);
     }).sort((a,b) => (a.is_completed === b.is_completed) ? 0 : (a.is_completed ? 1 : -1));
 
-    const renderStatProjects = (list) => {
+    const renderStatProjects = (list, isPaymentList = false) => {
         if (list.length === 0) return '<div style="padding:10px; font-size:0.85rem; color:var(--text-muted); text-align:center;">אין פרויקטים</div>';
-        return list.map(p => `
+        return list.map(p => {
+            const balance = (p.payments?.total || 0) - (p.payments?.deposit || 0);
+            return `
             <div onclick="event.stopPropagation(); app.viewProject('${p.id}')" style="padding:10px; border-bottom:1px solid var(--border); font-size:0.85rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" class="stat-project-row">
-                <span style="font-weight:600;">${p.name}${p.clients?.name ? ` (${p.clients.name})` : ''}</span>
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                    <span style="font-weight:600;">${p.name}${p.clients?.name ? ` (${p.clients.name})` : ''}</span>
+                    ${isPaymentList && balance > 0 ? `<span style="font-size:0.75rem; color:var(--text-muted);">יתרה לתשלום: ₪${balance.toLocaleString()}</span>` : ''}
+                </div>
                 <span class="badge ${Store.defaults.statuses.find(s => s.id === p.status)?.class || ''}" style="font-size:0.7rem;">${Store.defaults.statuses.find(s => s.id === p.status)?.label || p.status}</span>
             </div>
-        `).join('');
+            `;
+        }).join('');
     };
 
     // Build weekly clients contact section
@@ -171,14 +180,24 @@ async renderDashboard() {
                 ` : ''}
             </div>
 
-            <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">
-                <div class="stat-card-header">
-                    <div class="icon-label"><i data-lucide="credit-card"></i> מחכים לתשלום</div>
-                    <div class="value">${waitingPaymentList.length}</div>
+            <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer; position: relative;">
+                <div class="stat-card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <div class="icon-label"><i data-lucide="credit-card"></i> מחכים לתשלום</div>
+                        <div style="display: flex; align-items: baseline; gap: 8px;">
+                            <div class="value">${waitingPaymentList.length}</div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">פרויקטים</span>
+                        </div>
+                    </div>
+                    ${totalWaitingAmount > 0 ? `
+                        <div style="background: #FFF1F2; color: #E11D48; padding: 6px 12px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; border: 1px solid #FFE4E6; box-shadow: var(--shadow-sm); margin-top: -4px;">
+                            ₪${totalWaitingAmount.toLocaleString()}
+                        </div>
+                    ` : ''}
                 </div>
                 ${app.isStatsExpanded ? `
                     <div class="stat-expansion" style="margin-top:16px; border-top:1px solid var(--border); background:rgba(0,0,0,0.02); border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
-                        ${renderStatProjects(waitingPaymentList)}
+                        ${renderStatProjects(waitingPaymentList, true)}
                     </div>
                 ` : ''}
             </div>
@@ -244,7 +263,7 @@ async renderDashboard() {
                                     <div style="margin-top:2px;">
                                         ${shootTime}
                                         <div onclick="app.viewProject('${p.id}')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #BAE6FD;">
-                                            <img src="favicon.png" alt="" style="width:10px; height:10px; flex-shrink:0; object-fit:contain;">
+                                            <i data-lucide="camera" style="width:10px; height:10px; flex-shrink:0;"></i>
                                             <span style="overflow:hidden; text-overflow:ellipsis;">${p.name}${clientName}</span>
                                         </div>
                                     </div>`;
@@ -438,9 +457,7 @@ async renderDashboard() {
                 <div class="kanban-column" data-status="${status.id}" ondragover="event.preventDefault()" ondrop="app.handleCardDrop(event, '${status.id}')">
                     <div class="kanban-column-header">
                         <div class="kanban-column-title">
-                            ${this.getStatusIcon(status.id) === 'camera' ? 
-                                `<img src="favicon.png" style="width:16px; height:16px; object-fit:contain; vertical-align:middle; margin-left:4px;">` : 
-                                `<i data-lucide="${this.getStatusIcon(status.id)}" style="width:16px;"></i>`}
+                            <i data-lucide="${this.getStatusIcon(status.id)}" style="width:16px;"></i>
                             ${status.label}
                         </div>
                         <span class="kanban-column-count">${statusProjects.length}</span>
@@ -453,7 +470,10 @@ async renderDashboard() {
                                 const initial = clientName.charAt(0);
                                 return `
                                     <div class="kanban-card" draggable="true" ondragstart="app.handleCardDragStart(event, '${p.id}')" onclick="app.viewProject('${p.id}')">
-                                        <div class="kanban-card-title">${p.name}</div>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px;">
+                                            <div class="kanban-card-title" style="margin:0;">${p.name}</div>
+                                            ${(p.payments?.total || 0) > 0 ? `<div style="font-size:0.75rem; font-weight:700; color:var(--text-main); background:var(--bg-main); padding:2px 6px; border-radius:4px; border:1px solid var(--border);">₪${(p.payments.total - (p.payments.deposit || 0)).toLocaleString()}</div>` : ''}
+                                        </div>
                                         <div class="kanban-card-client">${clientName}</div>
                                         ${p.clients?.organization ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: -4px; margin-bottom: 8px;">${p.clients.organization}</div>` : ''}
                                         <div class="kanban-card-footer">
@@ -766,7 +786,7 @@ async renderDashboard() {
                                     ${dayProjects.map(p => {
                                          const clientName = p.clients?.name || '';
                                          const displayName = clientName ? p.name + ' (' + clientName + ')' : p.name;
-                                         return '<div class="calendar-event project" draggable="true" ondragstart="event.dataTransfer.setData(\'projectId\', \'' + p.id + '\')" onclick="event.stopPropagation(); app.viewProject(\'' + p.id + '\')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="פרויקט: ' + displayName + '"><img src="favicon.png" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:4px; object-fit:contain;">' + displayName + '</div>';
+                                         return '<div class="calendar-event project" draggable="true" ondragstart="event.dataTransfer.setData(\'projectId\', \'' + p.id + '\')" onclick="event.stopPropagation(); app.viewProject(\'' + p.id + '\')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="פרויקט: ' + displayName + '"><i data-lucide="camera" style="width:10px; height:10px; display:inline; vertical-align:middle; margin-left:4px;"></i>' + displayName + '</div>';
                                      }).join('')}
                                     ${dayTasks.map(t => {
                                         const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
