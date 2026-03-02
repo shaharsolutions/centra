@@ -235,7 +235,9 @@ async renderDashboard() {
                     <i data-lucide="chevrons-left" style="width:16px; height:16px;"></i>
                     <span>${Store.getUserGender() === 'female' ? 'גללי' : 'גלול'} לימים הבאים</span>
                 </div>
-                <div class="weekly-calendar-grid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:12px; margin-bottom:24px;">
+                <div class="weekly-calendar-grid" 
+                    onscroll="const hint = this.parentElement.querySelector('.mobile-scroll-hint'); if(hint) hint.classList.add('hidden');"
+                    style="display:grid; grid-template-columns: repeat(7, 1fr); gap:12px; margin-bottom:24px;">
                     ${weekDays.map(day => {
                     const y = day.getFullYear();
                     const m = String(day.getMonth() + 1).padStart(2, '0');
