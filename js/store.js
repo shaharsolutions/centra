@@ -1,6 +1,7 @@
-const supabaseUrl = CONFIG.supabaseUrl;
-const supabaseKey = CONFIG.supabaseKey;
-const sb = supabase.createClient(supabaseUrl, supabaseKey);
+const CONFIG_OBJ = typeof CONFIG !== 'undefined' ? CONFIG : (typeof window !== 'undefined' && window.CONFIG ? window.CONFIG : {});
+const supabaseUrl = CONFIG_OBJ.supabaseUrl || '';
+const supabaseKey = CONFIG_OBJ.supabaseKey || '';
+const sb = (supabaseUrl && supabaseKey) ? supabase.createClient(supabaseUrl, supabaseKey) : null;
 
 const Store = {
     defaults: {

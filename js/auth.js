@@ -319,7 +319,9 @@ const Auth = {
 
 // Initialize as soon as config and supabase are available
 document.addEventListener('DOMContentLoaded', () => {
-    if (typeof sb !== 'undefined') {
+    if (typeof sb !== 'undefined' && sb !== null) {
         Auth.init();
+    } else {
+        console.error('Supabase client (sb) is not initialized. Please check config.js.');
     }
 });
