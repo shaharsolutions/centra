@@ -598,7 +598,7 @@ const app = {
             p = projects.find(proj => String(proj.id) === String(projectId));
             if (!p) {
                 console.warn('Project not found with ID:', projectId);
-                alert('הפרויקט לא נמצא. ייתכן שנמחק.');
+                this.confirmAction('שגיאה', 'הפרויקט לא נמצא. ייתכן שנמחק.', null, true);
                 return;
             }
         }
@@ -807,7 +807,7 @@ const app = {
             await this.navigate(this.currentView);
         } catch (error) {
             console.error('Save client error:', error);
-            alert('חלה שגיאה בשמירת הלקוח.');
+            this.confirmAction('שגיאה', 'חלה שגיאה בשמירת הלקוח.', null, true);
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerText = originalText;
@@ -861,7 +861,7 @@ const app = {
             await this.navigate(this.currentView);
         } catch (error) {
             console.error('Save project error:', error);
-            alert('חלה שגיאה בשמירת הפרויקט.');
+            this.confirmAction('שגיאה', 'חלה שגיאה בשמירת הפרויקט.', null, true);
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerText = originalText;
@@ -993,7 +993,7 @@ const app = {
         const checkboxes = document.querySelectorAll('.export-checkbox:checked');
         
         if (checkboxes.length === 0) {
-            alert('נא לבחור לפחות סוג נתונים אחד לייצוא.');
+            this.confirmAction('שים לב', 'נא לבחור לפחות סוג נתונים אחד לייצוא.', null, true);
             return;
         }
 
@@ -1117,7 +1117,7 @@ const app = {
 
         } catch (error) {
             console.error('Export error:', error);
-            alert('חלה שגיאה בייצוא הנתונים. נא לנסות שוב.');
+            this.confirmAction('שגיאה', 'חלה שגיאה בייצוא הנתונים. נא לנסות שוב.', null, true);
         } finally {
             btn.disabled = false;
             status.classList.add('hidden');

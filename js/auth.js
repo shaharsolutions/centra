@@ -252,7 +252,21 @@ const Auth = {
                 yesBtn.style.background = 'var(--primary)';
             }
         } else {
-            if (confirm('בטוח שאתה רוצה להתנתק?')) {
+            // Simplified fallback if app is not yet initialized but the modal is in HTML
+            const modal = document.getElementById('confirm-modal');
+            const titleEl = document.getElementById('confirm-title');
+            const descEl = document.getElementById('confirm-desc');
+            if (modal && titleEl && descEl) {
+                titleEl.innerHTML = 'התנתקות מהמערכת';
+                descEl.innerHTML = 'בטוח שאתה רוצה להתנתק?';
+                document.getElementById('confirm-yes-btn').onclick = async () => {
+                    modal.classList.add('hidden');
+                    await sb.auth.signOut();
+                };
+                document.getElementById('confirm-no-btn').onclick = () => modal.classList.add('hidden');
+                modal.classList.remove('hidden');
+            } else {
+                // Last resort: just sign out if no UI is available
                 await sb.auth.signOut();
             }
         }

@@ -428,11 +428,11 @@ const Admin = {
                     const { error } = await sb.from('user_sessions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
                     if (error) throw error;
                     
-                    alert('נתוני השימוש אופסו בהצלחה.');
+                    app.confirmAction('הודעה', 'נתוני השימוש אופסו בהצלחה.', null, true);
                     this.renderAdminPage(); // Refresh
                 } catch (e) {
                     console.error('Error resetting usage data:', e);
-                    alert('תקלה באיפוס נתוני השימוש: ' + e.message);
+                    app.confirmAction('שגיאה', 'תקלה באיפוס נתוני השימוש: ' + e.message, null, true);
                 }
             }
         );
