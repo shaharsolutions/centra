@@ -1005,6 +1005,7 @@ async renderDashboard() {
     },
 
     async renderSettings() {
+        const profile = await Store.getUserProfile();
         const packages = await Store.getPackages();
         const checklistDefaults = Store.getChecklistDefaults();
         const displayMode = Store.getChecklistDisplayMode();
@@ -1014,9 +1015,41 @@ async renderDashboard() {
         const cities = Store.defaults.shabbatCities;
         const cityName = cities.find(c => c.id === currentCity)?.name || 'תל אביב';
 
+        const planName = profile?.plan === 'professional' ? 'Professional' : 'Starter';
+        const isProfessional = profile?.plan === 'professional';
+
         const html = `
             <div class="settings-container">
                 <section class="settings-section">
+                    <div class="section-header">
+                        <div class="header-text">
+                            <h2 class="section-title">החבילה שלי</h2>
+                            <p class="section-desc">ניהול המנוי והחבילה הנוכחית שלך ב-Centra.</p>
+                        </div>
+                    </div>
+                    <div class="card-list" style="padding: 20px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 48px; height: 48px; border-radius: 12px; background: ${isProfessional ? 'var(--primary-light)' : '#F3F4F6'}; display: flex; align-items: center; justify-content: center; color: ${isProfessional ? 'var(--primary)' : '#6B7280'};">
+                                    <i data-lucide="${isProfessional ? 'award' : 'package'}" style="width: 24px; height: 24px;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">חבילת ${planName}</div>
+                                    <div style="font-size: 0.85rem; color: var(--text-muted);">${isProfessional ? 'יש לך גישה לכל הכלים המתקדמים' : 'ניהול פרויקטים מוגבל - שדרגו לניהול מלא'}</div>
+                                </div>
+                            </div>
+                            ${!isProfessional ? `
+                                <button onclick="window.location.href='pricing.html'" class="btn btn-primary" style="padding: 8px 20px; border-radius: 100px; font-weight: 600; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
+                                    לשדרוג החבילה
+                                </button>
+                            ` : `
+                                <span class="badge" style="background: #ECFDF5; color: #059669; padding: 6px 16px; border-radius: 100px; font-weight: 600; border: 1px solid #A7F3D0;">פעיל</span>
+                            `}
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">פרופיל והעדפות</h2>

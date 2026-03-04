@@ -803,6 +803,19 @@ const Store = {
         if (error) throw error;
     },
 
+    async getUserProfile() {
+        const userId = Auth.getUserId();
+        if (!userId) return null;
+        try {
+            const { data, error } = await sb.from('user_profiles').select('*').eq('user_id', userId).single();
+            if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows found"
+            return data;
+        } catch (e) {
+            console.warn('Error fetching user profile:', e.message);
+            return null;
+        }
+    },
+
     // user_sessions logging
     async logSessionStart() {
         if (!Auth.session?.user?.id || !Auth.session?.user?.email) return;
@@ -821,7 +834,32 @@ const Store = {
                 email: realEmail,
                 last_seen: new Date().toISOString()
             };
-            await sb.from('user_profiles').upsert([profileData], { onConflict: 'user_id' });
+            
+            // Check if profile exists and try to get plan
+            let currentPlan = 'starter';
+            try {
+                const { data: existingProfile, error: selectError } = await sb
+                    .from('user_profiles')
+                    .select('plan')
+                    .eq('user_id', realUserId)
+                    .single();
+                
+                if (!selectError && existingProfile) {
+                    currentPlan = existingProfile.plan || 'starter';
+                }
+            } catch (e) {
+                // Ignore errors here - likely column doesn't exist yet
+            }
+
+            profileData.plan = currentPlan;
+
+            const { error: upsertError } = await sb.from('user_profiles').upsert([profileData], { onConflict: 'user_id' });
+            if (upsertError) {
+                // If upsert fails with plan, try without it (fallback for missing column)
+                console.warn('Upsert with plan failed, trying without plan column...');
+                delete profileData.plan;
+                await sb.from('user_profiles').upsert([profileData], { onConflict: 'user_id' });
+            }
 
             const sessionData = {
                 user_id: realUserId,
@@ -842,6 +880,18 @@ const Store = {
             }
         } catch (e) {
             console.warn('Session logging error:', e.message);
+        }
+    },
+
+    async updateUserPlan(userId, plan) {
+        if (!userId || !plan) return;
+        try {
+            const { error } = await sb.from('user_profiles').update({ plan }).eq('user_id', userId);
+            if (error) throw error;
+            return { success: true };
+        } catch (e) {
+            console.error('Error updating user plan:', e);
+            throw e;
         }
     },
 

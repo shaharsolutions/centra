@@ -18,7 +18,8 @@
                 <img src="favicon.png" alt="Centra Logo" style="width: 32px; height: 32px; object-fit: contain;">
                 <span>Centra</span>
             </div>
-            <nav>
+            <nav style="display: flex; gap: 24px; align-items: center;">
+                <a href="pricing.html" class="btn-secondary">חבילות ומחירים</a>
                 <a href="login.html" class="btn-secondary">כניסת מערכת</a>
             </nav>
         </div>
@@ -102,6 +103,50 @@
             </div>
         </section>
 
+        <!-- Pricing Section -->
+        <section class="pricing" id="pricing">
+            <div class="container">
+                <div class="section-title">
+                    <h2>החבילות שלנו</h2>
+                    <p style="color:var(--text-muted); font-size:1.15rem; max-width:600px; margin:0 auto;">בחרו את המסלול המדויק עבורכם והתחילו לעשות סדר בעסק כבר היום.</p>
+                </div>
+
+                <div class="pricing-grid">
+                    <!-- Starter Plan -->
+                    <div class="p-card">
+                        <div class="p-header">
+                            <div class="p-name">מתחילים (Starter)</div>
+                            <div class="p-price">₪49<span>/חודש</span></div>
+                        </div>
+                        <ul class="p-features">
+                            <li><i data-lucide="check-circle-2"></i>עד 5 פרויקטים בחודש</li>
+                            <li><i data-lucide="check-circle-2"></i>ניהול לקוחות מלא</li>
+                            <li><i data-lucide="check-circle-2"></i>צ'ק-ליסטים לציוד</li>
+                            <li><i data-lucide="check-circle-2"></i>מעקב תשלומים בסיסי</li>
+                        </ul>
+                        <a href="login.html" class="p-btn p-btn-outline">התחילו עכשיו</a>
+                    </div>
+
+                    <!-- Professional Plan (Merged Pro & Studio) -->
+                    <div class="p-card popular">
+                        <div class="popular-badge">הכי פופולרי</div>
+                        <div class="p-header">
+                            <div class="p-name">מקצוענים (Professional)</div>
+                            <div class="p-price">₪119<span>/חודש</span></div>
+                        </div>
+                        <ul class="p-features">
+                            <li><i data-lucide="check-circle-2"></i>פרויקטים ללא הגבלה</li>
+                            <li><i data-lucide="check-circle-2"></i>דוחות רווחיות וביצועים</li>
+                            <li><i data-lucide="check-circle-2"></i>תחזית מזג אוויר וניהול לוקיישנים</li>
+                            <li><i data-lucide="check-circle-2"></i>ארכיון פרויקטים מלא</li>
+                            <li><i data-lucide="check-circle-2"></i>תמיכה אישית בוואטסאפ</li>
+                        </ul>
+                        <a href="login.html" class="p-btn p-btn-solid">ניסיון חינם ל-14 יום</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Final CTA Section -->
         <section class="cta-block">
             <div class="container">
@@ -121,6 +166,7 @@
                 <span>Centra</span>
             </div>
             <div class="footer-links">
+                <a href="pricing.html">חבילות ומחירים</a>
                 <a href="#" onclick="openModal('terms-modal'); return false;">תנאי שימוש</a>
                 <a href="#" onclick="openModal('privacy-modal'); return false;">מדיניות פרטיות</a>
                 <a href="#" onclick="openModal('contact-modal'); return false;">צור קשר</a>

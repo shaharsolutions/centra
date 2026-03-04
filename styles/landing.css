@@ -120,6 +120,7 @@ h1 {
 h1 span {
     background: linear-gradient(135deg, var(--primary), #818CF8);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -458,4 +459,143 @@ footer {
 
 @media (max-width: 768px) {
     .modal-body { padding: 24px; }
+}
+
+/* Pricing Section Styles */
+.pricing {
+    padding: 120px 0;
+    background: var(--bg-base);
+}
+
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+    margin-top: 60px;
+    max-width: 800px;
+    margin-inline: auto;
+}
+
+.p-card {
+    background: white;
+    padding: 48px 32px;
+    border-radius: 40px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    position: relative;
+}
+
+.p-card.popular {
+    border-color: var(--primary);
+    box-shadow: 0 30px 60px -12px rgba(124, 58, 237, 0.15);
+    background: var(--bg-subtle);
+    transform: scale(1.05);
+    z-index: 2;
+}
+
+.popular-badge {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.p-header {
+    margin-bottom: 32px;
+    text-align: center;
+}
+
+.p-name {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text-main);
+}
+
+.p-price {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+}
+
+.p-price span {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.p-features {
+    list-style: none;
+    margin-bottom: 40px;
+    flex-grow: 1;
+}
+
+.p-features li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 1rem;
+    color: #475569;
+}
+
+.p-features i {
+    color: var(--primary);
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.p-btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: 50px;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.p-btn-outline {
+    border: 2px solid var(--primary);
+    color: var(--primary);
+}
+
+.p-btn-outline:hover {
+    background: var(--primary-soft);
+}
+
+.p-btn-solid {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 10px 20px rgba(124, 58, 237, 0.2);
+}
+
+.p-btn-solid:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 992px) {
+    .pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 500px;
+        margin-inline: auto;
+    }
+    .p-card.popular {
+        transform: scale(1);
+    }
 }

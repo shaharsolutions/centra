@@ -64,7 +64,8 @@ const Admin = {
                     total_time_minutes: 0,
                     last_login: null,
                     total_clients: 0,
-                    total_projects: 0
+                    total_projects: 0,
+                    plan: p.plan || 'starter'
                 };
             });
             
@@ -79,7 +80,8 @@ const Admin = {
                         total_time_minutes: 0,
                         last_login: null,
                         total_clients: 0,
-                        total_projects: 0
+                        total_projects: 0,
+                        plan: 'starter'
                     };
                 }
             };
@@ -167,6 +169,7 @@ const Admin = {
                         <thead>
                             <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.85rem;">
                                 <th style="padding: 10px 16px;">משתמש</th>
+                                <th style="padding: 10px 16px; text-align: center;">חבילה</th>
                                 <th style="padding: 10px 16px; text-align: center;">לקוחות</th>
                                 <th style="padding: 10px 16px; text-align: center;">פרויקטים</th>
                                 <th style="padding: 10px 16px; text-align: center;">כניסות</th>
@@ -190,13 +193,19 @@ const Admin = {
                         onmouseover="this.style.background='var(--bg-main)'" 
                         onmouseout="this.style.background='white'">
                         <td style="padding: 14px 16px; font-weight: 500; cursor: pointer;" onclick="Admin.filterByUser('${stat.user_id}')">${stat.user_email}</td>
+                        <td style="padding: 14px 16px; text-align: center;">
+                            <select onchange="Admin.updateUserPlan('${stat.user_id}', this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.8rem; background: ${stat.plan === 'professional' ? '#EEF2FF' : 'white'}; color: ${stat.plan === 'professional' ? 'var(--primary)' : 'inherit'}; font-weight: ${stat.plan === 'professional' ? '600' : 'normal'};">
+                                <option value="starter" ${stat.plan === 'starter' ? 'selected' : ''}>Starter</option>
+                                <option value="professional" ${stat.plan === 'professional' ? 'selected' : ''}>Professional</option>
+                            </select>
+                        </td>
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_clients}</td>
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_projects}</td>
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_logins}</td>
                         <td style="padding: 14px 16px; text-align: center;">${timeDisplay}</td>
                         <td style="padding: 14px 16px; color: var(--text-muted); font-size: 0.9rem;">${lastLogin}</td>
                         <td style="padding: 14px 16px; text-align: center;">
-                            ${!isAdminUser ? `<button onclick="Admin.startImpersonating('${stat.user_id}', '${stat.user_email}')" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;">👁️ צפייה כמשתמש</button>` : '<span style="color: var(--text-muted); font-size: 0.8rem;">מנהל</span>'}
+                            ${!isAdminUser ? `<button onclick="Admin.startImpersonating('${stat.user_id}', '${stat.user_email}')" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;">👁️ צפייה</button>` : '<span style="color: var(--text-muted); font-size: 0.8rem;">מנהל</span>'}
                         </td>
                     </tr>
                 `;
@@ -442,6 +451,21 @@ const Admin = {
                 }
             }
         );
+    },
+
+    async updateUserPlan(userId, plan) {
+        try {
+            await Store.updateUserPlan(userId, plan);
+            this.renderAdminPage();
+        } catch (e) {
+            console.error('Error updating plan:', e);
+            app.confirmAction(
+                'שגיאה בעדכון החבילה', 
+                'חלה שגיאה בבסיס הנתונים. ייתכן שיש להוסיף את עמודת החבילה.<br><br><b>פתרון:</b> יש להריץ את הקובץ <code>db/update_profiles_plan.sql</code> ב-SQL Editor של Supabase.',
+                null, 
+                true
+            );
+        }
     }
 };
 

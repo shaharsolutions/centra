@@ -918,6 +918,36 @@ const app = {
     async handleProjectSubmit() {
         const isNew = !this.editingProjectId;
         
+        // Enforce Starter Plan Limit (max 5 projects per month)
+        if (isNew) {
+            const profile = await Store.getUserProfile();
+            const isProfessional = profile?.plan === 'professional';
+            
+            if (!isProfessional) {
+                const projects = await Store.getProjects();
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+                
+                const monthlyProjects = projects.filter(p => {
+                    if (!p.created_at) return false;
+                    const date = new Date(p.created_at);
+                    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                });
+
+                if (monthlyProjects.length >= 5) {
+                    this.confirmAction(
+                        'הגעת למכסה החודשית',
+                        'בחבילת ה-Starter ניתן ליצור עד 5 פרויקטים בחודש.<br><br><b>רוצה להמשיך ללא הגבלה?</b> שדרג/י עכשיו לחבילת Professional ונהל/י את כל העסק במקום אחד.',
+                        () => { window.location.href = 'pricing.html'; }
+                    );
+                    const yesBtn = document.getElementById('confirm-yes-btn');
+                    if (yesBtn) yesBtn.innerText = 'לשדרוג עכשיו';
+                    return; // Stop submission
+                }
+            }
+        }
+
         const deposit = parseFloat(document.getElementById('proj-deposit-paid').value) || 0;
         const total = parseFloat(document.getElementById('proj-total-price').value) || 0;
         
