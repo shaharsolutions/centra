@@ -478,12 +478,13 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="project-styling-call">שיחת סטיילינג</label>
-                        <select id="project-styling-call">
-                            <option value="none">ללא</option>
-                            <option value="1_week">שבוע לפני</option>
-                            <option value="2_weeks">שבועיים לפני</option>
-                        </select>
+                        <label>שיחת סטיילינג</label>
+                        <div id="project-styling-call-picker" class="status-picker">
+                            <button type="button" class="status-picker-btn" data-value="none" onclick="app.setProjectStylingCall('none')">ללא</button>
+                            <button type="button" class="status-picker-btn" data-value="1_week" onclick="app.setProjectStylingCall('1_week')">שבוע לפני</button>
+                            <button type="button" class="status-picker-btn" data-value="2_weeks" onclick="app.setProjectStylingCall('2_weeks')">שבועיים לפני</button>
+                        </div>
+                        <input type="hidden" id="project-styling-call">
                     </div>
                 </div>
                 <div id="project-weather-container" class="weather-widget hidden">
@@ -491,12 +492,13 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="project-payment-status">סטטוס גבייה</label>
-                        <select id="project-payment-status" onchange="if(app.editingProjectId) app.updatePaymentStatus(app.editingProjectId, this.value)">
-                            <option value="not_paid">טרם שולם</option>
-                            <option value="deposit">מקדמה שולמה</option>
-                            <option value="paid_full">שולם במלואו</option>
-                        </select>
+                        <label>סטטוס גבייה</label>
+                        <div id="project-payment-status-picker" class="status-picker">
+                            <button type="button" class="status-picker-btn" data-value="not_paid" onclick="app.setProjectPaymentStatus('not_paid')">טרם שולם</button>
+                            <button type="button" class="status-picker-btn" data-value="deposit" onclick="app.setProjectPaymentStatus('deposit')">מקדמה שולמה</button>
+                            <button type="button" class="status-picker-btn" data-value="paid_full" onclick="app.setProjectPaymentStatus('paid_full')">שולם במלואו</button>
+                        </div>
+                        <input type="hidden" id="project-payment-status">
                     </div>
                 </div>
 

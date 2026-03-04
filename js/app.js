@@ -173,12 +173,7 @@ const app = {
             this.setClientEditMode(false);
         });
 
-        // Auto-save styling call changes
-        document.getElementById('project-styling-call').addEventListener('change', async (e) => {
-            if (this.editingProjectId) {
-                await this.updateStylingCall(this.editingProjectId, e.target.value);
-            }
-        });
+
 
         // Auto-fill price when selecting a package
         document.getElementById('project-name').addEventListener('input', async (e) => {
@@ -194,16 +189,12 @@ const app = {
         // Auto-update payment status when deposit is entered
         document.getElementById('proj-deposit-paid').addEventListener('input', (e) => {
             const deposit = parseFloat(e.target.value) || 0;
-            const statusSelect = document.getElementById('project-payment-status');
             const totalPrice = parseFloat(document.getElementById('proj-total-price').value) || 0;
             
             if (deposit > 0 && deposit < totalPrice) {
-                statusSelect.value = 'deposit';
-                // Trigger manual change if necessary for other logic
-                statusSelect.dispatchEvent(new Event('change'));
+                this.setProjectPaymentStatus('deposit');
             } else if (deposit >= totalPrice && totalPrice > 0) {
-                statusSelect.value = 'paid_full';
-                statusSelect.dispatchEvent(new Event('change'));
+                this.setProjectPaymentStatus('paid_full');
             }
         });
 
@@ -360,20 +351,57 @@ const app = {
         const statusEl = document.getElementById('project-status');
         if (statusEl) statusEl.value = status;
         
-        // Update UI buttons
-        const buttons = document.querySelectorAll('.status-picker-btn');
-        buttons.forEach(btn => {
-            if (btn.getAttribute('data-status') === status) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
+        // Update UI buttons - scoped to status picker
+        const picker = document.getElementById('project-status-picker');
+        if (picker) {
+            const buttons = picker.querySelectorAll('.status-picker-btn');
+            buttons.forEach(btn => {
+                if (btn.getAttribute('data-status') === status) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
 
         // Trigger logic
         this.toggleNotClosedReason(status);
         if (!skipUpdate && this.editingProjectId) {
             this.updateStatus(this.editingProjectId, status);
+        }
+    },
+
+    setProjectStylingCall(value, skipUpdate = false) {
+        const el = document.getElementById('project-styling-call');
+        if (el) el.value = value;
+        
+        const picker = document.getElementById('project-styling-call-picker');
+        if (picker) {
+            const buttons = picker.querySelectorAll('.status-picker-btn');
+            buttons.forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-value') === value);
+            });
+        }
+
+        if (!skipUpdate && this.editingProjectId) {
+            this.updateStylingCall(this.editingProjectId, value);
+        }
+    },
+
+    setProjectPaymentStatus(value, skipUpdate = false) {
+        const el = document.getElementById('project-payment-status');
+        if (el) el.value = value;
+        
+        const picker = document.getElementById('project-payment-status-picker');
+        if (picker) {
+            const buttons = picker.querySelectorAll('.status-picker-btn');
+            buttons.forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-value') === value);
+            });
+        }
+
+        if (!skipUpdate && this.editingProjectId) {
+            this.updatePaymentStatus(this.editingProjectId, value);
         }
     },
 
@@ -699,10 +727,10 @@ const app = {
             document.getElementById('project-location').value = p.location || '';
             document.getElementById('project-subjects-count').value = p.subjects_count || '';
             document.getElementById('project-subjects-details').value = p.subjects_details || '';
-            document.getElementById('project-styling-call').value = p.styling_call || 'none';
+            this.setProjectStylingCall(p.styling_call || 'none', true);
             document.getElementById('project-publication-approval').checked = p.publication_approval || false;
             this.setProjectStatus(p.status || 'new', true);
-            document.getElementById('project-payment-status').value = p.payment_status || 'not_paid';
+            this.setProjectPaymentStatus(p.payment_status || 'not_paid', true);
             document.getElementById('not-closed-reason').value = p.not_closed_reason || '';
             this.toggleNotClosedReason(p.status || 'new');
             
@@ -753,8 +781,9 @@ const app = {
             }
             document.getElementById('project-notes-list').innerHTML = '';
             this.setProjectStatus('new', true);
+            this.setProjectStylingCall('none', true);
             document.getElementById('proj-total-price').value = '';
-            document.getElementById('project-payment-status').value = 'not_paid';
+            this.setProjectPaymentStatus('not_paid', true);
             this.toggleNotClosedReason('new');
             this.setProjectEditMode(true);
             UI.renderChecklist(null);
@@ -1423,7 +1452,7 @@ const app = {
             
             // Sync modal if open
             if (this.editingProjectId === id) {
-                document.getElementById('project-styling-call').value = value;
+                this.setProjectStylingCall(value, true);
                 UI.renderChecklist(id);
             }
 
@@ -1499,8 +1528,7 @@ const app = {
 
             // Sync modal if open for this project
             if (this.editingProjectId === id) {
-                const paymentSelect = document.getElementById('project-payment-status');
-                if (paymentSelect) paymentSelect.value = newStatus;
+                this.setProjectPaymentStatus(newStatus, true);
             }
 
             if (this.currentView === 'projects') await UI.renderProjects();
