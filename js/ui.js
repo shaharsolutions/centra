@@ -1497,6 +1497,9 @@ async renderDashboard() {
     },
 
     async renderReports() {
+        const profile = await Store.getUserProfile();
+        const isProfessional = profile?.plan === 'professional';
+        
         const projects = await Store.getProjects();
         const clients = await Store.getClients();
         
@@ -1551,7 +1554,36 @@ async renderDashboard() {
         const sortedMonths = Object.keys(monthlyData).sort();
 
         const html = `
-            <div class="reports-container" style="display: flex; flex-direction: column; gap: 24px; padding-bottom: 20px;">
+            <div class="reports-container" style="display: flex; flex-direction: column; gap: 24px; padding-bottom: 20px; position: relative;">
+                
+                ${!isProfessional ? `
+                    <!-- Upgrade Overlay for Starter Users -->
+                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px); background: rgba(255, 255, 255, 0.4); border-radius: var(--radius-lg); padding: 40px; text-align: center;">
+                        <div style="background: white; padding: 40px; border-radius: 24px; box-shadow: var(--shadow-lg); max-width: 450px; border: 1px solid var(--border); animation: slideIn 0.5s ease-out;">
+                            <div style="width: 80px; height: 80px; background: var(--primary-light); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; color: var(--primary);">
+                                <i data-lucide="bar-chart-3" style="width: 40px; height: 40px;"></i>
+                            </div>
+                            <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 12px;">שדרגו לניהול דוחות מלא</h2>
+                            <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 32px;">
+                                בחבילת <b>Professional</b> תוכלו לראות ניתוח מעמיק של העסק, דוחות רווחיות, מעקב הכנסות חודשי וביצועי לקוחות בזמן אמת.
+                            </p>
+                            <button onclick="window.location.href='pricing.html'" class="btn btn-primary" style="width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
+                                שדרוג חבילה עכשיו
+                            </button>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 16px;">
+                                הצצה לנתונים שלך מופיעה ברקע...
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <style>
+                        @keyframes slideIn {
+                            from { opacity: 0; transform: translateY(20px); }
+                            to { opacity: 1; transform: translateY(0); }
+                        }
+                    </style>
+                ` : ''}
+
                 <!-- Key Metrics Grid -->
                 <div class="reports-grid">
                     <div class="report-card" style="background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow); border: 1px solid var(--border);">
