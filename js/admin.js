@@ -25,7 +25,13 @@ const Admin = {
                     .from('user_sessions')
                     .select('*')
                     .order('login_time', { ascending: false });
-                if (!error) sessions = (data || []).filter(s => s.user_email !== 'shaharsolutions@gmail.com');
+                if (!error) {
+                    sessions = (data || []).filter(s => {
+                        const isNotAdmin = s.user_email !== 'shaharsolutions@gmail.com';
+                        const isNotShort = !s.logout_time || (s.duration_minutes !== null && s.duration_minutes >= 1);
+                        return isNotAdmin && isNotShort;
+                    });
+                }
             } catch (e) {
                 console.warn('user_sessions table may not exist yet');
             }
