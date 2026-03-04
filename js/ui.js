@@ -1565,14 +1565,11 @@ async renderDashboard() {
                             </div>
                             <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 12px;">שדרגו לניהול דוחות מלא</h2>
                             <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 32px;">
-                                בחבילת <b>Professional</b> תוכלו לראות ניתוח מעמיק של העסק, דוחות רווחיות, מעקב הכנסות חודשי וביצועי לקוחות בזמן אמת.
+                                בחבילת <b>Professional</b> תוכלו לראות ניתוח מעמיק של העסק, דוחות רווחיות, מעקב הכנסות חודשי וכלים מתקדמים שיעזרו לכם לצמוח.
                             </p>
                             <button onclick="window.location.href='pricing.html'" class="btn btn-primary" style="width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
                                 שדרוג חבילה עכשיו
                             </button>
-                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 16px;">
-                                הצצה לנתונים שלך מופיעה ברקע...
-                            </p>
                         </div>
                     </div>
                     
