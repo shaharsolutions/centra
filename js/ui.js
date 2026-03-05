@@ -1212,32 +1212,114 @@ async renderDashboard() {
                 <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
-                            <h2 class="section-title">הגדרות ארכיון אוטומטי</h2>
-                            <p class="section-desc">ניהול המעבר האוטומטי של פרויקטים לארכיון.</p>
+                            <h2 class="section-title">תזרים עבודה ותזכורות אוטומטיות (Workflow)</h2>
+                            <p class="section-desc">ניהול אבני דרך קריטיות לכל פרויקט - המערכת תזכיר לך מה לעשות ומתי.</p>
                         </div>
                     </div>
                     <div class="card-list" style="padding: 20px;">
-                        <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                            <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
-                                <i data-lucide="archive" style="color: var(--primary);"></i>
+                        <!-- מתג הפעלה ראשי -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; background: var(--bg-main); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 45px; height: 45px; border-radius: 12px; background: ${profile?.reminders_enabled ? 'var(--primary-light)' : '#F3F4F6'}; display: flex; align-items: center; justify-content: center; color: ${profile?.reminders_enabled ? 'var(--primary)' : '#6B7280'}; transition: all 0.3s;">
+                                    <i data-lucide="shield-check" style="width: 24px; height: 24px;"></i>
+                                </div>
                                 <div>
-                                    <div style="font-weight: 600;">זמן לארכוב פרויקטים ש"פורסמו"</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted);">כמה זמן פרויקט יישאר בעמודה "פורסם" לפני שיעבור לארכיון.</div>
+                                    <div style="font-weight: 700; color: var(--text-main);">סטטוס מערכת Workflow</div>
+                                    <div style="font-size: 0.85rem; color: var(--text-muted);">כשהמערכת פעילה, יישלחו תזכורות למייל הרישום שלך.</div>
                                 </div>
                             </div>
-                            <select id="settings-archive-delay" onchange="Store.setArchiveDelay(this.value); Store.logAction('עדכון הגדרות ארכיון', 'זמן ארכוב פרויקטים פורסמו שונה ל-' + this.value + ' ימים')" style="flex: 1; max-width: 300px;">
-                                <option value="7" ${Store.getArchiveDelay() === 7 ? 'selected' : ''}>שבוע</option>
-                                <option value="14" ${Store.getArchiveDelay() === 14 ? 'selected' : ''}>שבועיים</option>
-                                <option value="30" ${Store.getArchiveDelay() === 30 ? 'selected' : ''}>חודש</option>
-                                <option value="90" ${Store.getArchiveDelay() === 90 ? 'selected' : ''}>3 חודשים</option>
-                            </select>
+                            <label class="switch-container" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="settings-reminders-enabled" ${profile?.reminders_enabled ? 'checked' : ''} onchange="app.toggleReminders(this.checked)" style="width: 20px; height: 20px;">
+                                <span style="font-weight: 600;">${profile?.reminders_enabled ? 'פעיל' : 'כבוי'}</span>
+                            </label>
                         </div>
-                        <div style="margin-top: 16px; padding: 12px; background: #F9FAFB; border-radius: 8px; font-size: 0.85rem; color: var(--text-muted);">
-                            <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle; margin-left: 4px;"></i>
-                            <strong>${currentGender === 'male' ? 'שים לב' : 'שימי לב'}:</strong> פרויקטים בסטטוס "נמסר" <u>ללא</u> אישור פרסום יעברו אוטומטית לארכיון לאחר שבוע. פרויקטים <u>עם</u> אישור פרסום יישארו בעמודה עד ${currentGender === 'male' ? 'שתעביר' : 'שתעבירי'} אותם ל"פורסם".
+
+                        <div id="reminders-details" class="${profile?.reminders_enabled ? '' : 'hidden'}" style="display: flex; flex-direction: column; gap: 20px;">
+                            <h3 style="font-size: 1rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
+                                <i data-lucide="list-checks" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                                בחירת אבני דרך למעקב:
+                            </h3>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px;">
+                                <!-- אבן דרך 1: הכנה -->
+                                <div class="workflow-card" style="border: 1px solid var(--border); padding: 15px; border-radius: 12px; background: white; transition: all 0.3s; height: 100%; display: flex; flex-direction: column;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                        <span style="background: #E0F2FE; color: #0369A1; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">לפני הצילום</span>
+                                        <div style="width: 20px; height: 20px; border-radius: 50%; background: #0369A1; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;"><i data-lucide="check" style="width: 12px; height: 12px;"></i></div>
+                                    </div>
+                                    <div style="font-weight: 700; margin-bottom: 6px; color: var(--text-main);">הכנת ציוד ואישור לקוח</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">טעינת סוללות, ריקון כרטיסים ושליחת הודעת אישור ללקוח.</div>
+                                    <div style="margin-top: auto;">
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">תזמון שליחה:</div>
+                                        <select id="settings-reminders-before" onchange="app.updateRemindersConfig()" style="width: 100%; font-size: 0.85rem; padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
+                                            <option value="1" ${profile?.reminders_config?.before_shoot_days === 1 ? 'selected' : ''}>יום אחד לפני</option>
+                                            <option value="2" ${profile?.reminders_config?.before_shoot_days === 2 ? 'selected' : ''}>יומיים לפני</option>
+                                            <option value="3" ${profile?.reminders_config?.before_shoot_days === 3 ? 'selected' : ''}>3 ימים לפני</option>
+                                            <option value="0" ${profile?.reminders_config?.before_shoot_days === 0 ? 'selected' : ''}>כבוי</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- אבן דרך 2: גיבוי -->
+                                <div class="workflow-card" style="border: 1px solid var(--border); padding: 15px; border-radius: 12px; background: white; transition: all 0.3s; height: 100%; display: flex; flex-direction: column;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                        <span style="background: #F0FDF4; color: #15803D; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">אחרי הצילום</span>
+                                        <div style="width: 20px; height: 20px; border-radius: 50%; background: #15803D; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;"><i data-lucide="check" style="width: 12px; height: 12px;"></i></div>
+                                    </div>
+                                    <div style="font-weight: 700; margin-bottom: 6px; color: var(--text-main);">גיבוי, סינון וייצוא</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">מניעת אובדן מידע קריטי ותחילת תהליך פוסט-פרודקשן.</div>
+                                    <div style="margin-top: auto;">
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">תזמון שליחה:</div>
+                                        <select id="settings-reminders-after" onchange="app.updateRemindersConfig()" style="width: 100%; font-size: 0.85rem; padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
+                                            <option value="1" ${profile?.reminders_config?.after_shoot_days === 1 ? 'selected' : ''}>יום אחד אחרי</option>
+                                            <option value="2" ${profile?.reminders_config?.after_shoot_days === 2 ? 'selected' : ''}>יומיים אחרי</option>
+                                            <option value="3" ${profile?.reminders_config?.after_shoot_days === 3 ? 'selected' : ''}>3 ימים אחרי</option>
+                                            <option value="0" ${profile?.reminders_config?.after_shoot_days === 0 ? 'selected' : ''}>כבוי</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- אבן דרך 3: גבייה -->
+                                <div class="workflow-card" style="border: 1px solid #FCD34D; padding: 15px; border-radius: 12px; background: #FFFBEB; transition: all 0.3s; height: 100%; display: flex; flex-direction: column;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                        <span style="background: #FEF3C7; color: #92400E; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">פיננסי</span>
+                                        <div style="font-size: 0.65rem; color: #92400E; font-weight: 800; text-transform: uppercase;">קבוע (7 ימים)</div>
+                                    </div>
+                                    <div style="font-weight: 700; margin-bottom: 6px; color: #92400E;">וידוא תשלום סופי</div>
+                                    <div style="font-size: 0.8rem; color: #B45309; line-height: 1.4;">תזכורת לבדוק אם יתרת התשלום הועברה בהתאם לחוזה.</div>
+                                    <div style="margin-top: auto; padding-top: 10px; border-top: 1px dashed #FDE68A;">
+                                        <div style="font-size: 0.75rem; color: #92400E; font-weight: 600;">נשלח אוטומטית שבוע אחרי הצילומים</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-main); padding: 15px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); margin-top: 5px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <i data-lucide="clock" style="width: 18px; height: 18px; color: var(--text-muted);"></i>
+                                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">שעת שליחת התזכורות:</div>
+                                </div>
+                                <input type="time" id="settings-reminders-hour" onchange="app.updateRemindersConfig()" value="${profile?.reminders_config?.reminder_hour || '08:00'}" style="width: 120px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: white;">
+                            </div>
                         </div>
                     </div>
                 </section>
+
+
+                                <div style="background: #F0F9FF; padding: 16px; border-radius: 12px; border: 1px solid #BAE6FD; margin-top: 10px;">
+                                    <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; color: #0369A1; display: flex; align-items: center; gap: 8px;">
+                                        <i data-lucide="zap" style="width: 16px; height: 16px;"></i>
+                                        מערכת שליחה אוטומטית פעילה
+                                    </div>
+                                    <p style="font-size: 0.8rem; color: #0C4A6E; line-height: 1.4;">
+                                        המערכת תשלח עבורך תזכורות באופן אוטומטי בהתאם לתדירות שהגדרת למעלה.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" style="margin-top: var(--category-spacing);">
                 <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">

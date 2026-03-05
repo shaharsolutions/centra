@@ -334,7 +334,7 @@ const Store = {
         let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
 
         try {
-            let query = sb.from('projects').select('*, clients(name, organization)').eq('user_id', Auth.getUserId());
+            let query = sb.from('projects').select('*, clients(name, organization, email, phone)').eq('user_id', Auth.getUserId());
             if (clientId) {
                 query = query.eq('client_id', clientId);
             }
@@ -426,7 +426,7 @@ const Store = {
         if ((!normalizedClients || !normalizedClients.name) && p.client_id) {
             const foundClient = clients.find(c => String(c.id) === String(p.client_id));
             if (foundClient) {
-                normalizedClients = { name: foundClient.name, organization: foundClient.organization };
+                normalizedClients = { name: foundClient.name, organization: foundClient.organization, email: foundClient.email, phone: foundClient.phone };
             }
         }
         
@@ -894,10 +894,35 @@ const Store = {
         try {
             const { data, error } = await sb.from('user_profiles').select('*').eq('user_id', userId).single();
             if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows found"
+            
+            // Set defaults for reminders if missing
+            if (data && data.reminders_enabled === undefined) data.reminders_enabled = false;
+            if (data && !data.reminders_email) data.reminders_email = 'shaharsolutions@gmail.com';
+            if (data && !data.reminders_config) data.reminders_config = { before_shoot_days: 2, after_shoot_days: 1 };
+            
             return data;
         } catch (e) {
             console.warn('Error fetching user profile:', e.message);
             return null;
+        }
+    },
+
+    async updateReminderSettings(enabled, email, config) {
+        const userId = Auth.getUserId();
+        if (!userId) return;
+        
+        try {
+            const { error } = await sb.from('user_profiles').update({
+                reminders_enabled: enabled,
+                reminders_email: email,
+                reminders_config: config
+            }).eq('user_id', userId);
+            
+            if (error) throw error;
+            return { success: true };
+        } catch (e) {
+            console.error('Error updating reminder settings:', e);
+            throw e;
         }
     },
 
@@ -1376,6 +1401,34 @@ const Store = {
         }
     },
 
+    async updateProjectReminderStatus(projectId, type) {
+        if (!projectId) return;
+        try {
+            const { error } = await sb.from('projects').update({
+                last_reminder_type: type,
+                last_reminder_at: new Date().toISOString()
+            }).eq('id', projectId);
+            
+            if (error) throw error;
+            
+            // Invalidating projects cache? Not strictly necessary for UI but good practice
+            this.invalidateCache('projects');
+        } catch (e) {
+            console.error('Error updating project reminder status:', e);
+        }
+    },
+
+    async updateTaskReminderStatus(taskId) {
+        try {
+            const { error } = await sb.from('project_checklists').update({
+                last_reminder_at: new Date().toISOString()
+            }).eq('id', taskId);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error updating task reminder status:', e);
+        }
+    },
+
     async saveChecklistItem(item) {
         let savedItemId = item.id;
         const isCompleted = item.isCompleted !== undefined ? item.isCompleted : (item.is_completed !== undefined ? item.is_completed : false);
@@ -1396,6 +1449,9 @@ const Store = {
                     is_completed: isCompleted,
                     category: item.category || 'task',
                     due_date: dueDate,
+                    reminder_enabled: item.reminder_enabled || false,
+                    reminder_days: item.reminder_days || 1,
+                    reminder_hour: item.reminder_hour || '08:00',
                     user_id: Auth.getUserId()
                 };
 

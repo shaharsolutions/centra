@@ -73,6 +73,9 @@ const app = {
         // Check if the 14-day trial for Pro has expired
         await this.checkTrialStatus().catch(e => console.error('Trial check failed:', e));
         
+        // Check for project reminders
+        await this.checkReminders().catch(e => console.error('Reminders check failed:', e));
+        
         await this.navigate('dashboard');
     },
 
@@ -133,6 +136,15 @@ const app = {
         document.getElementById('location-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.handleLocationSubmit();
+        });
+
+        // Task Reminder Toggle
+        document.getElementById('task-reminder-enabled')?.addEventListener('change', (e) => {
+            const container = document.getElementById('task-reminder-days-container');
+            if (container) {
+                container.style.opacity = e.target.checked ? '1' : '0.4';
+                container.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+            }
         });
 
         // Delete Buttons (Using Custom Confirmation)
@@ -2011,6 +2023,26 @@ const app = {
         document.getElementById('task-completed-checkbox').checked = task.is_completed;
         document.getElementById('task-notes').value = task.notes || '';
         
+        // Reminder settings
+        const reminderEnabled = !!task.reminder_enabled;
+        const taskRemEnabledEl = document.getElementById('task-reminder-enabled');
+        if (taskRemEnabledEl) {
+            taskRemEnabledEl.checked = reminderEnabled;
+        }
+        const taskRemDaysEl = document.getElementById('task-reminder-days');
+        if (taskRemDaysEl) {
+            taskRemDaysEl.value = task.reminder_days || 1;
+        }
+        const taskRemHourEl = document.getElementById('task-reminder-hour');
+        if (taskRemHourEl) {
+            taskRemHourEl.value = task.reminder_hour || '08:00';
+        }
+        const reminderDaysContainer = document.getElementById('task-reminder-days-container');
+        if (reminderDaysContainer) {
+            reminderDaysContainer.style.opacity = reminderEnabled ? '1' : '0.4';
+            reminderDaysContainer.style.pointerEvents = reminderEnabled ? 'auto' : 'none';
+        }
+        
         const projectInfo = document.getElementById('task-project-info');
         let projectName = '';
         let clientName = '';
@@ -2065,6 +2097,18 @@ const app = {
         document.getElementById('task-completed-checkbox').checked = false;
         document.getElementById('task-notes').value = '';
         
+        const taskRemEnabledEl = document.getElementById('task-reminder-enabled');
+        if (taskRemEnabledEl) taskRemEnabledEl.checked = false;
+        const taskRemDaysEl = document.getElementById('task-reminder-days');
+        if (taskRemDaysEl) taskRemDaysEl.value = 1;
+        const taskRemHourEl = document.getElementById('task-reminder-hour');
+        if (taskRemHourEl) taskRemHourEl.value = '08:00';
+        const reminderDaysContainer = document.getElementById('task-reminder-days-container');
+        if (reminderDaysContainer) {
+            reminderDaysContainer.style.opacity = '0.4';
+            reminderDaysContainer.style.pointerEvents = 'none';
+        }
+        
         const projectInfo = document.getElementById('task-project-info');
         if (projectInfo) projectInfo.style.display = 'none';
 
@@ -2093,6 +2137,9 @@ const app = {
             content: document.getElementById('task-content').value,
             dueDate: document.getElementById('task-due-date').value,
             isCompleted: document.getElementById('task-completed-checkbox').checked,
+            reminder_enabled: document.getElementById('task-reminder-enabled')?.checked || false,
+            reminder_days: parseInt(document.getElementById('task-reminder-days')?.value || 1),
+            reminder_hour: document.getElementById('task-reminder-hour')?.value || '08:00',
             notes: document.getElementById('task-notes').value
         };
 
@@ -2601,6 +2648,248 @@ const app = {
             // Revert UI automatically by rendering from DB state
             UI.renderDocuments(clientId, null);
         }
+    },
+
+    async toggleReminders(enabled) {
+        const details = document.getElementById('reminders-details');
+        if (details) {
+            if (enabled) details.classList.remove('hidden');
+            else details.classList.add('hidden');
+        }
+        
+        try {
+            const profile = await Store.getUserProfile();
+            const email = document.getElementById('settings-reminders-email')?.value || profile?.reminders_email || 'shaharsolutions@gmail.com';
+            const before = parseInt(document.getElementById('settings-reminders-before')?.value || profile?.reminders_config?.before_shoot_days || 2);
+            const after = parseInt(document.getElementById('settings-reminders-after')?.value || profile?.reminders_config?.after_shoot_days || 1);
+            
+            const hour = document.getElementById('settings-reminders-hour')?.value || profile?.reminders_config?.reminder_hour || '08:00';
+            await Store.updateReminderSettings(enabled, email, { before_shoot_days: before, after_shoot_days: after, reminder_hour: hour });
+            await Store.logAction('עדכון תזכורות', `מערכת התזכורות ${enabled ? 'הופעלה' : 'כובתה'}`, 'settings');
+            
+            // Re-render settings to update text/icons if needed, or just let the local change stay
+            UI.renderSettings();
+        } catch (error) {
+            console.error('Toggle reminders error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בעדכון הגדרות התזכורות.', null, true);
+        }
+    },
+
+    async updateRemindersConfig() {
+        try {
+            const profile = await Store.getUserProfile();
+            const enabled = document.getElementById('settings-reminders-enabled')?.checked ?? profile?.reminders_enabled ?? false;
+            const before = parseInt(document.getElementById('settings-reminders-before')?.value || 2);
+            const after = parseInt(document.getElementById('settings-reminders-after')?.value || 1);
+            const hour = document.getElementById('settings-reminders-hour')?.value || '08:00';
+
+            const config = {
+                before_shoot_days: before,
+                after_shoot_days: after,
+                reminder_hour: hour,
+                checkpoints: [
+                    { id: 'prep', days: before, type: 'before', label: 'הכנת ציוד ואישור לקוח', enabled: before > 0 },
+                    { id: 'backup', days: after, type: 'after', label: 'גיבוי וסינון תמונות', enabled: after > 0 },
+                    { id: 'payment', days: 7, type: 'after', label: 'וידוא תשלום סופי', enabled: true }
+                ]
+            };
+
+            await Store.updateReminderSettings(enabled, null, config);
+            await Store.logAction('עדכון תזכורות', `תזרים העבודה (Workflow) עודכן`, 'settings');
+            
+            this.confirmAction('עודכן', 'תזרים העבודה נשמר בהצלחה.', null, true);
+            UI.renderSettings();
+        } catch (error) {
+            console.error('Update reminders config error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בשמירת ההגדרות.', null, true);
+        }
+    },
+
+    async sendEmailViaGAS(to_email, subject, body) {
+        const gasUrl = CONFIG_OBJ.remindersGasUrl;
+        
+        if (!gasUrl) {
+            console.warn('Global GAS URL missing in CONFIG');
+            return { success: false, reason: 'url_missing' };
+        }
+
+        try {
+            const response = await fetch(gasUrl, {
+                method: 'POST',
+                mode: 'no-cors', // Important for GAS Web Apps
+                cache: 'no-cache',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    to: to_email,
+                    subject: subject,
+                    body: body
+                })
+            });
+            
+            // Note: with 'no-cors', we can't actually read the response status/body.
+            // We assume it's sent if the fetch doesn't throw.
+            return { success: true };
+        } catch (error) {
+            console.error('GAS send error:', error);
+            return { success: false, error };
+        }
+    },
+
+    async updateRemindersEmail() {
+        const emailInput = document.getElementById('settings-reminders-email');
+        const email = emailInput?.value.trim();
+        if (!email || !email.includes('@')) {
+            this.confirmAction('שגיאה', 'יש להזין כתובת מייל תקינה.', null, true);
+            return;
+        }
+
+        try {
+            const profile = await Store.getUserProfile();
+            const enabled = document.getElementById('settings-reminders-enabled')?.checked ?? profile?.reminders_enabled ?? false;
+            const before = parseInt(document.getElementById('settings-reminders-before')?.value || profile?.reminders_config?.before_shoot_days || 2);
+            const after = parseInt(document.getElementById('settings-reminders-after')?.value || profile?.reminders_config?.after_shoot_days || 1);
+            
+            const hour = document.getElementById('settings-reminders-hour')?.value || profile?.reminders_config?.reminder_hour || '08:00';
+            await Store.updateReminderSettings(enabled, email, { before_shoot_days: before, after_shoot_days: after, reminder_hour: hour });
+            await Store.logAction('עדכון תזכורות', `מייל לקבלת תזכורות עודכן ל: ${email}`, 'settings');
+            this.confirmAction('עודכן', 'כתובת המייל לעדכונים נשמרה בהצלחה.', null, true);
+            UI.renderSettings();
+        } catch (error) {
+            console.error('Update reminders email error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בעדכון כתובת המייל.', null, true);
+        }
+    },
+
+    async checkReminders() {
+        // Background reminders are now handled by Google Apps Script CRON
+        // This function is kept empty to avoid duplicate emails while the app is open.
+        // The GAS script runs once per hour and checks for due reminders.
+    },
+
+    _isReminderExpired(lastAt) {
+        if (!lastAt) return true;
+        const last = new Date(lastAt);
+        const now = new Date();
+        // Only remind once per day (20 hours gap)
+        return (now - last) > (20 * 60 * 60 * 1000);
+    },
+
+    async showReminderNotify(project, type, days) {
+        const profile = await Store.getUserProfile();
+    },
+
+    async prepareReminderEmail(project, type, days, isAuto = false) {
+        const profile = await Store.getUserProfile();
+        const myName = profile?.name || 'משתמש Centra';
+        const recipient = profile?.reminders_email || '';
+        if (!recipient) return;
+
+        const dateStr = new Date(project.shoot_date).toLocaleDateString('he-IL');
+        const clientName = project.clients?.name || 'לקוח';
+        
+        let subject = '';
+        let body = '';
+
+        if (type === 'before') {
+            subject = `תזכורת מערכת: יום צילום בעוד ${days} ימים - ${project.name}`;
+            body = `שלום ${myName},
+    
+    זוהי תזכורת אוטומטית ממערכת Centra:
+    בעוד ${days} ימים יתקיים יום הצילומים עבור הפרויקט "${project.name}" (לקוח: ${clientName}).
+    תאריך: ${dateStr}
+    
+    מומלץ לוודא שכל הציוד מוכן וליצור קשר עם הלקוח במידת הצורך.
+    
+    בברכה,
+    Centra System Reminders`;
+        } else {
+            subject = `תזכורת מערכת: סיכום פרויקט - ${project.name}`;
+            body = `שלום ${myName},
+    
+    זוהי תזכורת אוטומטית ממערכת Centra:
+    עברו ${days} ימים מאז יום הצילומים עבור הפרויקט "${project.name}" (לקוח: ${clientName}).
+    
+    נא לוודא מול המערכת שכל המשימות בוצעו: העלאת תמונות, עריכה או גביית תשלום יתרה.
+    
+    בברכה,
+    Centra System Reminders`;
+        }
+
+        const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+        // Send logic
+        const gasUrl = CONFIG_OBJ.remindersGasUrl;
+        if (gasUrl) {
+            const res = await this.sendEmailViaGAS(recipient, subject, body);
+            if (res.success) {
+                if (!isAuto) this.confirmAction('נשלח!', `המייל האוטומטי נשלח בהצלחה ל-${recipient}`, null, true);
+            } else {
+                if (!isAuto) {
+                    this.confirmAction('שגיאה בשליחה', 'חלה שגיאה בשליחה האוטומטית. פותח את תוכנת המייל הידנית...', async () => {
+                        window.open(mailtoUrl, '_blank');
+                    });
+                }
+            }
+        } else if (!isAuto) {
+            window.open(mailtoUrl, '_blank');
+        }
+
+        // Mark as sent in DB
+        await Store.updateProjectReminderStatus(project.id, type);
+        await Store.logAction('שליחת תזכורת', `הוכנה תזכורת מייל עבור ${project.name} (${type})`, 'project', project.id);
+    },
+
+    async prepareTaskReminderEmail(task, isAuto = false) {
+        const profile = await Store.getUserProfile();
+        const myName = profile?.name || 'משתמש Centra';
+        const recipient = profile?.reminders_email || '';
+        if (!recipient) return;
+
+        const dueDateStr = new Date(task.due_date).toLocaleDateString('he-IL');
+        
+        let projectName = '';
+        const pid = task.project_id || task.projectId;
+        if (pid) {
+            const projects = await Store.getProjects();
+            const proj = projects.find(p => String(p.id) === String(pid));
+            if (proj) projectName = proj.name;
+        }
+
+        const subject = `תזכורת משימה: ${task.content}`;
+        const body = `שלום ${myName},
+    
+    זוהי תזכורת אוטומטית ממערכת Centra למשימה לביצוע:
+    המשימה: "${task.content}"
+    תאריך יעד: ${dueDateStr}
+    ${projectName ? `שיוך לפרויקט: ${projectName}` : ''}
+    
+    נא להיכנס למערכת כדי לעדכן סטטוס משימה.
+    
+    בברכה,
+    Centra System Reminders`;
+
+        const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        
+        const gasUrl = CONFIG_OBJ.remindersGasUrl;
+        if (gasUrl) {
+            const res = await this.sendEmailViaGAS(recipient, subject, body);
+            if (res.success) {
+                if (!isAuto) this.confirmAction('נשלח!', `המייל האוטומטי נשלח בהצלחה ל-${recipient}`, null, true);
+            } else {
+                if (!isAuto) {
+                    this.confirmAction('שגיאה בשליחה', 'חלה שגיאה בשליחה האוטומטית. פותח את תוכנת המייל הידנית...', async () => {
+                        window.open(mailtoUrl, '_blank');
+                    });
+                }
+            }
+        } else if (!isAuto) {
+            window.open(mailtoUrl, '_blank');
+        }
+
+        await Store.updateTaskReminderStatus(task.id);
+        await Store.logAction('שליחת תזכורת משימה', `הוכנה תזכורת מייל למשימה: ${task.content}`, 'task', task.id);
     },
 
     viewAdmin() {
