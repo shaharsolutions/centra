@@ -688,7 +688,7 @@ async renderDashboard() {
                         <div style="background:var(--primary-light); color:var(--primary); width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
                             <i data-lucide="zap" style="width:16px; height:16px; fill:currentColor;"></i>
                         </div>
-                        <span style="font-size:0.9rem; font-weight:600; color:var(--text-main);">שדרגו ל-Pro לקבלת חגים, זמני שבת וניהול משימות פרויקט ביומן!</span>
+                        <span style="font-size:0.9rem; font-weight:600; color:var(--text-main);">שדרגו ל-Pro לקבלת חגים, זמני שבת וניהול צ'קליסט ומשימות לפרויקט ביומן!</span>
                     </div>
                     <button class="btn btn-primary btn-sm" onclick="app.openUpgradeModal()">לשדרוג עכשיו</button>
                 </div>
