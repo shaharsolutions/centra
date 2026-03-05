@@ -1131,7 +1131,7 @@ const app = {
                     this.confirmAction(
                         'הגעת למכסה החודשית',
                         'בחבילת ה-Starter ניתן ליצור עד 3 פרויקטים בחודש.<br><br><b>רוצה להמשיך ללא הגבלה?</b> שדרג/י עכשיו לחבילת Pro ונהל/י את כל העסק במקום אחד.',
-                        () => { window.location.href = 'pricing.html'; }
+                        () => { this.openUpgradeModal(); }
                     );
                     const yesBtn = document.getElementById('confirm-yes-btn');
                     if (yesBtn) yesBtn.innerText = 'לשדרוג עכשיו';

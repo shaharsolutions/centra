@@ -1583,7 +1583,7 @@ async renderDashboard() {
                             <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 32px;">
                                 בחבילת <b>Pro</b> תוכלו לראות ניתוח מעמיק של העסק, דוחות רווחיות, מעקב הכנסות חודשי וכלים מתקדמים שיעזרו לכם לצמוח.
                             </p>
-                            <button onclick="window.location.href='pricing.html'" class="btn btn-primary" style="width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
+                            <button onclick="app.openUpgradeModal()" class="btn btn-primary" style="width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
                                 שדרוג חבילה עכשיו
                             </button>
                         </div>
