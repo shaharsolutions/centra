@@ -365,6 +365,7 @@ const app = {
         // Delay showing to avoid catching the current event bubble
         setTimeout(() => {
             modal.classList.remove('hidden');
+            this.bringModalToFront(modal);
         }, 10);
     },
 
@@ -555,6 +556,7 @@ const app = {
         }
         
         modal.classList.remove('hidden');
+        this.bringModalToFront(modal);
     },
 
     async handleLocationSubmit() {
@@ -599,8 +601,10 @@ const app = {
     openClientModal(title, clientId = null) {
         this.editingClientId = clientId;
         document.getElementById('client-modal-title').innerText = title;
-        document.getElementById('client-modal').classList.remove('hidden');
+        const modal = document.getElementById('client-modal');
+        modal.classList.remove('hidden');
         document.querySelector('#client-modal .modal').scrollTop = 0;
+        this.bringModalToFront(modal);
         const deleteBtn = document.getElementById('delete-client-btn');
         const editToggle = document.getElementById('edit-client-toggle');
         const addProjectBtn = document.getElementById('client-add-project-btn');
@@ -740,15 +744,10 @@ const app = {
         
         this.editingProjectId = projectId;
         document.getElementById('project-modal-title').innerText = title;
-        document.getElementById('project-modal').classList.remove('hidden');
+        const modal = document.getElementById('project-modal');
+        modal.classList.remove('hidden');
         document.querySelector('#project-modal .modal').scrollTop = 0;
-
-        const clientModal = document.getElementById('client-modal');
-        if (clientModal && !clientModal.classList.contains('hidden')) {
-            document.getElementById('project-modal').style.zIndex = '2000';
-        } else {
-            document.getElementById('project-modal').style.zIndex = '';
-        }
+        this.bringModalToFront(modal);
 
         // Toggle document upload visibility based on plan
         Store.getUserProfile().then(profile => {
@@ -874,10 +873,6 @@ const app = {
 
     openNewClientFromProject() {
         this._isCreatingClientFromProject = true;
-        const clientModal = document.getElementById('client-modal');
-        if (clientModal) {
-            clientModal.style.zIndex = '1050';
-        }
         this.openClientModal('לקוח חדש');
     },
 
@@ -885,10 +880,6 @@ const app = {
         this._isCreatingClientFromProject = true;
         const btn = document.getElementById('project-client-link-btn');
         if (btn && btn.dataset.clientid) {
-            const clientModal = document.getElementById('client-modal');
-            if (clientModal) {
-                clientModal.style.zIndex = '1050';
-            }
             this.openClientModal('פרטי לקוח', btn.dataset.clientid);
         }
     },
@@ -935,6 +926,17 @@ const app = {
         }
     },
 
+    bringModalToFront(modalElement) {
+        if (!modalElement) return;
+        let maxZ = 1000; // Base z-index for modals in styles is usually 1000
+        document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => {
+            if (m !== modalElement) {
+                const z = parseInt(window.getComputedStyle(m).zIndex, 10) || 1000;
+                if (z > maxZ) maxZ = z;
+            }
+        });
+        modalElement.style.zIndex = maxZ + 10;
+    },
 
     closeSpecificModal(id) {
         const m = document.getElementById(id);
@@ -1831,8 +1833,10 @@ const app = {
     openPackageModal(title, packageId = null) {
         this.editingPackageId = packageId;
         document.getElementById('package-modal-title').innerText = title;
-        document.getElementById('package-modal').classList.remove('hidden');
+        const modal = document.getElementById('package-modal');
+        modal.classList.remove('hidden');
         document.querySelector('#package-modal .modal').scrollTop = 0;
+        this.bringModalToFront(modal);
         const deleteBtn = document.getElementById('delete-package-btn');
         
         if (packageId) {
@@ -1988,8 +1992,10 @@ const app = {
         const deleteBtn = document.getElementById('delete-task-btn');
         if (deleteBtn) deleteBtn.style.display = 'block';
 
-        document.getElementById('task-modal').classList.remove('hidden');
+        const modal = document.getElementById('task-modal');
+        modal.classList.remove('hidden');
         document.querySelector('#task-modal .modal').scrollTop = 0;
+        this.bringModalToFront(modal);
     },
 
     openNewTaskModal() {
@@ -2010,8 +2016,10 @@ const app = {
         const deleteBtn = document.getElementById('delete-task-btn');
         if (deleteBtn) deleteBtn.style.display = 'none';
 
-        document.getElementById('task-modal').classList.remove('hidden');
+        const modal = document.getElementById('task-modal');
+        modal.classList.remove('hidden');
         document.querySelector('#task-modal .modal').scrollTop = 0;
+        this.bringModalToFront(modal);
     },
 
     async handleTaskSubmit() {

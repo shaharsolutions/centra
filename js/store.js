@@ -1439,9 +1439,11 @@ const Store = {
                             throw res.error; 
                         }
                     }
+                }
 
+                if (res.error) {
                     // Handle table missing
-                    if (res?.error?.code === '42P01') {
+                    if (res.error.code === '42P01') {
                         this._checklistTableExists = false;
                         localStorage.setItem('sb_checklists_missing', 'true');
                         throw res.error;
