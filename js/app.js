@@ -991,12 +991,65 @@ const app = {
         this._isCreatingClientFromProject = false;
     },
 
-    openUpgradeModal() {
+    async openUpgradeModal() {
         const modal = document.getElementById('upgrade-modal');
-        if (modal) {
-            modal.style.display = 'flex';
-            modal.classList.remove('hidden');
-            if (window.lucide) lucide.createIcons();
+        if (!modal) return;
+
+        // Check user trial status
+        const profile = await Store.getUserProfile();
+        const hasUsedTrial = profile && profile.has_used_trial;
+        const trialSection = document.getElementById('upgrade-trial-section');
+        const paidSection = document.getElementById('upgrade-paid-section');
+
+        if (trialSection && paidSection) {
+            if (hasUsedTrial) {
+                trialSection.style.display = 'none';
+                paidSection.style.display = 'block';
+            } else {
+                trialSection.style.display = 'block';
+                paidSection.style.display = 'none';
+            }
+        }
+
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+    },
+
+    startTrialConfirm() {
+        this.closeUpgradeModal();
+        this.confirmAction(
+            'התחלת תקופת ניסיון',
+            'האם אתה בטוח/ה שברצונך להתחיל עכשיו את תקופת הניסיון של 14 יום?<br><br>לאחר 14 יום, החשבון יחזור לחבילת Starter באופן אוטומטי.',
+            () => this.startTrial(),
+            false
+        );
+    },
+
+    async startTrial() {
+        try {
+            const profile = await Store.getUserProfile();
+            if (!profile) return;
+
+            // Upgrade to Pro as trial
+            await Store.updateUserPlan(profile.user_id, 'professional', {
+                is_trial: true,
+                has_used_trial: true
+            });
+
+            // Re-render the UI to reflect new plan
+            await this.navigate(this.currentView);
+
+            // Notify user
+            this.confirmAction(
+                '🎉 תקופת הניסיון התחילה!',
+                'יש לך 14 יום ליהנות מכל הפיצ\'רים של חבילת Pro.<br><br>בהצלחה! 💜',
+                null,
+                true
+            );
+        } catch (e) {
+            console.error('Error starting trial:', e);
+            alert('אירעה שגיאה בהפעלת תקופת הניסיון. נסו שוב.');
         }
     },
 
@@ -2583,9 +2636,7 @@ const app = {
             );
             
             // Re-render current view if already on something that depends on plan
-            UI.renderSidebar();
-            if (this.currentView === 'calendar') UI.renderCalendar();
-            if (this.currentView === 'dashboard') UI.renderDashboard();
+            await this.navigate(this.currentView);
         }
     }
 };
