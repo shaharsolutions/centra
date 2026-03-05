@@ -238,7 +238,9 @@ const app = {
         // Show admin menu item if user is admin
         if (window.Admin && window.Admin.isAdmin()) {
             const adminNav = document.getElementById('nav-admin');
+            const adminNavMobile = document.getElementById('nav-admin-mobile');
             if (adminNav) adminNav.classList.remove('hidden');
+            if (adminNavMobile) adminNavMobile.classList.remove('hidden');
         }
 
         document.getElementById('confirm-no-btn').addEventListener('click', () => {

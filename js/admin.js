@@ -172,7 +172,7 @@ const Admin = {
                         <thead>
                             <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.85rem;">
                                 <th style="padding: 10px 16px;">משתמש</th>
-                                <th style="padding: 10px 16px; text-align: center;">חבילה</th>
+                                <th style="padding: 10px 16px; text-align: center; min-width: 120px;">חבילה</th>
                                 <th style="padding: 10px 16px; text-align: center;">לקוחות</th>
                                 <th style="padding: 10px 16px; text-align: center;">פרויקטים</th>
                                 <th style="padding: 10px 16px; text-align: center;">כניסות</th>
@@ -198,7 +198,7 @@ const Admin = {
                         <td style="padding: 14px 16px; font-weight: 500; cursor: pointer;" onclick="Admin.filterByUser('${stat.user_id}')">${stat.user_email}</td>
                         <td style="padding: 14px 16px; text-align: center;">
                             <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
-                                <select onchange="Admin.updateUserPlan('${stat.user_id}', this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.8rem; background: ${stat.plan === 'professional' ? '#EEF2FF' : 'white'}; color: ${stat.plan === 'professional' ? 'var(--primary)' : 'inherit'}; font-weight: ${stat.plan === 'professional' ? '600' : 'normal'};">
+                                <select onchange="Admin.updateUserPlan('${stat.user_id}', this.value)" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem; width: auto; min-width: 110px; background: ${stat.plan === 'professional' ? '#EEF2FF' : 'white'}; color: ${stat.plan === 'professional' ? 'var(--primary)' : 'var(--text-main)'}; font-weight: 600; cursor: pointer;">
                                     <option value="starter" ${stat.plan === 'starter' ? 'selected' : ''}>Starter</option>
                                     <option value="professional" ${stat.plan === 'professional' ? 'selected' : ''}>Pro</option>
                                 </select>
@@ -331,7 +331,7 @@ const Admin = {
                     <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.85rem;">
                         <th style="padding: 10px 16px;">פרויקט</th>
                         <th style="padding: 10px 16px;">לקוח</th>
-                        <th style="padding: 10px 16px;">סטטוס</th>
+                        <th style="padding: 10px 16px; white-space: nowrap;">סטטוס</th>
                         <th style="padding: 10px 16px;">תאריך צילום</th>
                         <th style="padding: 10px 16px;">משתמש (בעלים)</th>
                     </tr>
@@ -352,7 +352,7 @@ const Admin = {
                         onmouseout="this.style.background='white'">
                         <td style="padding: 12px 16px; font-weight: 500;">${p.name}</td>
                         <td style="padding: 12px 16px;">${clientName}</td>
-                        <td style="padding: 12px 16px;"><span class="badge badge-${p.status || 'new'}" style="font-size: 0.8rem;">${statusLabel}</span></td>
+                        <td style="padding: 12px 16px; white-space: nowrap;"><span class="badge badge-${p.status || 'new'}" style="font-size: 0.8rem;">${statusLabel}</span></td>
                         <td style="padding: 12px 16px; color: var(--text-muted);">${shootDate}</td>
                         <td style="padding: 12px 16px; font-size: 0.85rem; color: var(--primary);">${ownerEmail}</td>
                     </tr>

@@ -197,7 +197,7 @@ const Auth = {
         }
     },
 
-    updateUI() {
+    async updateUI() {
         const overlay = document.getElementById('auth-overlay');
         const userProfile = document.getElementById('user-profile-info');
         const isLoginPage = window.location.pathname.includes('login.html');
@@ -213,12 +213,23 @@ const Auth = {
             }
 
             if (userProfile) {
+                const profile = window.Store ? await Store.getUserProfile() : null;
+                const planName = profile?.plan === 'professional' ? 'Pro' : 'Starter';
+                const planColor = profile?.plan === 'professional' ? '#7C3AED' : '#64748B';
+                const planBg = profile?.plan === 'professional' ? '#EDE9FE' : '#F1F5F9';
+
                 userProfile.innerHTML = `
-                    <div class="user-info" style="display: flex; align-items: center; gap: 12px;">
-                        <span class="user-email" style="font-size: 0.9rem; color: var(--text-muted);">${this.session.user.email}</span>
-                        <button onclick="Auth.logout(event)" class="btn btn-secondary btn-sm" style="padding: 4px 8px; border-radius: 6px;">
-                            <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
-                            יציאה
+                    <div class="user-info" style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; justify-content: flex-end;">
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0; min-width: 0;">
+                            <span class="user-email" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.2; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr;">${this.session.user.email}</span>
+                            <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                                <span class="user-plan" style="font-size: 0.65rem; font-weight: 800; color: ${planColor}; background: ${planBg}; padding: 2px 8px; border-radius: 4px; border: 1px solid ${planColor}30; letter-spacing: 0.02em;">
+                                    ${planName}
+                                </span>
+                            </div>
+                        </div>
+                        <button onclick="Auth.logout(event)" class="btn btn-secondary btn-sm" style="padding: 6px; border-radius: 8px; height: 34px; width: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" title="התנתקות">
+                            <i data-lucide="log-out" style="width: 16px; height: 16px;"></i>
                         </button>
                     </div>
                 `;
@@ -228,7 +239,9 @@ const Auth = {
             // Show admin nav if user is admin
             if (window.Admin && Admin.isAdmin()) {
                 const adminNav = document.getElementById('nav-admin');
+                const adminNavMobile = document.getElementById('nav-admin-mobile');
                 if (adminNav) adminNav.classList.remove('hidden');
+                if (adminNavMobile) adminNavMobile.classList.remove('hidden');
             }
 
             // Initialize app if not already done
