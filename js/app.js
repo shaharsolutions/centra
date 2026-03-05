@@ -1023,10 +1023,10 @@ const app = {
                     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
                 });
 
-                if (monthlyProjects.length >= 5) {
+                if (monthlyProjects.length >= 3) {
                     this.confirmAction(
                         'הגעת למכסה החודשית',
-                        'בחבילת ה-Starter ניתן ליצור עד 5 פרויקטים בחודש.<br><br><b>רוצה להמשיך ללא הגבלה?</b> שדרג/י עכשיו לחבילת Pro ונהל/י את כל העסק במקום אחד.',
+                        'בחבילת ה-Starter ניתן ליצור עד 3 פרויקטים בחודש.<br><br><b>רוצה להמשיך ללא הגבלה?</b> שדרג/י עכשיו לחבילת Pro ונהל/י את כל העסק במקום אחד.',
                         () => { window.location.href = 'pricing.html'; }
                     );
                     const yesBtn = document.getElementById('confirm-yes-btn');
