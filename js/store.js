@@ -1411,8 +1411,37 @@ const Store = {
                 }
                 
                 if (res.error) {
+                    // Handle unique constraint violation
+                    if (res.error.code === '23505' || res.error.message?.includes('unique constraint')) {
+                        console.warn('Task already exists in Supabase (unique constraint), fetching existing...', res.error);
+                        
+                        // Try to fetch the existing item so we can return its ID instead of erroring
+                        let fetchReq;
+                        if (dataToSave.project_id) {
+                            fetchReq = await sb.from('project_checklists')
+                                .select('id, content, is_completed, category')
+                                .eq('project_id', dataToSave.project_id)
+                                .eq('category', dataToSave.category)
+                                .eq('content', dataToSave.content)
+                                .single();
+                        } else {
+                            fetchReq = await sb.from('project_checklists')
+                                .select('id, content, is_completed, category')
+                                .is('project_id', null)
+                                .eq('category', dataToSave.category)
+                                .eq('content', dataToSave.content)
+                                .single();
+                        }
+                        
+                        if (fetchReq && fetchReq.data) {
+                            res = { data: [fetchReq.data], error: null };
+                        } else {
+                            throw res.error; 
+                        }
+                    }
+
                     // Handle table missing
-                    if (res.error.code === '42P01') {
+                    if (res?.error?.code === '42P01') {
                         this._checklistTableExists = false;
                         localStorage.setItem('sb_checklists_missing', 'true');
                         throw res.error;
@@ -1779,14 +1808,16 @@ const Store = {
         const seenCurrent = new Set();
 
         for (const item of itemsToSave) {
-            const key = `${item.content}-${item.category}`;
+            const normalize = (s) => s.replace('הלקוח/ה', 'הלקוח').replace('הלקוחה', 'הלקוח').trim();
+            const normalizedContent = normalize(item.content);
+            const key = `${normalizedContent}-${item.category}`;
+
             const exists = existingItems.some(existing => {
                 const sameCategory = existing.category === item.category || (item.category === 'shoot' && existing.category === 'styling');
                 if (!sameCategory) return false;
                 
                 // Compare contents neutrally
-                const normalize = (s) => s.replace('הלקוח/ה', 'הלקוח').replace('הלקוחה', 'הלקוח').trim();
-                return normalize(existing.content) === normalize(item.content);
+                return normalize(existing.content) === normalizedContent;
             });
             
             if (!exists && !seenCurrent.has(key)) {
@@ -1850,16 +1881,26 @@ const Store = {
                 return normalize(existing.content) === normalize(defItem.content);
             })
         );
-        console.log('Final items to save:', finalItemsToSave.length);
 
-        for (const item of finalItemsToSave) {
+        const seenItems = new Set();
+        const deduplicatedFinalItems = finalItemsToSave.filter(item => {
+            const normalize = (s) => s.replace('הלקוח/ה', 'הלקוח').replace('הלקוחה', 'הלקוח').trim();
+            const key = `${item.category}-${normalize(item.content)}`;
+            if (seenItems.has(key)) return false;
+            seenItems.add(key);
+            return true;
+        });
+        
+        console.log('Final items to save (after deduplication):', deduplicatedFinalItems.length);
+
+        for (const item of deduplicatedFinalItems) {
             try {
                 await this.saveChecklistItem(item);
             } catch (err) {
                 console.error('Failed to save default item:', item, err);
             }
         }
-        return finalItemsToSave;
+        return deduplicatedFinalItems;
     },
 
     getChecklistDisplayMode() {

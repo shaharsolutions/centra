@@ -104,10 +104,15 @@ const app = {
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (this._isCreatingClientFromProject && btn.closest('#client-modal')) {
-                    this.closeClientModal();
+                    this.closeSpecificModal('client-modal');
                     this._isCreatingClientFromProject = false;
                 } else {
-                    this.closeModal();
+                    const modalOverlay = btn.closest('.modal-overlay');
+                    if (modalOverlay) {
+                        this.closeSpecificModal(modalOverlay.id);
+                    } else {
+                        this.closeTopModal();
+                    }
                 }
             });
         });
@@ -249,10 +254,13 @@ const app = {
         // Global Keyboard Event Listeners
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                this.closeModal();
                 // Also close confirm modal if open
                 const confirmModal = document.getElementById('confirm-modal');
-                if (confirmModal) confirmModal.classList.add('hidden');
+                if (confirmModal && !confirmModal.classList.contains('hidden')) {
+                    confirmModal.classList.add('hidden');
+                } else {
+                    this.closeTopModal();
+                }
             }
         });
 
@@ -263,10 +271,10 @@ const app = {
                     if (overlay.id === 'confirm-modal') {
                         overlay.classList.add('hidden');
                     } else if (this._isCreatingClientFromProject && overlay.closest('#client-modal')) {
-                        this.closeClientModal();
+                        this.closeSpecificModal('client-modal');
                         this._isCreatingClientFromProject = false;
                     } else {
-                        this.closeModal();
+                        this.closeSpecificModal(overlay.id);
                     }
                 }
             });
@@ -735,6 +743,13 @@ const app = {
         document.getElementById('project-modal').classList.remove('hidden');
         document.querySelector('#project-modal .modal').scrollTop = 0;
 
+        const clientModal = document.getElementById('client-modal');
+        if (clientModal && !clientModal.classList.contains('hidden')) {
+            document.getElementById('project-modal').style.zIndex = '2000';
+        } else {
+            document.getElementById('project-modal').style.zIndex = '';
+        }
+
         // Toggle document upload visibility based on plan
         Store.getUserProfile().then(profile => {
             const uploadBox = document.getElementById('project-upload-box');
@@ -921,12 +936,46 @@ const app = {
     },
 
 
+    closeSpecificModal(id) {
+        const m = document.getElementById(id);
+        if (m) {
+            m.classList.add('hidden');
+            m.style.zIndex = '';
+        }
+        
+        switch (id) {
+            case 'client-modal': 
+                this.editingClientId = null; 
+                this._isCreatingClientFromProject = false;
+                break;
+            case 'project-modal': this.editingProjectId = null; break;
+            case 'task-modal': this.editingTaskId = null; break;
+            case 'package-modal': this.editingPackageId = null; break;
+            case 'location-modal': this.editingLocationId = null; break;
+        }
+    },
+
+    closeTopModal() {
+        const open = Array.from(document.querySelectorAll('.modal-overlay:not(.hidden)'))
+            .filter(m => m.id !== 'upgrade-modal' && m.id !== 'confirm-modal');
+        if (open.length > 0) {
+            open.sort((a, b) => {
+                let za = parseInt(window.getComputedStyle(a).zIndex) || 0;
+                let zb = parseInt(window.getComputedStyle(b).zIndex) || 0;
+                return za - zb; // lowest first
+            });
+            this.closeSpecificModal(open[open.length - 1].id);
+        } else {
+            this.closeModal();
+        }
+    },
+
     closeModal() {
         document.querySelectorAll('.modal-overlay').forEach(m => {
             // Don't close upgrade-modal OR confirm-modal in general closeModal
             if (m.id !== 'upgrade-modal' && m.id !== 'confirm-modal') {
                 m.classList.add('hidden');
-                if (m.id === 'client-modal') {
+                if (m.id === 'client-modal' || m.id === 'project-modal') {
                     m.style.zIndex = ''; // Reset z-index
                 }
             }
@@ -957,15 +1006,6 @@ const app = {
         }
     },
 
-    closeClientModal() {
-        const m = document.getElementById('client-modal');
-        if (m) {
-            m.classList.add('hidden');
-            m.style.zIndex = '';
-        }
-        this.editingClientId = null;
-    },
-
     async handleClientSubmit() {
         const client = {
             id: this.editingClientId,
@@ -993,7 +1033,7 @@ const app = {
             await Store.logAction(action, isNew ? `לקוח/ה חדש/ה נוסף/פה: ${savedClient.name}` : `פרטי הלקוח/ה ${savedClient.name} עודכנו`, 'client', savedClient.id);
 
             if (this._isCreatingClientFromProject) {
-                this.closeClientModal();
+                this.closeSpecificModal('client-modal');
                 await UI.populateClientsDropdown(savedClient.id);
                 if (this.updateProjectClientLink) this.updateProjectClientLink(savedClient.id);
                 this._isCreatingClientFromProject = false;
@@ -1078,8 +1118,13 @@ const app = {
             // Background operations - DO NOT AWAIT for faster feel
             this._runBackgroundPostSave(savedProject, isNew);
 
-            this.closeModal();
-            this.navigate(this.currentView);
+            this.closeSpecificModal('project-modal');
+            const clientModal = document.getElementById('client-modal');
+            if (clientModal && !clientModal.classList.contains('hidden') && this.editingClientId === savedProject.client_id) {
+                UI.renderClientProjects(this.editingClientId);
+            } else {
+                this.navigate(this.currentView);
+            }
         } catch (error) {
             console.error('Save project error:', error);
             this.confirmAction('שגיאה', 'חלה שגיאה בשמירת הפרויקט.', null, true);
