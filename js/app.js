@@ -260,9 +260,14 @@ const app = {
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
-                    this.closeModal();
-                    // Also handle confirm modal if that's the one clicked
-                    if (overlay.id === 'confirm-modal') overlay.classList.add('hidden');
+                    if (overlay.id === 'confirm-modal') {
+                        overlay.classList.add('hidden');
+                    } else if (this._isCreatingClientFromProject && overlay.closest('#client-modal')) {
+                        this.closeClientModal();
+                        this._isCreatingClientFromProject = false;
+                    } else {
+                        this.closeModal();
+                    }
                 }
             });
         });
@@ -587,6 +592,7 @@ const app = {
         this.editingClientId = clientId;
         document.getElementById('client-modal-title').innerText = title;
         document.getElementById('client-modal').classList.remove('hidden');
+        document.querySelector('#client-modal .modal').scrollTop = 0;
         const deleteBtn = document.getElementById('delete-client-btn');
         const editToggle = document.getElementById('edit-client-toggle');
         const addProjectBtn = document.getElementById('client-add-project-btn');
@@ -727,6 +733,7 @@ const app = {
         this.editingProjectId = projectId;
         document.getElementById('project-modal-title').innerText = title;
         document.getElementById('project-modal').classList.remove('hidden');
+        document.querySelector('#project-modal .modal').scrollTop = 0;
 
         // Toggle document upload visibility based on plan
         Store.getUserProfile().then(profile => {
@@ -1042,6 +1049,7 @@ const app = {
         const project = {
             id: this.editingProjectId,
             clientId: document.getElementById('project-client').value,
+            hasManualDefaults: this._pendingChecklistItems && this._pendingChecklistItems.length > 0,
             name: document.getElementById('project-name').value,
             shootDate: document.getElementById('project-date').value,
             shootTime: document.getElementById('project-time').value,
@@ -1067,29 +1075,11 @@ const app = {
         try {
             const savedProject = await Store.saveProject(project);
             
-            // Log action
-            const action = isNew ? 'פרויקט חדש' : 'עדכון פרויקט';
-            let clientDisplayName = '';
-            if (savedProject?.clients?.name) {
-                clientDisplayName = ` (<span class="log-client-link" onclick="app.viewClient('${savedProject.client_id}')">${savedProject.clients.name}</span>)`;
-            }
-            const projectLink = `<span class="log-client-link" onclick="app.viewProject('${savedProject.id}')">${savedProject.name}</span>`;
-            await Store.logAction(action, isNew ? `פרויקט חדש נוצר: ${projectLink}${clientDisplayName}` : `פרטי הפרויקט ${projectLink}${clientDisplayName} עודכנו`, 'project', savedProject.id);
+            // Background operations - DO NOT AWAIT for faster feel
+            this._runBackgroundPostSave(savedProject, isNew);
 
             this.closeModal();
-
-            // Save pending checklist items if any
-            if (isNew && this._pendingChecklistItems && this._pendingChecklistItems.length > 0) {
-                for (const item of this._pendingChecklistItems) {
-                    await Store.saveChecklistItem({
-                        ...item,
-                        projectId: savedProject.id
-                    });
-                }
-                this._pendingChecklistItems = [];
-            }
-
-            await this.navigate(this.currentView);
+            this.navigate(this.currentView);
         } catch (error) {
             console.error('Save project error:', error);
             this.confirmAction('שגיאה', 'חלה שגיאה בשמירת הפרויקט.', null, true);
@@ -1099,7 +1089,50 @@ const app = {
         }
     },
 
-    async importDefaults(category) {
+    async _runBackgroundPostSave(savedProject, isNew) {
+        try {
+            // Log action in background
+            const action = isNew ? 'פרויקט חדש' : 'עדכון פרויקט';
+            let clientDisplayName = '';
+            if (savedProject?.clients?.name) {
+                clientDisplayName = ` (${savedProject.clients.name})`;
+            }
+            const name = savedProject.name || 'פרויקט ללא שם';
+            Store.logAction(action, isNew ? `פרויקט חדש נוצר: ${name}${clientDisplayName}` : `פרטי הפרויקט ${name}${clientDisplayName} עודכנו`, 'project', savedProject.id);
+
+            // Save pending checklist items if any
+            if (isNew && this._pendingChecklistItems && this._pendingChecklistItems.length > 0) {
+                const itemsToSave = [...this._pendingChecklistItems];
+                this._pendingChecklistItems = [];
+                
+                // Fetch existing (could have automations)
+                const existingItems = await Store.getChecklistItems(savedProject.id);
+                
+                for (const item of itemsToSave) {
+                    const exists = existingItems.some(ei => {
+                        const normalize = (s) => s.replace('הלקוח/ה', 'הלקוח').replace('הלקוחה', 'הלקוח').trim();
+                        return normalize(ei.content) === normalize(item.content) && ei.category === item.category;
+                    });
+
+                    if (!exists) {
+                        await Store.saveChecklistItem({
+                            ...item,
+                            projectId: savedProject.id
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Background post-save tasks failed:', e);
+        }
+    },
+
+    async importDefaults(e, category) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
         const profile = await Store.getUserProfile();
         if (profile?.plan === 'starter') {
             this.openUpgradeModal();
@@ -1135,7 +1168,11 @@ const app = {
                 // Filter out duplicates in pending items
                 const currentPending = this._pendingChecklistItems || [];
                 const finalNewItems = newItems.filter(newItem => 
-                    !currentPending.some(existing => existing.content === newItem.content && existing.category === newItem.category)
+                    !currentPending.some(existing => {
+                        if (existing.category !== newItem.category) return false;
+                        const normalize = (s) => s.replace('הלקוח/ה', 'הלקוח').replace('הלקוחה', 'הלקוח').trim();
+                        return normalize(existing.content) === normalize(newItem.content);
+                    })
                 );
 
                 this._pendingChecklistItems = [...currentPending, ...finalNewItems];
@@ -1151,13 +1188,19 @@ const app = {
         }
         
         try {
+            const pid = this.editingProjectId;
+            if (!pid) {
+                console.warn('Import defaults: editingProjectId is missing');
+                return;
+            }
+
             const projects = await Store.getProjects();
-            const project = projects.find(p => String(p.id) === String(this.editingProjectId));
+            const project = projects.find(p => String(p.id) === String(pid));
             
-            const imported = await Store.importCategoryDefaults(this.editingProjectId, category, project?.shoot_date, project);
+            const imported = await Store.importCategoryDefaults(pid, category, project?.shoot_date, project);
             
             if (imported && imported.length > 0) {
-                await UI.renderChecklist(this.editingProjectId);
+                await UI.renderChecklist(pid);
             } else {
                 this.confirmAction('מידע', 'כל פריטי ברירת המחדל כבר קיימים ברשימה.', null, true);
             }
@@ -1744,6 +1787,7 @@ const app = {
         this.editingPackageId = packageId;
         document.getElementById('package-modal-title').innerText = title;
         document.getElementById('package-modal').classList.remove('hidden');
+        document.querySelector('#package-modal .modal').scrollTop = 0;
         const deleteBtn = document.getElementById('delete-package-btn');
         
         if (packageId) {
@@ -1900,6 +1944,7 @@ const app = {
         if (deleteBtn) deleteBtn.style.display = 'block';
 
         document.getElementById('task-modal').classList.remove('hidden');
+        document.querySelector('#task-modal .modal').scrollTop = 0;
     },
 
     openNewTaskModal() {
@@ -1921,6 +1966,7 @@ const app = {
         if (deleteBtn) deleteBtn.style.display = 'none';
 
         document.getElementById('task-modal').classList.remove('hidden');
+        document.querySelector('#task-modal .modal').scrollTop = 0;
     },
 
     async handleTaskSubmit() {
@@ -2176,6 +2222,13 @@ const app = {
         const profile = await Store.getUserProfile();
         if (profile?.plan === 'starter') {
             this.openUpgradeModal();
+            return;
+        }
+
+        if (!projectId || projectId === 'null') {
+            // This is a new project, use importDefaults for both categories
+            await this.importDefaults(null, 'shoot');
+            await this.importDefaults(null, 'equipment');
             return;
         }
 

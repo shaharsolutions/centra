@@ -1811,7 +1811,8 @@ async renderDashboard() {
             if (items.length === 0) {
                 const profile = await Store.getUserProfile();
                 if (!loadBtn && profile?.plan !== 'starter') {
-                    const btnHtml = `<button id="load-defaults-btn" class="btn btn-secondary btn-sm" style="width:100%; margin-top:10px;" onclick="app.loadProjectDefaults('${projectId}')">טעינת רשימות ברירת מחדל</button>`;
+                    const cleanProjectId = (projectId && projectId !== 'null') ? `'${projectId}'` : 'null';
+                    const btnHtml = `<button id="load-defaults-btn" type="button" class="btn btn-secondary btn-sm" style="width:100%; margin-top:10px;" onclick="app.loadProjectDefaults(${cleanProjectId})">טעינת רשימות ברירת מחדל</button>`;
                     checklistSection.insertAdjacentHTML('beforeend', btnHtml);
                 }
             } else if (loadBtn) {

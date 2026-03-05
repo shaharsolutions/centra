@@ -344,79 +344,105 @@ const Store = {
 
             // Hydrate local storage with synced projects
             if (dbProjects.length > 0 && !clientId) {
-                const newLocal = [...localProjects.filter(p => String(p.id).startsWith('local_'))];
+                const newLocal = [...localProjects.filter(p => !p.id || String(p.id).startsWith('local_'))];
                 dbProjects.forEach(dp => {
                     if (!newLocal.some(lp => String(lp.id) === String(dp.id))) {
                         newLocal.push(dp);
                     }
                 });
-                if (newLocal.length > localProjects.length) {
-                    localStorage.setItem('local_projects', JSON.stringify(newLocal));
-                }
+                // Fix: update localStorage to match DB state for synced items
+                localStorage.setItem('local_projects', JSON.stringify(newLocal));
             }
         } catch (e) {
             console.warn('Error fetching projects from Supabase:', e.message);
         }
         
-        // Merge DB and Local projects (only own user's data)
+        // Merge DB and Local projects with strict de-duplication
+        const allProjectsMap = new Map();
         const currentUserId = Auth.getUserId();
-        const allProjects = [...dbProjects];
-        localProjects.forEach(lp => {
-            if (!allProjects.some(dp => String(dp.id) === String(lp.id))) {
-                if (!clientId || String(lp.client_id) === String(clientId)) {
-                    // Only include local projects that belong to current user or have no user_id (legacy)
-                    if (!lp.user_id || lp.user_id === currentUserId) {
-                        allProjects.push(lp);
-                    }
-                }
+        
+        // 1. Process DB projects first (they take precedence)
+        dbProjects.forEach(dp => {
+            const pid = String(dp.id);
+            allProjectsMap.set(pid, dp);
+            
+            // Also register by name+client to catch local duplicates even if they have weird IDs
+            if (dp.client_id && dp.name) {
+                const nameKey = `name-${String(dp.client_id)}-${String(dp.name).trim().toLowerCase()}`;
+                if (!allProjectsMap.has(nameKey)) allProjectsMap.set(nameKey, dp);
             }
         });
-        
-        // Merge local extra columns data
-        const localLocations = JSON.parse(localStorage.getItem('local_project_locations') || '{}');
-        const localPaymentStatuses = JSON.parse(localStorage.getItem('local_project_payment_statuses') || '{}');
-        const localReasons = JSON.parse(localStorage.getItem('local_project_reasons') || '{}');
-        const localSubjects = JSON.parse(localStorage.getItem('local_project_subjects') || '{}');
-        const localTimes = JSON.parse(localStorage.getItem('local_project_times') || '{}');
-        const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
-        const localPubApproval = JSON.parse(localStorage.getItem('local_project_pub_approval') || '{}');
 
-        const clients = await this.getClients(false);
-        
-        return allProjects.map(p => {
-            // Normalize clients field
-            let normalizedClients = p.clients;
-            if (Array.isArray(p.clients)) {
-                normalizedClients = p.clients[0];
-            } else if (p.clients && typeof p.clients === 'object' && !p.clients.name) {
-                normalizedClients = null;
-            }
+        // 2. Process Local projects
+        localProjects.forEach(lp => {
+            const lid = String(lp.id || '');
+            const isLocal = !lid || lid.startsWith('local_');
+            const nameKey = lp.client_id && lp.name ? `name-${String(lp.client_id)}-${String(lp.name).trim().toLowerCase()}` : null;
+            
+            // Filters
+            if (clientId && String(lp.client_id) !== String(clientId)) return;
+            if (lp.user_id && lp.user_id !== currentUserId) return;
 
-            // Fallback: If name is still missing, try to find it in the clients list by ID
-            if ((!normalizedClients || !normalizedClients.name) && p.client_id) {
-                const foundClient = clients.find(c => String(c.id) === String(p.client_id));
-                if (foundClient) {
-                    normalizedClients = { name: foundClient.name, organization: foundClient.organization };
-                }
+            // If already exists by ID or by Name+Client, skip it
+            if (allProjectsMap.has(lid) || (nameKey && allProjectsMap.has(nameKey))) {
+                return;
             }
             
-            const pid = p.id;
-            return {
-                ...p,
-                clients: normalizedClients,
-                location: p.location || localLocations[pid] || '',
-                payment_status: p.payment_status || localPaymentStatuses[pid] || 'not_paid',
-                not_closed_reason: p.not_closed_reason || localReasons[pid] || '',
-                subjects_count: p.subjects_count || localSubjects[pid]?.count || '',
-                subjects_details: p.subjects_details || localSubjects[pid]?.details || '',
-                shoot_time: p.shoot_time || localTimes[pid] || '',
-                styling_call: p.styling_call || localStyling[pid] || 'none',
-                publication_approval: p.publication_approval !== undefined ? p.publication_approval : (localPubApproval[pid] || false)
-            };
+            allProjectsMap.set(lid, lp);
         });
+
+        // Convert Map back to array, filter out the name-keys
+        const allProjects = Array.from(allProjectsMap.entries())
+            .filter(([key]) => !key.startsWith('name-'))
+            .map(([_, p]) => p);
+        
+        const clients = await this.getClients(false);
+        const localData = {
+            locations: JSON.parse(localStorage.getItem('local_project_locations') || '{}'),
+            paymentStatuses: JSON.parse(localStorage.getItem('local_project_payment_statuses') || '{}'),
+            reasons: JSON.parse(localStorage.getItem('local_project_reasons') || '{}'),
+            subjects: JSON.parse(localStorage.getItem('local_project_subjects') || '{}'),
+            times: JSON.parse(localStorage.getItem('local_project_times') || '{}'),
+            styling: JSON.parse(localStorage.getItem('local_project_styling') || '{}'),
+            pubApproval: JSON.parse(localStorage.getItem('local_project_pub_approval') || '{}')
+        };
+        
+        const results = allProjects.map(p => this._normalizeProject(p, clients, localData));
 
         if (!clientId) this._cache.projects = results;
         return results;
+    },
+
+    _normalizeProject(p, clients, localData) {
+        // Normalize clients field
+        let normalizedClients = p.clients;
+        if (Array.isArray(p.clients)) {
+            normalizedClients = p.clients[0];
+        } else if (p.clients && typeof p.clients === 'object' && !p.clients.name) {
+            normalizedClients = null;
+        }
+
+        // Fallback: If name is still missing, try to find it in the clients list by ID
+        if ((!normalizedClients || !normalizedClients.name) && p.client_id) {
+            const foundClient = clients.find(c => String(c.id) === String(p.client_id));
+            if (foundClient) {
+                normalizedClients = { name: foundClient.name, organization: foundClient.organization };
+            }
+        }
+        
+        const pid = p.id;
+        return {
+            ...p,
+            clients: normalizedClients,
+            location: p.location || localData.locations[pid] || '',
+            payment_status: p.payment_status || localData.paymentStatuses[pid] || 'not_paid',
+            not_closed_reason: p.not_closed_reason || localData.reasons[pid] || '',
+            subjects_count: p.subjects_count || localData.subjects[pid]?.count || '',
+            subjects_details: p.subjects_details || localData.subjects[pid]?.details || '',
+            shoot_time: p.shoot_time || localData.times[pid] || '',
+            styling_call: p.styling_call || localData.styling[pid] || 'none',
+            publication_approval: p.publication_approval !== undefined ? p.publication_approval : (localData.pubApproval[pid] || false)
+        };
     },
 
     async saveProject(project) {
@@ -499,10 +525,27 @@ const Store = {
         };
 
         // Sync with local storage
-        const localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
-        const existingIdx = localProjects.findIndex(p => String(p.id) === String(finalProject.id) || (p.name === finalProject.name && p.client_id === finalProject.client_id));
-        if (existingIdx !== -1) localProjects[existingIdx] = finalProject;
-        else localProjects.push(finalProject);
+        let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
+        
+        // Remove ALL existing instances of this project from local storage to prevent duplicates
+        // Match by ID OR (Name + ClientID) if ID is local/missing
+        const pid = String(finalProject.id);
+        const name = String(finalProject.name || '').trim().toLowerCase();
+        const cid = String(finalProject.client_id || '');
+        
+        localProjects = localProjects.filter(lp => {
+            const lid = String(lp.id || '');
+            const lname = String(lp.name || '').trim().toLowerCase();
+            const lcid = String(lp.client_id || '');
+            
+            const isSameId = lid === pid;
+            const isSameNameAndClient = (name && cid && lname === name && lcid === cid);
+            
+            return !isSameId && !isSameNameAndClient;
+        });
+
+        // Add the new/updated project
+        localProjects.push(finalProject);
         localStorage.setItem('local_projects', JSON.stringify(localProjects));
 
         // Sync extra columns for backward compatibility and inconsistent DB states
@@ -514,7 +557,7 @@ const Store = {
         const localStyling = JSON.parse(localStorage.getItem('local_project_styling') || '{}');
         const localPubApproval = JSON.parse(localStorage.getItem('local_project_pub_approval') || '{}');
 
-        const pid = finalProject.id;
+        // Use the existing pid variable correctly for extra columns
         localLocations[pid] = project.location;
         localPaymentStatuses[pid] = project.paymentStatus || 'not_paid';
         localReasons[pid] = project.notClosedReason;
@@ -531,11 +574,35 @@ const Store = {
         localStorage.setItem('local_project_styling', JSON.stringify(localStyling));
         localStorage.setItem('local_project_pub_approval', JSON.stringify(localPubApproval));
 
-        // Add default tasks only on creation or explicit sync
+        // Sync with local storage and update cache optimistically
+        const normalized = this._normalizeProject(finalProject, await this.getClients(false), {
+            locations: localLocations,
+            paymentStatuses: localPaymentStatuses,
+            reasons: localReasons,
+            subjects: localSubjects,
+            times: localTimes,
+            styling: localStyling,
+            pubApproval: localPubApproval
+        });
+
+        if (this._cache.projects) {
+            const index = this._cache.projects.findIndex(p => String(p.id) === String(normalized.id));
+            if (index > -1) {
+                this._cache.projects[index] = normalized;
+            } else {
+                this._cache.projects.unshift(normalized);
+            }
+        } else {
+            this._cache.projects = [normalized];
+        }
+
+        // Add default tasks only on creation or explicit sync - DO NOT AWAIT for faster feel
         const isNew = typeof project.id === 'undefined' || !project.id || String(project.id).startsWith('local_proj_');
-        await this.addDefaultsToProject(finalProject.id, finalProject.shoot_date, { ...finalProject, clients: finalProject.clients || (await sb.from('clients').select('name').eq('id', finalProject.client_id).single()).data }, isNew);
+        const forceDefaults = isNew && !project.hasManualDefaults;
+        this.addDefaultsToProject(finalProject.id, finalProject.shoot_date, { ...finalProject, clients: finalProject.clients || (await sb.from('clients').select('name').eq('id', finalProject.client_id).single()).data }, forceDefaults)
+            .then(() => this.invalidateCache('tasks'))
+            .catch(e => console.error('Background defaults failed:', e));
         
-        this.invalidateCache('projects');
         return finalProject;
     },
 
@@ -640,13 +707,30 @@ const Store = {
     },
 
     async deleteProject(id) {
-        const { error } = await sb.from('projects').delete().eq('id', id);
-        if (error) throw error;
+        // Delete project from Supabase
+        try {
+            const { error } = await sb.from('projects').delete().eq('id', id);
+            if (error) throw error;
+        } catch (e) {
+            console.warn('Could not delete project from Supabase:', e.message);
+        }
+
+        // Delete associated checklist items (tasks)
+        try {
+            await sb.from('project_checklists').delete().eq('project_id', id);
+        } catch (e) {
+            console.warn('Could not delete tasks from Supabase:', e.message);
+        }
 
         // Sync with local storage
         let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
         localProjects = localProjects.filter(p => String(p.id) !== String(id));
         localStorage.setItem('local_projects', JSON.stringify(localProjects));
+
+        // Delete associated tasks from local storage
+        let localChecklists = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        localChecklists = localChecklists.filter(task => String(task.project_id) !== String(id));
+        localStorage.setItem('local_checklists', JSON.stringify(localChecklists));
 
         // Clean up extras
         const extraKeys = [
@@ -665,6 +749,7 @@ const Store = {
             }
         });
         this.invalidateCache('projects');
+        this.invalidateCache('tasks');
     },
 
     // Packages
@@ -1114,29 +1199,62 @@ const Store = {
             }
         });
 
-        this._cache.tasks = allTasks;
-        return allTasks;
+        // Filter out orphaned project tasks (tasks with a project_id but the project is gone)
+        const projectIds = new Set((await this.getProjects()).map(p => String(p.id)));
+        const finalTasks = allTasks.filter(t => {
+            const pid = t.project_id || t.projectId;
+            if (!pid) return true; // Global tasks are fine
+            return projectIds.has(String(pid));
+        });
+
+        this._cache.tasks = finalTasks;
+        return finalTasks;
     },
 
     cleanupDuplicates() {
+        // Clean tasks
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-        if (localItems.length === 0) return;
+        if (localItems.length > 0) {
+            const seen = new Set();
+            const uniqueItems = localItems.filter(t => {
+                const date = String(t.due_date || t.dueDate || '').trim();
+                const content = String(t.content || '').trim();
+                const pid = String(t.project_id || t.projectId || 'no-proj');
+                const key = `${pid}-${content}-${date}`;
+                
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
 
-        const seen = new Set();
-        const uniqueItems = localItems.filter(t => {
-            const date = String(t.due_date || t.dueDate || '').trim();
-            const content = String(t.content || '').trim();
-            const pid = String(t.project_id || t.projectId || 'no-proj');
-            const key = `${pid}-${content}-${date}`;
+            if (uniqueItems.length !== localItems.length) {
+                console.log(`Cleaned up ${localItems.length - uniqueItems.length} duplicate tasks from local storage.`);
+                localStorage.setItem('local_checklists', JSON.stringify(uniqueItems));
+            }
+        }
+
+        // Clean projects
+        const localProjs = JSON.parse(localStorage.getItem('local_projects') || '[]');
+        if (localProjs.length > 0) {
+            const seenProj = new Set();
+            const uniqueProjs = localProjs.filter(p => {
+                // If ID is DB ID, that's primary. If local_ ID, match by name and client
+                const pid = String(p.id);
+                const cid = String(p.client_id || '');
+                const name = String(p.name || '').trim();
+                
+                // Key: actual ID (if real) OR (if local) a combo of client and name
+                const key = pid.startsWith('local_') ? `local-${cid}-${name}` : pid;
+                
+                if (seenProj.has(key)) return false;
+                seenProj.add(key);
+                return true;
+            });
             
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-
-        if (uniqueItems.length !== localItems.length) {
-            console.log(`Cleaned up ${localItems.length - uniqueItems.length} duplicate tasks from local storage.`);
-            localStorage.setItem('local_checklists', JSON.stringify(uniqueItems));
+            if (uniqueProjs.length !== localProjs.length) {
+                console.log(`Cleaned up ${localProjs.length - uniqueProjs.length} duplicate projects from local storage.`);
+                localStorage.setItem('local_projects', JSON.stringify(uniqueProjs));
+            }
         }
     },
 
@@ -1473,13 +1591,51 @@ const Store = {
     // Checklist Defaults
     getChecklistDefaults() {
         const stored = localStorage.getItem('checklist_defaults');
-        if (stored) return JSON.parse(stored);
+        let defaults;
         
-        // Return hardcoded defaults if nothing in localStorage
-        return {
-            shoot: ['שיחה מקדימה עם הלקוח/ה', 'בדיקת מזג אוויר', 'שליחת תזכורת יום לפני', 'בדיקת לוקיישן'],
-            equipment: ['מצלמה גוף 1', 'כרטיסי זיכרון ריקים', 'סוללות טעונות', 'עדשות נקיות']
-        };
+        if (stored) {
+            try {
+                defaults = JSON.parse(stored);
+            } catch (e) {
+                console.warn('Failed to parse checklist_defaults, using hardcoded');
+                defaults = null;
+            }
+        }
+        
+        if (!defaults) {
+            // Return hardcoded defaults if nothing in localStorage
+            defaults = {
+                shoot: ['שיחה מקדימה עם הלקוח/ה', 'בדיקת מזג אוויר', 'שליחת תזכורת יום לפני', 'בדיקת לוקיישן'],
+                equipment: ['מצלמה גוף 1', 'כרטיסי זיכרון ריקים', 'סוללות טעונות', 'עדשות נקיות']
+            };
+        }
+
+        // Clean up: Ensure we don't have both "הלקוח/ה" and gendered versions
+        if (defaults.shoot) {
+            const neutralContent = 'שיחה מקדימה עם הלקוח/ה';
+            const isGendered = (s) => {
+                if (typeof s !== 'string') return false;
+                const trimmed = s.trim();
+                return trimmed === 'שיחה מקדימה עם הלקוחה' || trimmed === 'שיחה מקדימה עם הלקוח';
+            };
+            
+            const hasNeutral = defaults.shoot.some(item => typeof item === 'string' && item.trim() === neutralContent);
+            const hasGendered = defaults.shoot.some(isGendered);
+
+            if (hasNeutral && hasGendered) {
+                // Remove gendered versions if neutral exists
+                defaults.shoot = defaults.shoot.filter(item => !isGendered(item));
+                this.saveChecklistDefaults(defaults);
+            } else if (!hasNeutral && hasGendered) {
+                // Convert gendered to neutral if no neutral exists
+                defaults.shoot = defaults.shoot.map(item => isGendered(item) ? neutralContent : item);
+                // Deduplicate after conversion
+                defaults.shoot = [...new Set(defaults.shoot)];
+                this.saveChecklistDefaults(defaults);
+            }
+        }
+        
+        return defaults;
     },
 
     saveChecklistDefaults(defaults) {
@@ -1624,10 +1780,15 @@ const Store = {
 
         for (const item of itemsToSave) {
             const key = `${item.content}-${item.category}`;
-            const exists = existingItems.some(existing => 
-                existing.content === item.content && 
-                (existing.category === item.category || (item.category === 'shoot' && existing.category === 'styling'))
-            );
+            const exists = existingItems.some(existing => {
+                const sameCategory = existing.category === item.category || (item.category === 'shoot' && existing.category === 'styling');
+                if (!sameCategory) return false;
+                
+                // Compare contents neutrally
+                const normalize = (s) => s.replace('הלקוח/ה', 'הלקוח').replace('הלקוחה', 'הלקוח').trim();
+                return normalize(existing.content) === normalize(item.content);
+            });
+            
             if (!exists && !seenCurrent.has(key)) {
                 finalItemsToSave.push(item);
                 seenCurrent.add(key);
@@ -1681,10 +1842,13 @@ const Store = {
         });
 
         const finalItemsToSave = itemsToSave.filter(defItem => 
-            !existingItems.some(existing => 
-                existing.content === defItem.content && 
-                (existing.category === defItem.category || (defItem.category === 'shoot' && existing.category === 'styling'))
-            )
+            !existingItems.some(existing => {
+                const sameCategory = existing.category === defItem.category || (defItem.category === 'shoot' && existing.category === 'styling');
+                if (!sameCategory) return false;
+
+                const normalize = (s) => s.replace('הלקוח/ה', 'הלקוח').replace('הלקוחה', 'הלקוח').trim();
+                return normalize(existing.content) === normalize(defItem.content);
+            })
         );
         console.log('Final items to save:', finalItemsToSave.length);
 

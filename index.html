@@ -575,7 +575,7 @@
                             <input type="text" id="new-shoot-item" placeholder="הוספת משימה חדשה...">
                             <button type="button" class="btn btn-secondary btn-sm" onclick="app.addChecklistItem('shoot', app.editingProjectId)">הוספה</button>
                         </div>
-                        <button type="button" class="btn btn-secondary btn-sm import-defaults-btn" onclick="app.importDefaults('shoot')" style="margin-top: 8px; width: 100%; border-style: dashed; justify-content: center; gap: 8px;">
+                        <button type="button" class="btn btn-secondary btn-sm import-defaults-btn" onclick="app.importDefaults(event, 'shoot')" style="margin-top: 8px; width: 100%; border-style: dashed; justify-content: center; gap: 8px;">
                             <i data-lucide="download" style="width:14px;"></i> ייבוא רשימת ברירת המחדל
                         </button>
                     </div>
@@ -589,7 +589,7 @@
                             <input type="text" id="new-equipment-item" placeholder="הוספת ציוד שצריך לקחת...">
                             <button type="button" class="btn btn-secondary btn-sm" onclick="app.addChecklistItem('equipment', app.editingProjectId)">הוספה</button>
                         </div>
-                        <button type="button" class="btn btn-secondary btn-sm import-defaults-btn" onclick="app.importDefaults('equipment')" style="margin-top: 8px; width: 100%; border-style: dashed; justify-content: center; gap: 8px;">
+                        <button type="button" class="btn btn-secondary btn-sm import-defaults-btn" onclick="app.importDefaults(event, 'equipment')" style="margin-top: 8px; width: 100%; border-style: dashed; justify-content: center; gap: 8px;">
                             <i data-lucide="download" style="width:14px;"></i> ייבוא רשימת ברירת המחדל
                         </button>
                     </div>
