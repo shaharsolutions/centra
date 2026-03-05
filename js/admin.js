@@ -65,7 +65,10 @@ const Admin = {
                     last_login: null,
                     total_clients: 0,
                     total_projects: 0,
-                    plan: p.plan || 'starter'
+                    plan: p.plan || 'starter',
+                    is_trial: !!p.is_trial,
+                    has_used_trial: !!p.has_used_trial,
+                    plan_updated_at: p.plan_updated_at
                 };
             });
             
@@ -194,10 +197,24 @@ const Admin = {
                         onmouseout="this.style.background='white'">
                         <td style="padding: 14px 16px; font-weight: 500; cursor: pointer;" onclick="Admin.filterByUser('${stat.user_id}')">${stat.user_email}</td>
                         <td style="padding: 14px 16px; text-align: center;">
-                            <select onchange="Admin.updateUserPlan('${stat.user_id}', this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.8rem; background: ${stat.plan === 'professional' ? '#EEF2FF' : 'white'}; color: ${stat.plan === 'professional' ? 'var(--primary)' : 'inherit'}; font-weight: ${stat.plan === 'professional' ? '600' : 'normal'};">
-                                <option value="starter" ${stat.plan === 'starter' ? 'selected' : ''}>Starter</option>
-                                <option value="professional" ${stat.plan === 'professional' ? 'selected' : ''}>Professional</option>
-                            </select>
+                            <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
+                                <select onchange="Admin.updateUserPlan('${stat.user_id}', this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.8rem; background: ${stat.plan === 'professional' ? '#EEF2FF' : 'white'}; color: ${stat.plan === 'professional' ? 'var(--primary)' : 'inherit'}; font-weight: ${stat.plan === 'professional' ? '600' : 'normal'};">
+                                    <option value="starter" ${stat.plan === 'starter' ? 'selected' : ''}>Starter</option>
+                                    <option value="professional" ${stat.plan === 'professional' ? 'selected' : ''}>Pro</option>
+                                </select>
+                                ${stat.plan === 'professional' ? `
+                                    <div style="display:flex; align-items:center; gap:4px; font-size:0.75rem; color:var(--text-muted);">
+                                        <input type="checkbox" id="trial-${stat.user_id}" ${stat.is_trial ? 'checked' : ''} onchange="Admin.toggleTrial('${stat.user_id}', this.checked)" style="width:14px; height:14px;">
+                                        <label for="trial-${stat.user_id}" style="margin:0;">ניסיון</label>
+                                    </div>
+                                ` : ''}
+                                ${stat.is_trial && stat.plan_updated_at ? `
+                                    <div style="font-size:0.65rem; color:var(--primary); font-weight:600;">
+                                        יום ${Math.ceil(Math.abs(new Date() - new Date(stat.plan_updated_at)) / (1000 * 60 * 60 * 24))} / 14
+                                    </div>
+                                ` : ''}
+                                ${stat.has_used_trial && !stat.is_trial ? '<div style="font-size:0.65rem; color:#EF4444; font-weight:600;">ניסיון נוצל</div>' : ''}
+                            </div>
                         </td>
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_clients}</td>
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_projects}</td>
@@ -465,6 +482,17 @@ const Admin = {
                 null, 
                 true
             );
+        }
+    },
+
+    async toggleTrial(userId, isTrial) {
+        try {
+            // Options are passed as the third argument to Store.updateUserPlan
+            await Store.updateUserPlan(userId, 'professional', { is_trial: isTrial });
+            this.renderAdminPage();
+        } catch (e) {
+            console.error('Error toggling trial:', e);
+            app.confirmAction('שגיאה', 'חלה שגיאה בעדכון מצב הניסיון.', null, true);
         }
     }
 };

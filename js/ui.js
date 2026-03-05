@@ -668,10 +668,13 @@ async renderDashboard() {
     async renderCalendar() {
         const projects = await Store.getProjects();
         const tasks = await Store.getAllTasks();
+        const profile = await Store.getUserProfile();
+        const isProfessional = profile?.plan === 'professional';
+        
         const currentMonth = app.currentCalendarDate.getMonth();
         const currentYear = app.currentCalendarDate.getFullYear();
         
-        // Fetch Jewish Holidays
+        // Fetch Jewish Holidays (will return {} if not Pro)
         const holidays = await Store.getJewishHolidays(currentYear, currentMonth + 1);
 
         const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
@@ -679,6 +682,17 @@ async renderDashboard() {
         const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); // 0 is Sunday
 
         let html = `
+            ${!isProfessional ? `
+                <div style="background:white; border:1px dashed var(--primary-light); padding:12px 20px; border-radius:var(--radius-lg); margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow-sm);">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="background:var(--primary-light); color:var(--primary); width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                            <i data-lucide="zap" style="width:16px; height:16px; fill:currentColor;"></i>
+                        </div>
+                        <span style="font-size:0.9rem; font-weight:600; color:var(--text-main);">שדרגו ל-Pro לקבלת חגים, זמני שבת וניהול משימות פרויקט ביומן!</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="app.openUpgradeModal()">לשדרוג עכשיו</button>
+                </div>
+            ` : ''}
             <div class="calendar-wrapper" style="background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 20px; border: 1px solid var(--border);">
                 <div class="calendar-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; direction: rtl; flex-wrap: wrap; gap: 12px;">
                     <div style="display: flex; gap: 8px;">
@@ -1015,7 +1029,7 @@ async renderDashboard() {
         const cities = Store.defaults.shabbatCities;
         const cityName = cities.find(c => c.id === currentCity)?.name || 'תל אביב';
 
-        const planName = profile?.plan === 'professional' ? 'Professional' : 'Starter';
+        const planName = profile?.plan === 'professional' ? 'Pro' : 'Starter';
         const isProfessional = profile?.plan === 'professional';
 
         const html = `
@@ -1170,6 +1184,7 @@ async renderDashboard() {
                     </div>
                 </section>
 
+                ${isProfessional ? `
                 <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
                         <div class="header-text">
@@ -1192,6 +1207,7 @@ async renderDashboard() {
                         </div>
                     </div>
                 </section>
+                ` : ''}
 
                 <section class="settings-section" style="margin-top: var(--category-spacing);">
                     <div class="section-header">
@@ -1565,7 +1581,7 @@ async renderDashboard() {
                             </div>
                             <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 12px;">שדרגו לניהול דוחות מלא</h2>
                             <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 32px;">
-                                בחבילת <b>Professional</b> תוכלו לראות ניתוח מעמיק של העסק, דוחות רווחיות, מעקב הכנסות חודשי וכלים מתקדמים שיעזרו לכם לצמוח.
+                                בחבילת <b>Pro</b> תוכלו לראות ניתוח מעמיק של העסק, דוחות רווחיות, מעקב הכנסות חודשי וכלים מתקדמים שיעזרו לכם לצמוח.
                             </p>
                             <button onclick="window.location.href='pricing.html'" class="btn btn-primary" style="width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
                                 שדרוג חבילה עכשיו
@@ -1751,11 +1767,7 @@ async renderDashboard() {
         if (projectId) {
             items = await Store.getChecklistItems(projectId);
         } else {
-            const defaults = Store.getChecklistDefaults();
-            items = [
-                ...defaults.shoot.map(c => ({ id: null, content: c, category: 'shoot', is_completed: false })),
-                ...defaults.equipment.map(c => ({ id: null, content: c, category: 'equipment', is_completed: false }))
-            ];
+            items = app._pendingChecklistItems || [];
         }
         
         const displayMode = Store.getChecklistDisplayMode();
@@ -1764,20 +1776,26 @@ async renderDashboard() {
 
         const renderItems = (itemList, category) => {
             if (itemList.length === 0) return '<div class="empty-list">אין פריטים ברשימה</div>';
-            return itemList.map(item => `
-                <div class="checklist-item ${item.is_completed ? 'completed' : ''} mode-${displayMode}" data-id="${item.id}">
-                    ${displayMode === 'checkbox' ? 
-                        `<input type="checkbox" ${item.is_completed ? 'checked' : ''} ${!item.id ? 'disabled' : ''} onclick="app.toggleChecklistItem('${item.id}', this.checked, '${projectId}')">` : 
-                        `<i data-lucide="circle" style="width:8px; height:8px; fill:var(--primary); color:var(--primary);"></i>`
-                    }
-                    <span class="checklist-text" ${item.id ? `onclick="app.viewTask('${item.id}')"` : ''}>${item.content}</span>
-                    ${item.id ? `
-                        <button type="button" class="btn-icon delete-btn" style="color:#EF4444;" onclick="event.stopPropagation(); app.deleteChecklistItem('${item.id}', '${projectId}')">
+            return itemList.map(item => {
+                const isPending = !item.id;
+                const itemId = item.id || item.tempId;
+                const deleteAction = isPending ? 
+                    `app.removePendingItem(${item.tempId})` : 
+                    `app.deleteChecklistItem('${item.id}', '${projectId}')`;
+
+                return `
+                    <div class="checklist-item ${item.is_completed ? 'completed' : ''} mode-${displayMode}" data-id="${itemId}">
+                        ${displayMode === 'checkbox' ? 
+                            `<input type="checkbox" ${item.is_completed ? 'checked' : ''} ${isPending ? 'disabled' : ''} onclick="app.toggleChecklistItem('${item.id}', this.checked, '${projectId}')">` : 
+                            `<i data-lucide="circle" style="width:8px; height:8px; fill:var(--primary); color:var(--primary);"></i>`
+                        }
+                        <span class="checklist-text" ${!isPending ? `onclick="app.viewTask('${item.id}')"` : ''}>${item.content}</span>
+                        <button type="button" class="btn-icon delete-btn" style="color:#EF4444;" onclick="event.stopPropagation(); ${deleteAction}">
                             <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
                         </button>
-                    ` : ''}
-                </div>
-            `).join('');
+                    </div>
+                `;
+            }).join('');
         };
 
         const shootContainer = document.getElementById('checklist-shoot');
@@ -1786,12 +1804,13 @@ async renderDashboard() {
         if (shootContainer) shootContainer.innerHTML = renderItems(shootItems, 'shoot');
         if (equipmentContainer) equipmentContainer.innerHTML = renderItems(equipmentItems, 'equipment');
 
-        // Add a "Load Defaults" button if both lists are empty
+        // Add a "Load Defaults" button if both lists are empty (Pro only)
         const checklistSection = document.getElementById('project-checklists-container') || document.querySelector('.project-checklists');
         if (checklistSection) {
             let loadBtn = document.getElementById('load-defaults-btn');
             if (items.length === 0) {
-                if (!loadBtn) {
+                const profile = await Store.getUserProfile();
+                if (!loadBtn && profile?.plan !== 'starter') {
                     const btnHtml = `<button id="load-defaults-btn" class="btn btn-secondary btn-sm" style="width:100%; margin-top:10px;" onclick="app.loadProjectDefaults('${projectId}')">טעינת רשימות ברירת מחדל</button>`;
                     checklistSection.insertAdjacentHTML('beforeend', btnHtml);
                 }
@@ -1917,7 +1936,12 @@ async renderDashboard() {
         const docs = await Store.getDocuments(clientId, projectId);
 
         if (docs.length === 0) {
-            container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding:16px; border:1px dashed var(--border); border-radius:var(--radius-md);">עדיין לא הועלו מסמכים.</div>';
+            const profile = await Store.getUserProfile();
+            if (profile?.plan === 'starter') {
+                container.innerHTML = '';
+            } else {
+                container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding:16px; border:1px dashed var(--border); border-radius:var(--radius-md);">עדיין לא הועלו מסמכים.</div>';
+            }
             return;
         }
 

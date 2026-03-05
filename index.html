@@ -326,7 +326,11 @@
                     <div id="client-documents-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
                         <!-- Documents will be loaded here -->
                     </div>
-                    <div class="upload-document-box" style="margin-top:12px; padding:16px; border:2px dashed var(--border); border-radius:var(--radius-md); background:var(--bg-main); transition:all 0.2s;">
+                    <div id="client-upload-upgrade-msg" class="hidden" style="margin-top:12px; padding:16px; border:1px solid var(--primary-light); border-radius:var(--radius-md); background:var(--bg-main); text-align:center;">
+                        <div style="font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">העלאת קבצים זמינה בחבילת <strong>Pro</strong></div>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="app.openUpgradeModal()" style="width:100%;">שדרוג לחבילת Pro</button>
+                    </div>
+                    <div id="client-upload-box" class="upload-document-box" style="margin-top:12px; padding:16px; border:2px dashed var(--border); border-radius:var(--radius-md); background:var(--bg-main); transition:all 0.2s;">
                         <div style="display:flex; flex-direction:column; gap:10px;">
                             <div style="display:flex; align-items:center; gap:12px;">
                                 <label for="client-doc-upload" style="cursor:pointer; display:flex; align-items:center; gap:8px; margin-bottom:0;">
@@ -391,12 +395,19 @@
                 </div>
             </div>
             <form id="project-form" class="modal-form">
+                <!-- Group 1: Basic Info -->
+                <div class="form-section-header" style="margin-bottom: 12px; font-weight: 700; color: var(--primary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--primary-light); padding-bottom: 4px;">
+                    <i data-lucide="info" style="width: 14px; vertical-align: middle; margin-left: 4px;"></i> פרטי הבסיס
+                </div>
                 <div class="form-group">
                     <label for="project-client">לקוח</label>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <select id="project-client" required style="flex: 1;" onchange="if(app.updateProjectClientLink) app.updateProjectClientLink(this.value)">
                             <!-- Populated by JS -->
                         </select>
+                        <button type="button" class="btn btn-secondary" style="padding: 0 12px; height: 46px;" title="לקוח חדש" onclick="app.openNewClientFromProject()">
+                            <i data-lucide="plus" style="width: 18px;"></i>
+                        </button>
                         <button type="button" id="project-client-link-btn" class="btn btn-secondary" style="display: none; padding: 0 12px; height: 46px;" title="צפייה בכרטיס לקוח" onclick="if(app.openProjectClientCard) app.openProjectClientCard()">
                             <i data-lucide="user" style="width: 18px;"></i>
                         </button>
@@ -412,46 +423,16 @@
                         <span id="project-name-view" class="view-text hidden"></span>
                     </div>
                 </div>
-
-                <div class="form-group">
-                    <label>סטטוס פרויקט</label>
-                    <div id="project-status-picker" class="status-picker">
-                        <button type="button" class="status-picker-btn" data-status="new" onclick="app.setProjectStatus('new')">פנייה חדשה</button>
-                        <button type="button" class="status-picker-btn" data-status="quote" onclick="app.setProjectStatus('quote')">הצעת מחיר</button>
-                        <button type="button" class="status-picker-btn" data-status="closed" onclick="app.setProjectStatus('closed')">נסגר</button>
-                        <button type="button" class="status-picker-btn" data-status="not_closed" onclick="app.setProjectStatus('not_closed')">לא נסגר</button>
-                        <button type="button" class="status-picker-btn" data-status="shooting" onclick="app.setProjectStatus('shooting')">בצילום</button>
-                        <button type="button" class="status-picker-btn" data-status="editing" onclick="app.setProjectStatus('editing')">בעריכה</button>
-                        <button type="button" class="status-picker-btn" data-status="delivered" onclick="app.setProjectStatus('delivered')">נמסר</button>
-                        <button type="button" class="status-picker-btn" data-status="published" onclick="app.setProjectStatus('published')">פורסם</button>
-                        <button type="button" class="status-picker-btn" data-status="archived" onclick="app.setProjectStatus('archived')">ארכיון</button>
-                    </div>
-                    <input type="hidden" id="project-status">
+                <div class="form-group" style="margin: 16px 0; background: var(--bg-main); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;">
+                        <input type="checkbox" id="project-publication-approval" style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600; font-size: 0.95rem;">יש אישור פרסום (הצגה בפורטפוליו/רשתות)</span>
+                    </label>
                 </div>
 
-                <div id="not-closed-reason-container" class="form-group hidden" style="margin-top: 12px;">
-                    <label for="not-closed-reason">סיבת אי סגירה</label>
-                    <div class="view-group">
-                        <textarea id="not-closed-reason" placeholder="למה הלקוח לא סגר? (למשל: מחיר יקר מדי, לא זמינה בתאריך...)" style="width:100%; min-height:80px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-md); font-family:inherit;"></textarea>
-                        <span id="not-closed-reason-view" class="view-text hidden"></span>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="project-subjects-count">מספר מצולמים</label>
-                        <div class="view-group">
-                            <input type="number" id="project-subjects-count" placeholder="0">
-                            <span id="project-subjects-count-view" class="view-text hidden"></span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="project-subjects-details">פירוט מצולמים (טקסט חופשי)</label>
-                        <div class="view-group">
-                            <input type="text" id="project-subjects-details" placeholder="למשל: זוג הורים ו-3 ילדים">
-                            <span id="project-subjects-details-view" class="view-text hidden"></span>
-                        </div>
-                    </div>
+                <!-- Group 2: Logistics -->
+                <div class="form-section-header" style="margin-top: 24px; margin-bottom: 12px; font-weight: 700; color: var(--primary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--primary-light); padding-bottom: 4px;">
+                    <i data-lucide="map-pin" style="width: 14px; vertical-align: middle; margin-left: 4px;"></i> לוגיסטיקה (מתי ואיפה)
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -490,25 +471,73 @@
                 <div id="project-weather-container" class="weather-widget hidden">
                     <!-- Weather info will be loaded here -->
                 </div>
+
+                <!-- Group 3: Subjects -->
+                <div class="form-section-header" style="margin-top: 24px; margin-bottom: 12px; font-weight: 700; color: var(--primary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--primary-light); padding-bottom: 4px;">
+                    <i data-lucide="users" style="width: 14px; vertical-align: middle; margin-left: 4px;"></i> המצולמים
+                </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>סטטוס גבייה</label>
-                        <div id="project-payment-status-picker" class="status-picker">
-                            <button type="button" class="status-picker-btn" data-value="not_paid" onclick="app.setProjectPaymentStatus('not_paid')">טרם שולם</button>
-                            <button type="button" class="status-picker-btn" data-value="deposit" onclick="app.setProjectPaymentStatus('deposit')">מקדמה שולמה</button>
-                            <button type="button" class="status-picker-btn" data-value="paid_full" onclick="app.setProjectPaymentStatus('paid_full')">שולם במלואו</button>
+                        <label for="project-subjects-count">מספר מצולמים</label>
+                        <div class="view-group">
+                            <input type="number" id="project-subjects-count" placeholder="0">
+                            <span id="project-subjects-count-view" class="view-text hidden"></span>
                         </div>
-                        <input type="hidden" id="project-payment-status">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-subjects-details">פירוט מצולמים (טקסט חופשי)</label>
+                        <div class="view-group">
+                            <input type="text" id="project-subjects-details" placeholder="זוג הורים ו-3 ילדים">
+                            <span id="project-subjects-details-view" class="view-text hidden"></span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-group" style="margin-top: 12px; background: var(--bg-main); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border);">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 0;">
-                        <input type="checkbox" id="project-publication-approval" style="width: 20px; height: 20px; cursor: pointer;">
-                        <span style="font-weight: 600; font-size: 0.95rem;">יש אישור פרסום (הצגה בפורטפוליו/רשתות)</span>
-                    </label>
+                <!-- Group 4: Workflow -->
+                <div class="form-section-header" style="margin-top: 24px; margin-bottom: 12px; font-weight: 700; color: var(--primary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--primary-light); padding-bottom: 4px;">
+                    <i data-lucide="git-merge" style="width: 14px; vertical-align: middle; margin-left: 4px;"></i> סטטוס ותיקיות
+                </div>
+                <div class="form-group">
+                    <label>סטטוס פרויקט</label>
+                    <div id="project-status-picker" class="status-picker">
+                        <button type="button" class="status-picker-btn" data-status="new" onclick="app.setProjectStatus('new')">פנייה חדשה</button>
+                        <button type="button" class="status-picker-btn" data-status="quote" onclick="app.setProjectStatus('quote')">הצעת מחיר</button>
+                        <button type="button" class="status-picker-btn" data-status="closed" onclick="app.setProjectStatus('closed')">נסגר</button>
+                        <button type="button" class="status-picker-btn" data-status="not_closed" onclick="app.setProjectStatus('not_closed')">לא נסגר</button>
+                        <button type="button" class="status-picker-btn" data-status="shooting" onclick="app.setProjectStatus('shooting')">בצילום</button>
+                        <button type="button" class="status-picker-btn" data-status="editing" onclick="app.setProjectStatus('editing')">בעריכה</button>
+                        <button type="button" class="status-picker-btn" data-status="delivered" onclick="app.setProjectStatus('delivered')">נמסר</button>
+                        <button type="button" class="status-picker-btn" data-status="published" onclick="app.setProjectStatus('published')">פורסם</button>
+                        <button type="button" class="status-picker-btn" data-status="archived" onclick="app.setProjectStatus('archived')">ארכיון</button>
+                    </div>
+                    <input type="hidden" id="project-status">
                 </div>
 
+                <div id="not-closed-reason-container" class="form-group hidden" style="margin-top: 12px;">
+                    <label for="not-closed-reason">סיבת אי סגירה</label>
+                    <div class="view-group">
+                        <textarea id="not-closed-reason" placeholder="למה הלקוח לא סגר? (למשל: מחיר יקר מדי, לא זמינה בתאריך...)" style="width:100%; min-height:80px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-md); font-family:inherit;"></textarea>
+                        <span id="not-closed-reason-view" class="view-text hidden"></span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label for="project-drive" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>קישור לתיקיית צילומים (Drive)</span>
+                        <a id="project-drive-link" href="#" target="_blank" style="display:none; align-items:center; gap:4px; font-size:0.8rem; color:var(--primary); text-decoration:none;">
+                            <i data-lucide="external-link" style="width:12px;"></i> מעבר לתיקייה
+                        </a>
+                    </label>
+                    <div class="view-group">
+                        <input type="url" id="project-drive" placeholder="הדבקת קישור ל-Google Drive / Dropbox...">
+                        <span id="project-drive-view" class="view-text hidden"></span>
+                    </div>
+                </div>
+
+                <!-- Group 5: Financials -->
+                <div class="form-section-header" style="margin-top: 24px; margin-bottom: 12px; font-weight: 700; color: var(--primary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--primary-light); padding-bottom: 4px;">
+                    <i data-lucide="credit-card" style="width: 14px; vertical-align: middle; margin-left: 4px;"></i> תשלומים
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="proj-total-price">מחיר כולל (₪)</label>
@@ -525,7 +554,18 @@
                         </div>
                     </div>
                 </div>
-                <div class="project-checklists" id="project-checklists-container" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
+                <div class="form-group">
+                    <label>סטטוס גבייה</label>
+                    <div id="project-payment-status-picker" class="status-picker">
+                        <button type="button" class="status-picker-btn" data-value="not_paid" onclick="app.setProjectPaymentStatus('not_paid')">טרם שולם</button>
+                        <button type="button" class="status-picker-btn" data-value="deposit" onclick="app.setProjectPaymentStatus('deposit')">מקדמה שולמה</button>
+                        <button type="button" class="status-picker-btn" data-value="paid_full" onclick="app.setProjectPaymentStatus('paid_full')">שולם במלואו</button>
+                    </div>
+                    <input type="hidden" id="project-payment-status">
+                </div>
+
+                <!-- Group 6: Prep & Assets -->
+                <div class="project-checklists" id="project-checklists-container" style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border);">
                     <div class="checklist-section">
                         <label><i data-lucide="list-checks" style="width:16px; margin-left:4px;"></i> דברים שאסור לשכוח</label>
                         <div id="checklist-shoot" class="checklist-items">
@@ -563,7 +603,11 @@
                     <div id="project-documents-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
                         <!-- Documents will be loaded here -->
                     </div>
-                    <div class="upload-document-box" style="margin-top:12px; padding:16px; border:2px dashed var(--border); border-radius:var(--radius-md); background:var(--bg-main); transition:all 0.2s;">
+                    <div id="project-upload-upgrade-msg" class="hidden" style="margin-top:12px; padding:16px; border:1px solid var(--primary-light); border-radius:var(--radius-md); background:var(--bg-main); text-align:center;">
+                        <div style="font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">העלאת קבצים זמינה בחבילת <strong>Pro</strong></div>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="app.openUpgradeModal()" style="width:100%;">שדרוג לחבילת Pro</button>
+                    </div>
+                    <div id="project-upload-box" class="upload-document-box" style="margin-top:12px; padding:16px; border:2px dashed var(--border); border-radius:var(--radius-md); background:var(--bg-main); transition:all 0.2s;">
                         <div style="display:flex; flex-direction:column; gap:10px;">
                             <div style="display:flex; align-items:center; gap:12px;">
                                 <label for="project-doc-upload" style="cursor:pointer; display:flex; align-items:center; gap:8px; margin-bottom:0;">
@@ -605,10 +649,11 @@
                         <button type="button" class="btn btn-secondary" onclick="app.addNote(event, 'project')">הוספה</button>
                     </div>
                 </div>
+
                 <div class="modal-footer">
                     <button type="button" id="delete-project-btn" class="btn btn-secondary" style="margin-left:auto; color:#EF4444; border-color:#FECACA; display:none;">מחיקה</button>
                     <button type="button" id="project-cancel-btn" class="btn btn-secondary" onclick="app.closeModal()">סגירה</button>
-                    <button type="submit" id="save-project-btn" class="btn btn-primary" style="display:none;">שמירה</button>
+                    <button type="submit" id="save-project-btn" class="btn btn-primary">שמירה</button>
                 </div>
             </form>
         </div>
@@ -640,6 +685,55 @@
                     <button type="submit" class="btn btn-primary">שמירה</button>
                 </div>
             </form>
+        </div>
+    </div>
+    <!-- Upgrade Modal -->
+    <div id="upgrade-modal" class="modal-overlay hidden" style="z-index: 20000; display: none;">
+        <div class="modal" style="max-width: 500px; text-align: center; padding: 40px 30px; border-radius: 24px; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+            <div style="background: linear-gradient(135deg, #7C3AED, #6D28D9); width: 80px; height: 80px; border-radius: 24px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; color: white; transform: rotate(-5deg); box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);">
+                <i data-lucide="zap" style="width: 40px; height: 40px; fill: currentColor;"></i>
+            </div>
+            
+            <h2 style="font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 800; margin-bottom: 4px; color: #1F2937; letter-spacing: -0.02em;">שדרגו ל-Centra Pro</h2>
+            <div style="margin-bottom: 20px; font-weight: 700; color: var(--primary);">
+                ₪89 לחודש / ₪890 לשנה 
+                <span style="background: #ECFDF5; color: #059669; font-size: 0.8rem; padding: 2px 10px; border-radius: 20px; margin-right: 6px;">חיסכון של ₪178!</span>
+            </div>
+            <p style="color: #6B7280; line-height: 1.6; margin-bottom: 32px; font-size: 1.15rem;">
+                הכלים המקצועיים שיעזרו לכם לנהל את העסק בצורה יעילה, לחסוך זמן ולצמוח לרמה הבאה.
+            </p>
+            
+            <div style="background: #F9FAFB; border-radius: 20px; padding: 24px; text-align: right; margin-bottom: 32px; border: 1px solid #F3F4F6;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #ECFDF5; padding: 6px; border-radius: 8px;"><i data-lucide="check" style="width: 18px; height: 18px; color: #10B981; stroke-width: 3;"></i></div>
+                    <span style="font-weight: 600; color: #374151;">פרויקטים ולקוחות ללא הגבלה</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #ECFDF5; padding: 6px; border-radius: 8px;"><i data-lucide="check" style="width: 18px; height: 18px; color: #10B981; stroke-width: 3;"></i></div>
+                    <span style="font-weight: 600; color: #374151;">דוחות כספיים ורווחיות מלאים</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #ECFDF5; padding: 6px; border-radius: 8px;"><i data-lucide="check" style="width: 18px; height: 18px; color: #10B981; stroke-width: 3;"></i></div>
+                    <span style="font-weight: 600; color: #374151;">תחזית מזג אוויר אוטומטית בפרויקטים</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #ECFDF5; padding: 6px; border-radius: 8px;"><i data-lucide="check" style="width: 18px; height: 18px; color: #10B981; stroke-width: 3;"></i></div>
+                    <span style="font-weight: 600; color: #374151;">יומן חגים, זמני שבת וניהול משימות פרויקט</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: #ECFDF5; padding: 6px; border-radius: 8px;"><i data-lucide="check" style="width: 18px; height: 18px; color: #10B981; stroke-width: 3;"></i></div>
+                    <span style="font-weight: 600; color: #374151;">תמיכה בהעלאת קבצים ללקוחות ופרויקטים</span>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn btn-primary" style="width: 100%; padding: 18px; font-size: 1.2rem; font-weight: 800; border-radius: 16px; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);" onclick="window.open('https://wa.me/972528366744?text=' + encodeURIComponent('היי, אשמח לשדרג את החבילה שלי ב-Centra ל-Pro'), '_blank')">
+                    שדרגו אותי עכשיו
+                </button>
+                <button class="btn btn-secondary" onclick="app.closeUpgradeModal()" style="width: 100%; padding: 14px; border-radius: 16px; border: 1px solid #E5E7EB; color: #6B7280; font-weight: 600;">
+                    אולי מאוחר יותר
+                </button>
+            </div>
         </div>
     </div>
 

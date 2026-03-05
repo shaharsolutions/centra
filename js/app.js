@@ -7,6 +7,7 @@ const app = {
     currentCalendarDate: new Date(),
     dashboardWeekOffset: 0, 
     isStatsExpanded: false,
+    _pendingChecklistItems: [],
 
     initialized: false,
 
@@ -69,6 +70,9 @@ const app = {
         // Auto-archive projects that were delivered/published more than a week ago
         await Store.autoArchiveProjects().catch(e => console.error('Auto-archived failed:', e));
         
+        // Check if the 14-day trial for Pro has expired
+        await this.checkTrialStatus().catch(e => console.error('Trial check failed:', e));
+        
         await this.navigate('dashboard');
     },
 
@@ -99,7 +103,12 @@ const app = {
         // Modal Close
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.closeModal();
+                if (this._isCreatingClientFromProject && btn.closest('#client-modal')) {
+                    this.closeClientModal();
+                    this._isCreatingClientFromProject = false;
+                } else {
+                    this.closeModal();
+                }
             });
         });
 
@@ -583,6 +592,19 @@ const app = {
         const addProjectBtn = document.getElementById('client-add-project-btn');
         
         if (clientId) {
+            // Toggle document upload visibility based on plan
+            Store.getUserProfile().then(profile => {
+                const uploadBox = document.getElementById('client-upload-box');
+                const upgradeMsg = document.getElementById('client-upload-upgrade-msg');
+                const isStarter = profile?.plan === 'starter';
+                
+                if (uploadBox) uploadBox.style.display = isStarter ? 'none' : 'block';
+                if (upgradeMsg) {
+                    if (isStarter) upgradeMsg.classList.remove('hidden');
+                    else upgradeMsg.classList.add('hidden');
+                }
+            });
+
             editToggle.style.display = 'flex';
             deleteBtn.style.display = 'block';
             if (addProjectBtn) addProjectBtn.style.display = 'flex';
@@ -705,6 +727,25 @@ const app = {
         this.editingProjectId = projectId;
         document.getElementById('project-modal-title').innerText = title;
         document.getElementById('project-modal').classList.remove('hidden');
+
+        // Toggle document upload visibility based on plan
+        Store.getUserProfile().then(profile => {
+            const uploadBox = document.getElementById('project-upload-box');
+            const upgradeMsg = document.getElementById('project-upload-upgrade-msg');
+            const isStarter = profile?.plan === 'starter';
+
+            if (uploadBox) uploadBox.style.display = isStarter ? 'none' : 'block';
+            if (upgradeMsg) {
+                if (isStarter) upgradeMsg.classList.remove('hidden');
+                else upgradeMsg.classList.add('hidden');
+            }
+
+            // Hide checklist import buttons for Starter
+            document.querySelectorAll('.import-defaults-btn').forEach(btn => {
+                btn.style.display = isStarter ? 'none' : 'flex';
+            });
+        });
+
         const deleteBtn = document.getElementById('delete-project-btn');
         const driveLink = document.getElementById('project-drive-link');
         
@@ -786,6 +827,7 @@ const app = {
             this.setProjectPaymentStatus('not_paid', true);
             this.toggleNotClosedReason('new');
             this.setProjectEditMode(true);
+            this._pendingChecklistItems = [];
             UI.renderChecklist(null);
             deleteBtn.style.display = 'none';
         }
@@ -808,7 +850,17 @@ const app = {
         }
     },
 
+    openNewClientFromProject() {
+        this._isCreatingClientFromProject = true;
+        const clientModal = document.getElementById('client-modal');
+        if (clientModal) {
+            clientModal.style.zIndex = '1050';
+        }
+        this.openClientModal('לקוח חדש');
+    },
+
     openProjectClientCard() {
+        this._isCreatingClientFromProject = true;
         const btn = document.getElementById('project-client-link-btn');
         if (btn && btn.dataset.clientid) {
             const clientModal = document.getElementById('client-modal');
@@ -820,7 +872,7 @@ const app = {
     },
 
     setProjectEditMode(isEdit) {
-        // Force isEdit to true as per user request to allow editing by default
+        // Force isEdit to true to allow editing by default
         isEdit = true;
         
         const form = document.getElementById('project-form');
@@ -845,9 +897,8 @@ const app = {
         const clientSelect = document.getElementById('project-client');
         if (clientSelect) clientSelect.disabled = false;
 
-        saveBtn.style.display = 'block';
-        
-        // Show footer cancel button (Close)
+        // Ensure buttons are visible
+        if (saveBtn) saveBtn.style.display = 'block';
         if (footerCancelBtn) footerCancelBtn.style.display = 'block';
     },
 
@@ -865,9 +916,12 @@ const app = {
 
     closeModal() {
         document.querySelectorAll('.modal-overlay').forEach(m => {
-            m.classList.add('hidden');
-            if (m.id === 'client-modal') {
-                m.style.zIndex = ''; // Reset z-index
+            // Don't close upgrade-modal OR confirm-modal in general closeModal
+            if (m.id !== 'upgrade-modal' && m.id !== 'confirm-modal') {
+                m.classList.add('hidden');
+                if (m.id === 'client-modal') {
+                    m.style.zIndex = ''; // Reset z-index
+                }
             }
         });
         this.editingClientId = null;
@@ -876,6 +930,33 @@ const app = {
         this.editingPackageId = null;
         this.editingTaskId = null;
         this.editingLocationId = null;
+        this._isCreatingClientFromProject = false;
+    },
+
+    openUpgradeModal() {
+        const modal = document.getElementById('upgrade-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+    },
+
+    closeUpgradeModal() {
+        const modal = document.getElementById('upgrade-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+    },
+
+    closeClientModal() {
+        const m = document.getElementById('client-modal');
+        if (m) {
+            m.classList.add('hidden');
+            m.style.zIndex = '';
+        }
+        this.editingClientId = null;
     },
 
     async handleClientSubmit() {
@@ -904,8 +985,15 @@ const app = {
             const action = isNew ? 'הוספת לקוח' : 'עדכון פרטי לקוח';
             await Store.logAction(action, isNew ? `לקוח/ה חדש/ה נוסף/פה: ${savedClient.name}` : `פרטי הלקוח/ה ${savedClient.name} עודכנו`, 'client', savedClient.id);
 
-            this.closeModal();
-            await this.navigate(this.currentView);
+            if (this._isCreatingClientFromProject) {
+                this.closeClientModal();
+                await UI.populateClientsDropdown(savedClient.id);
+                if (this.updateProjectClientLink) this.updateProjectClientLink(savedClient.id);
+                this._isCreatingClientFromProject = false;
+            } else {
+                this.closeModal();
+                await this.navigate(this.currentView);
+            }
         } catch (error) {
             console.error('Save client error:', error);
             this.confirmAction('שגיאה', 'חלה שגיאה בשמירת הלקוח.', null, true);
@@ -938,7 +1026,7 @@ const app = {
                 if (monthlyProjects.length >= 5) {
                     this.confirmAction(
                         'הגעת למכסה החודשית',
-                        'בחבילת ה-Starter ניתן ליצור עד 5 פרויקטים בחודש.<br><br><b>רוצה להמשיך ללא הגבלה?</b> שדרג/י עכשיו לחבילת Professional ונהל/י את כל העסק במקום אחד.',
+                        'בחבילת ה-Starter ניתן ליצור עד 5 פרויקטים בחודש.<br><br><b>רוצה להמשיך ללא הגבלה?</b> שדרג/י עכשיו לחבילת Pro ונהל/י את כל העסק במקום אחד.',
                         () => { window.location.href = 'pricing.html'; }
                     );
                     const yesBtn = document.getElementById('confirm-yes-btn');
@@ -989,6 +1077,18 @@ const app = {
             await Store.logAction(action, isNew ? `פרויקט חדש נוצר: ${projectLink}${clientDisplayName}` : `פרטי הפרויקט ${projectLink}${clientDisplayName} עודכנו`, 'project', savedProject.id);
 
             this.closeModal();
+
+            // Save pending checklist items if any
+            if (isNew && this._pendingChecklistItems && this._pendingChecklistItems.length > 0) {
+                for (const item of this._pendingChecklistItems) {
+                    await Store.saveChecklistItem({
+                        ...item,
+                        projectId: savedProject.id
+                    });
+                }
+                this._pendingChecklistItems = [];
+            }
+
             await this.navigate(this.currentView);
         } catch (error) {
             console.error('Save project error:', error);
@@ -1000,8 +1100,53 @@ const app = {
     },
 
     async importDefaults(category) {
+        const profile = await Store.getUserProfile();
+        if (profile?.plan === 'starter') {
+            this.openUpgradeModal();
+            return;
+        }
+
         if (!this.editingProjectId) {
-            this.confirmAction('שים לב', 'יש לשמור את הפרויקט בפעם הראשונה לפני שניתן לייבא רשימות נוספות.', null, true);
+            // New project - import to pending items
+            try {
+                const defaults = Store.getChecklistDefaults();
+                const categoryDefaults = defaults[category] || [];
+                const shootDate = document.getElementById('project-date').value;
+                const projectName = document.getElementById('project-name').value;
+                const clientSelect = document.getElementById('project-client');
+                const clientName = clientSelect.options[clientSelect.selectedIndex]?.text.split(' (')[0] || '';
+
+                const newItems = categoryDefaults.map(content => {
+                    let dueDate = null;
+                    let finalContent = content;
+                    if (category === 'shoot' && content.includes('תזכורת')) {
+                        if (shootDate) {
+                            const date = new Date(shootDate);
+                            date.setDate(date.getDate() - 1);
+                            dueDate = date.toISOString().split('T')[0];
+                        }
+                        if (clientName) {
+                            finalContent = `${content} (${clientName})`;
+                        }
+                    }
+                    return { content: finalContent, category, dueDate, is_completed: false, tempId: Date.now() + Math.random() };
+                });
+
+                // Filter out duplicates in pending items
+                const currentPending = this._pendingChecklistItems || [];
+                const finalNewItems = newItems.filter(newItem => 
+                    !currentPending.some(existing => existing.content === newItem.content && existing.category === newItem.category)
+                );
+
+                this._pendingChecklistItems = [...currentPending, ...finalNewItems];
+                UI.renderChecklist(null);
+                
+                if (finalNewItems.length === 0) {
+                    this.confirmAction('מידע', 'כל פריטי ברירת המחדל כבר נמצאים ברשימה.', null, true);
+                }
+            } catch (error) {
+                console.error('Import defaults (new project) error:', error);
+            }
             return;
         }
         
@@ -1020,6 +1165,11 @@ const app = {
             console.error('Import defaults error:', error);
             this.confirmAction('שגיאה', 'חלה שגיאה בייבוא הרשימה.', null, true);
         }
+    },
+
+    removePendingItem(tempId) {
+        this._pendingChecklistItems = this._pendingChecklistItems.filter(i => i.tempId !== tempId);
+        UI.renderChecklist(null);
     },
 
 
@@ -2023,6 +2173,12 @@ const app = {
     },
 
     async loadProjectDefaults(projectId) {
+        const profile = await Store.getUserProfile();
+        if (profile?.plan === 'starter') {
+            this.openUpgradeModal();
+            return;
+        }
+
         const projects = await Store.getProjects();
         const project = projects.find(p => p.id === projectId);
         await Store.addDefaultsToProject(projectId, project?.shoot_date, null, true);
@@ -2030,9 +2186,24 @@ const app = {
     },
 
     async fetchWeatherForProject() {
+        const container = document.getElementById('project-weather-container');
+        if (!container) return;
+
+        // Check plan
+        const profile = await Store.getUserProfile();
+        if (profile?.plan === 'starter') {
+            container.classList.remove('hidden');
+            container.innerHTML = `
+                <div style="background:var(--bg-main); border:1px dashed var(--primary-light); padding:12px; border-radius:var(--radius-md); display:flex; flex-direction:column; gap:8px; align-items:center; width: 100%;">
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-main); text-align:center;">תחזית מזג האוויר זמינה בחבילת Pro בלבד.</div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="app.openUpgradeModal()" style="padding:4px 12px; font-size:0.8rem;">לשדרוג לחבילת Pro</button>
+                </div>
+            `;
+            return;
+        }
+
         const location = document.getElementById('project-location').value;
         const dateStr = document.getElementById('project-date').value;
-        const container = document.getElementById('project-weather-container');
 
         if (!location || !dateStr) {
             container.classList.add('hidden');
@@ -2089,7 +2260,15 @@ const app = {
     // =====================
     _pendingDocFile: null,
 
-    handleDocumentUpload(event, type) {
+    async handleDocumentUpload(event, type) {
+        // File upload is a Professional feature
+        const profile = await Store.getUserProfile();
+        if (profile?.plan === 'starter') {
+            event.target.value = '';
+            this.openUpgradeModal();
+            return;
+        }
+
         const file = event.target.files[0];
         if (!file) return;
 
@@ -2142,6 +2321,13 @@ const app = {
     },
 
     async submitDocumentUpload(type) {
+        // File upload is a Professional feature
+        const profile = await Store.getUserProfile();
+        if (profile?.plan === 'starter') {
+            this.openUpgradeModal();
+            return;
+        }
+
         if (!this._pendingDocFile) return;
 
         const submitBtn = document.getElementById(`${type}-doc-submit-btn`);
@@ -2258,6 +2444,43 @@ const app = {
 
     viewAdmin() {
         this.navigate('admin');
+    },
+
+    async checkTrialStatus() {
+        const profile = await Store.getUserProfile();
+        
+        // Only check if they are currently Pro AND it's a trial
+        if (!profile || profile.plan !== 'professional' || !profile.is_trial || !profile.plan_updated_at) {
+            return;
+        }
+
+        const upgradeDate = new Date(profile.plan_updated_at);
+        const today = new Date();
+        const diffTime = Math.abs(today - upgradeDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 14) {
+            console.log(`Trial expired. Day: ${diffDays}. Downgrading user ${profile.user_id}`);
+            
+            // Downgrade to starter, mark trial as used, and set as NOT currently in trial
+            await Store.updateUserPlan(profile.user_id, 'starter', { 
+                is_trial: false, 
+                has_used_trial: true 
+            });
+
+            // Inform the user
+            this.confirmAction(
+                'תקופת הניסיון הסתיימה',
+                '14 ימי הניסיון שלך בחבילת Pro הסתיימו. הפיצ׳רים המתקדמים ננעלים, אך כל המידע ששמרת עדיין מחכה לך.<br><br><b>רוצה להמשיך לנהל את העסק כמו מקצוענית?</b>',
+                () => { this.openUpgradeModal(); },
+                true
+            );
+            
+            // Re-render current view if already on something that depends on plan
+            UI.renderSidebar();
+            if (this.currentView === 'calendar') UI.renderCalendar();
+            if (this.currentView === 'dashboard') UI.renderDashboard();
+        }
     }
 };
 

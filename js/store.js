@@ -883,11 +883,24 @@ const Store = {
         }
     },
 
-    async updateUserPlan(userId, plan) {
+    async updateUserPlan(userId, plan, options = {}) {
         if (!userId || !plan) return;
         try {
-            const { error } = await sb.from('user_profiles').update({ plan }).eq('user_id', userId);
+            const updateData = { 
+                plan, 
+                plan_updated_at: new Date().toISOString() 
+            };
+            
+            // Allow manual control over trial flags (for auto-downgrade or admin)
+            if (options.hasOwnProperty('is_trial')) updateData.is_trial = options.is_trial;
+            if (options.hasOwnProperty('has_used_trial')) updateData.has_used_trial = options.has_used_trial;
+
+            const { error } = await sb.from('user_profiles').update(updateData).eq('user_id', userId);
             if (error) throw error;
+
+            // Clear cache to reflect plan change immediately
+            this._cache.userProfile = null;
+            
             return { success: true };
         } catch (e) {
             console.error('Error updating user plan:', e);
@@ -1475,6 +1488,11 @@ const Store = {
 
     async addDefaultsToProject(projectId, shootDate = null, projectData = null, forceDefaults = false) {
         if (!projectId) return;
+
+        // Automation (Reminders/Styling Calls) is an ADVANCED feature (Pro plan)
+        const profile = await this.getUserProfile();
+        if (profile?.plan === 'starter') return;
+
         
         let clientName = '';
         let projectName = '';
@@ -1768,6 +1786,10 @@ const Store = {
 
     _holidayCache: {},
     async getJewishHolidays(year, month) {
+        // Advanced calendar features (Holidays/Shabbat) restricted to Pro plan
+        const profile = await this.getUserProfile();
+        if (!profile || profile.plan !== 'professional') return {};
+
         const cacheKey = `${year}-${month}`;
         if (this._holidayCache[cacheKey]) return this._holidayCache[cacheKey];
 
