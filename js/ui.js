@@ -1053,7 +1053,7 @@ async renderDashboard() {
                                 </div>
                             </div>
                             ${!isProfessional ? `
-                                <button onclick="window.location.href='pricing.html'" class="btn btn-primary" style="padding: 8px 20px; border-radius: 100px; font-weight: 600; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
+                                <button onclick="app.openUpgradeModal()" class="btn btn-primary" style="padding: 8px 20px; border-radius: 100px; font-weight: 600; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
                                     לשדרוג החבילה
                                 </button>
                             ` : `
