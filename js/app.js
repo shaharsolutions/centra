@@ -2651,6 +2651,14 @@ const app = {
     },
 
     async toggleReminders(enabled) {
+        const profile = await Store.getUserProfile();
+        
+        if (profile?.plan !== 'professional') {
+            document.getElementById('settings-reminders-enabled').checked = false;
+            this.openUpgradeModal();
+            return;
+        }
+
         const details = document.getElementById('reminders-details');
         if (details) {
             if (enabled) details.classList.remove('hidden');
@@ -2658,16 +2666,24 @@ const app = {
         }
         
         try {
-            const profile = await Store.getUserProfile();
-            const email = document.getElementById('settings-reminders-email')?.value || profile?.reminders_email || 'shaharsolutions@gmail.com';
             const before = parseInt(document.getElementById('settings-reminders-before')?.value || profile?.reminders_config?.before_shoot_days || 2);
             const after = parseInt(document.getElementById('settings-reminders-after')?.value || profile?.reminders_config?.after_shoot_days || 1);
-            
             const hour = document.getElementById('settings-reminders-hour')?.value || profile?.reminders_config?.reminder_hour || '08:00';
-            await Store.updateReminderSettings(enabled, email, { before_shoot_days: before, after_shoot_days: after, reminder_hour: hour });
+            
+            const config = {
+                before_shoot_days: before,
+                after_shoot_days: after,
+                reminder_hour: hour,
+                checkpoints: [
+                    { id: 'prep', days: before, type: 'before', label: 'הכנת ציוד ואישור לקוח', enabled: before > 0 },
+                    { id: 'backup', days: after, type: 'after', label: 'גיבוי וסינון תמונות', enabled: after > 0 },
+                    { id: 'payment', days: 7, type: 'after', label: 'וידוא תשלום סופי', enabled: true }
+                ]
+            };
+
+            await Store.updateReminderSettings(enabled, null, config);
             await Store.logAction('עדכון תזכורות', `מערכת התזכורות ${enabled ? 'הופעלה' : 'כובתה'}`, 'settings');
             
-            // Re-render settings to update text/icons if needed, or just let the local change stay
             UI.renderSettings();
         } catch (error) {
             console.error('Toggle reminders error:', error);
@@ -2678,6 +2694,12 @@ const app = {
     async updateRemindersConfig() {
         try {
             const profile = await Store.getUserProfile();
+            
+            if (profile?.plan !== 'professional') {
+                this.openUpgradeModal();
+                return;
+            }
+
             const enabled = document.getElementById('settings-reminders-enabled')?.checked ?? profile?.reminders_enabled ?? false;
             const before = parseInt(document.getElementById('settings-reminders-before')?.value || 2);
             const after = parseInt(document.getElementById('settings-reminders-after')?.value || 1);

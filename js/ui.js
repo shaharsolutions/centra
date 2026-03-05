@@ -1209,12 +1209,25 @@ async renderDashboard() {
                 </section>
                 ` : ''}
 
-                <section class="settings-section" style="margin-top: var(--category-spacing);">
+                <section class="settings-section" style="margin-top: var(--category-spacing); position: relative; overflow: hidden;">
+                    ${!isProfessional ? `
+                    <div style="position: absolute; inset: 0; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(4px); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;">
+                        <div style="background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid var(--border); max-width: 400px;">
+                            <div style="width: 60px; height: 60px; border-radius: 50%; background: #FEF3C7; color: #D97706; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                                <i data-lucide="lock" style="width: 30px; height: 30px;"></i>
+                            </div>
+                            <h3 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 10px; color: var(--text-main);">פיצ'ר Pro בלבד</h3>
+                            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 25px; line-height: 1.6;">מערכת זרימת העבודה והתזכורות האוטומטיות זמינה למנויי Pro בלבד. זה יחסוך לך זמן רב של עבודה ידנית בכל שבוע.</p>
+                            <button onclick="app.openUpgradeModal()" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;">שדרוג ל-Pro עכשיו</button>
+                        </div>
+                    </div>
+                    ` : ''}
                     <div class="section-header">
                         <div class="header-text">
                             <h2 class="section-title">תזרים עבודה ותזכורות אוטומטיות (Workflow)</h2>
                             <p class="section-desc">ניהול אבני דרך קריטיות לכל פרויקט - המערכת תזכיר לך מה לעשות ומתי.</p>
                         </div>
+                        ${!isProfessional ? '<span class="badge badge-quote" style="background: #FEF3C7; color: #D97706; border: none; font-weight: 800; padding: 6px 12px; border-radius: 20px;">PRO</span>' : ''}
                     </div>
                     <div class="card-list" style="padding: 20px;">
                         <!-- מתג הפעלה ראשי -->
@@ -1224,12 +1237,12 @@ async renderDashboard() {
                                     <i data-lucide="shield-check" style="width: 24px; height: 24px;"></i>
                                 </div>
                                 <div>
-                                    <div style="font-weight: 700; color: var(--text-main);">סטטוס מערכת Workflow</div>
+                                    <div style="font-weight: 700; color: var(--text-main);">סטטוס מערכת Workflow ${!isProfessional ? ' (נעול)' : ''}</div>
                                     <div style="font-size: 0.85rem; color: var(--text-muted);">כשהמערכת פעילה, יישלחו תזכורות למייל הרישום שלך.</div>
                                 </div>
                             </div>
                             <label class="switch-container" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                                <input type="checkbox" id="settings-reminders-enabled" ${profile?.reminders_enabled ? 'checked' : ''} onchange="app.toggleReminders(this.checked)" style="width: 20px; height: 20px;">
+                                <input type="checkbox" id="settings-reminders-enabled" ${profile?.reminders_enabled ? 'checked' : ''} ${!isProfessional ? 'disabled' : `onchange="app.toggleReminders(this.checked)"`} style="width: 20px; height: 20px;">
                                 <span style="font-weight: 600;">${profile?.reminders_enabled ? 'פעיל' : 'כבוי'}</span>
                             </label>
                         </div>
@@ -1251,7 +1264,7 @@ async renderDashboard() {
                                     <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">טעינת סוללות, ריקון כרטיסים ושליחת הודעת אישור ללקוח.</div>
                                     <div style="margin-top: auto;">
                                         <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">תזמון שליחה:</div>
-                                        <select id="settings-reminders-before" onchange="app.updateRemindersConfig()" style="width: 100%; font-size: 0.85rem; padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
+                                        <select id="settings-reminders-before" ${!isProfessional ? 'disabled' : 'onchange="app.updateRemindersConfig()"'} style="width: 100%; font-size: 0.85rem; padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
                                             <option value="1" ${profile?.reminders_config?.before_shoot_days === 1 ? 'selected' : ''}>יום אחד לפני</option>
                                             <option value="2" ${profile?.reminders_config?.before_shoot_days === 2 ? 'selected' : ''}>יומיים לפני</option>
                                             <option value="3" ${profile?.reminders_config?.before_shoot_days === 3 ? 'selected' : ''}>3 ימים לפני</option>
@@ -1270,7 +1283,7 @@ async renderDashboard() {
                                     <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">מניעת אובדן מידע קריטי ותחילת תהליך פוסט-פרודקשן.</div>
                                     <div style="margin-top: auto;">
                                         <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">תזמון שליחה:</div>
-                                        <select id="settings-reminders-after" onchange="app.updateRemindersConfig()" style="width: 100%; font-size: 0.85rem; padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
+                                        <select id="settings-reminders-after" ${!isProfessional ? 'disabled' : 'onchange="app.updateRemindersConfig()"'} style="width: 100%; font-size: 0.85rem; padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
                                             <option value="1" ${profile?.reminders_config?.after_shoot_days === 1 ? 'selected' : ''}>יום אחד אחרי</option>
                                             <option value="2" ${profile?.reminders_config?.after_shoot_days === 2 ? 'selected' : ''}>יומיים אחרי</option>
                                             <option value="3" ${profile?.reminders_config?.after_shoot_days === 3 ? 'selected' : ''}>3 ימים אחרי</option>
@@ -1298,11 +1311,12 @@ async renderDashboard() {
                                     <i data-lucide="clock" style="width: 18px; height: 18px; color: var(--text-muted);"></i>
                                     <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">שעת שליחת התזכורות:</div>
                                 </div>
-                                <input type="time" id="settings-reminders-hour" onchange="app.updateRemindersConfig()" value="${profile?.reminders_config?.reminder_hour || '08:00'}" style="width: 120px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: white;">
+                                <input type="time" id="settings-reminders-hour" ${!isProfessional ? 'disabled' : 'onchange="app.updateRemindersConfig()"'} value="${profile?.reminders_config?.reminder_hour || '08:00'}" style="width: 120px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: white;">
                             </div>
                         </div>
                     </div>
                 </section>
+
 
 
                                 <div style="background: #F0F9FF; padding: 16px; border-radius: 12px; border: 1px solid #BAE6FD; margin-top: 10px;">
