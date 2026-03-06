@@ -2164,23 +2164,21 @@ const app = {
         // 2. Set default reminder selection logic
         let calculatedDate = task.due_date;
 
-        // Special case for "שליחת תזכורת יום לפני" task
-        if (!calculatedDate && task.content && task.content.includes('שליחת תזכורת יום לפני')) {
-            if (projectShootDate) {
-                const parts = projectShootDate.split('-');
-                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                d.setDate(d.getDate() - 1);
-                
-                const y = d.getFullYear();
-                const m = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                calculatedDate = `${y}-${m}-${day}`;
-                
-                // If the task field was actually empty, auto-fill it
-                const taskDueEl = document.getElementById('task-due-date');
-                if (!taskDueEl.value) {
-                    this._setElementDate('task-due-date', calculatedDate);
-                }
+        // Auto-calculate due date if missing for project tasks (1 day before shoot)
+        if (!calculatedDate && this.editingProjectId && projectShootDate) {
+            const parts = projectShootDate.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            d.setDate(d.getDate() - 1);
+            
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            calculatedDate = `${y}-${m}-${day}`;
+            
+            // If the task field was actually empty, auto-fill it
+            const taskDueEl = document.getElementById('task-due-date');
+            if (taskDueEl && !taskDueEl.value) {
+                this._setElementDate('task-due-date', calculatedDate);
             }
         }
 

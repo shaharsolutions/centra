@@ -336,6 +336,7 @@ async renderDashboard() {
 
     async renderClients(searchQuery = '', filterSource = 'all', sortBy = 'name-asc', filterCity = 'all') {
         const clients = await Store.getClients();
+        const projects = await Store.getProjects();
         
         // Get unique cities for filter
         const cities = [...new Set(clients.map(c => c.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
@@ -354,10 +355,239 @@ async renderDashboard() {
             if (sortBy === 'name-desc') return (b.name || '').localeCompare(a.name || '', 'he');
             if (sortBy === 'city-asc') return (a.city || '').localeCompare(b.city || '', 'he');
             if (sortBy === 'city-desc') return (b.city || '').localeCompare(a.city || '', 'he');
+            if (sortBy === 'projects-desc') {
+                const aCount = projects.filter(p => String(p.client_id) === String(a.id)).length;
+                const bCount = projects.filter(p => String(p.client_id) === String(b.id)).length;
+                return bCount - aCount;
+            }
+            if (sortBy === 'revenue-desc') {
+                const aRev = projects.filter(p => String(p.client_id) === String(a.id)).reduce((s, p) => s + (p.payments?.total || 0), 0);
+                const bRev = projects.filter(p => String(p.client_id) === String(b.id)).reduce((s, p) => s + (p.payments?.total || 0), 0);
+                return bRev - aRev;
+            }
             return 0;
         });
 
-        let contentHtml = `
+        // ===== STATISTICS =====
+        const totalClients = clients.length;
+        
+        // Source breakdown
+        const sourceCounts = {};
+        clients.forEach(c => {
+            const src = c.source || 'other';
+            sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+        });
+        const sourceLabels = { whatsapp: 'וואטסאפ', instagram: 'אינסטגרם', facebook: 'פייסבוק', recommendation: 'המלצה', other: 'אחר' };
+        const sourceIcons = { whatsapp: 'message-circle', instagram: 'instagram', facebook: 'facebook', recommendation: 'heart', other: 'help-circle' };
+        const sourceColors = { whatsapp: '#25D366', instagram: '#E1306C', facebook: '#1877F2', recommendation: '#F59E0B', other: '#6B7280' };
+        
+        // Top source
+        const topSource = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1])[0];
+        
+        // City breakdown
+        const cityCounts = {};
+        clients.forEach(c => { if (c.city) cityCounts[c.city] = (cityCounts[c.city] || 0) + 1; });
+        const topCities = Object.entries(cityCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        
+        // Projects per client
+        const clientProjectCounts = {};
+        projects.forEach(p => {
+            if (p.client_id) clientProjectCounts[p.client_id] = (clientProjectCounts[p.client_id] || 0) + 1;
+        });
+        const avgProjects = totalClients > 0 ? (projects.length / totalClients).toFixed(1) : '0';
+        const returningClients = Object.values(clientProjectCounts).filter(c => c > 1).length;
+        
+        // Revenue per client
+        const clientRevenue = {};
+        projects.forEach(p => {
+            if (p.client_id && p.payments?.total) {
+                clientRevenue[p.client_id] = (clientRevenue[p.client_id] || 0) + (p.payments.total || 0);
+            }
+        });
+        const totalRevenue = Object.values(clientRevenue).reduce((s, v) => s + v, 0);
+        const avgRevenue = totalClients > 0 ? Math.round(totalRevenue / totalClients) : 0;
+
+        // Top clients by revenue
+        const topClientsByRevenue = Object.entries(clientRevenue)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([id, rev]) => {
+                const client = clients.find(c => String(c.id) === String(id));
+                return { name: client?.name || 'לא ידוע', revenue: rev };
+            });
+
+        // Recent clients (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const recentClients = clients.filter(c => c.created_at && new Date(c.created_at) >= thirtyDaysAgo);
+
+        // Conversion rate (clients with at least one closed/delivered project)
+        const convertedStatuses = ['closed', 'shooting', 'editing', 'delivered', 'published', 'archived'];
+        const clientsWithConversion = new Set();
+        projects.forEach(p => {
+            if (p.client_id && convertedStatuses.includes(p.status)) {
+                clientsWithConversion.add(String(p.client_id));
+            }
+        });
+        const conversionRate = totalClients > 0 ? Math.round((clientsWithConversion.size / totalClients) * 100) : 0;
+
+        // ===== Build HTML =====
+        let contentHtml = '';
+
+        // Stats Cards Row
+        contentHtml += `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <!-- Total Clients -->
+                <div style="background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border); position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -10px; left: -10px; width: 60px; height: 60px; background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(124,58,237,0.05)); border-radius: 50%;"></div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                        <div style="background: linear-gradient(135deg, #7C3AED, #6D28D9); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i data-lucide="users" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">סה״כ לקוחות</div>
+                            <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); line-height: 1;">${totalClients}</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        ${recentClients.length > 0 ? `<span style="color: #10B981; font-weight: 600;">+${recentClients.length}</span> ב-30 יום אחרונים` : 'אין לקוחות חדשים החודש'}
+                    </div>
+                </div>
+
+                <!-- Conversion Rate -->
+                <div style="background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border); position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -10px; left: -10px; width: 60px; height: 60px; background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05)); border-radius: 50%;"></div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                        <div style="background: linear-gradient(135deg, #10B981, #059669); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i data-lucide="trending-up" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">אחוז סגירה</div>
+                            <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); line-height: 1;">${conversionRate}%</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">${clientsWithConversion.size} מתוך ${totalClients} לקוחות סגרו עסקה</div>
+                </div>
+
+                <!-- Returning Clients -->
+                <div style="background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border); position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -10px; left: -10px; width: 60px; height: 60px; background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.05)); border-radius: 50%;"></div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                        <div style="background: linear-gradient(135deg, #F59E0B, #D97706); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i data-lucide="repeat" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">לקוחות חוזרים</div>
+                            <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); line-height: 1;">${returningClients}</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">ממוצע ${avgProjects} פרויקטים ללקוח</div>
+                </div>
+
+                <!-- Average Revenue -->
+                <div style="background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border); position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -10px; left: -10px; width: 60px; height: 60px; background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05)); border-radius: 50%;"></div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                        <div style="background: linear-gradient(135deg, #3B82F6, #2563EB); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i data-lucide="wallet" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">הכנסה ממוצעת ללקוח</div>
+                            <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); line-height: 1;">₪${avgRevenue.toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">סה״כ ₪${totalRevenue.toLocaleString()} מכל הלקוחות</div>
+                </div>
+            </div>
+        `;
+
+        // Insights Row
+        contentHtml += `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                
+                <!-- Source Breakdown -->
+                <div style="background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-weight: 700; color: var(--text-main);">
+                        <i data-lucide="pie-chart" style="width: 16px; color: var(--primary);"></i>
+                        התפלגות מקורות הפנייה
+                    </div>
+                    ${Object.entries(sourceCounts).sort((a,b) => b[1] - a[1]).map(([src, count]) => {
+                        const pct = totalClients > 0 ? Math.round((count / totalClients) * 100) : 0;
+                        return `
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                <div style="width: 28px; height: 28px; border-radius: 8px; background: ${sourceColors[src] || '#6B7280'}15; display: flex; align-items: center; justify-content: center;">
+                                    <i data-lucide="${sourceIcons[src] || 'help-circle'}" style="width: 14px; color: ${sourceColors[src] || '#6B7280'};"></i>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="font-size: 0.8rem; font-weight: 600;">${sourceLabels[src] || src}</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">${count} (${pct}%)</span>
+                                    </div>
+                                    <div style="height: 6px; background: #F3F4F6; border-radius: 3px; overflow: hidden;">
+                                        <div style="height: 100%; width: ${pct}%; background: ${sourceColors[src] || '#6B7280'}; border-radius: 3px; transition: width 0.5s ease;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <!-- Top Cities -->
+                <div style="background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-weight: 700; color: var(--text-main);">
+                        <i data-lucide="map-pin" style="width: 16px; color: var(--primary);"></i>
+                        ערים מובילות
+                    </div>
+                    ${topCities.length === 0 ? '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 20px;">לא הוזנו ערים עדיין</div>' :
+                    topCities.map(([city, count], i) => {
+                        const pct = totalClients > 0 ? Math.round((count / totalClients) * 100) : 0;
+                        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+                        return `
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                <span style="font-size: 1rem; width: 24px; text-align: center;">${medal || (i + 1)}</span>
+                                <div style="flex: 1;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="font-size: 0.8rem; font-weight: 600;">${city}</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">${count} לקוחות</span>
+                                    </div>
+                                    <div style="height: 6px; background: #F3F4F6; border-radius: 3px; overflow: hidden;">
+                                        <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #7C3AED, #A78BFA); border-radius: 3px; transition: width 0.5s ease;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <!-- Top Clients by Revenue -->
+                <div style="background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-weight: 700; color: var(--text-main);">
+                        <i data-lucide="crown" style="width: 16px; color: #F59E0B;"></i>
+                        לקוחות מובילים (הכנסה)
+                    </div>
+                    ${topClientsByRevenue.length === 0 ? '<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 20px;">אין נתוני הכנסה עדיין</div>' :
+                    topClientsByRevenue.map((tc, i) => {
+                        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+                        return `
+                            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 8px; background: ${i === 0 ? 'linear-gradient(135deg, #FFFBEB, #FEF3C7)' : '#F9FAFB'}; border-radius: 10px; border: 1px solid ${i === 0 ? '#FDE68A' : '#F3F4F6'};">
+                                <span style="font-size: 1.2rem;">${medal}</span>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-main);">${tc.name}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted);">${projects.filter(p => {
+                                        const cl = clients.find(c => c.name === tc.name);
+                                        return cl && String(p.client_id) === String(cl.id);
+                                    }).length} פרויקטים</div>
+                                </div>
+                                <div style="font-weight: 800; font-size: 0.95rem; color: #059669;">₪${tc.revenue.toLocaleString()}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        // Filters Bar
+        contentHtml += `
             <div class="filters-bar" style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; background: white; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); align-items: center;">
                 <div style="flex: 1; min-width: 200px; position: relative;">
                     <i data-lucide="search" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 14px; color: var(--text-muted); pointer-events: none;"></i>
@@ -393,6 +623,8 @@ async renderDashboard() {
                         <option value="name-desc" ${sortBy === 'name-desc' ? 'selected' : ''}>שם (ת-א)</option>
                         <option value="city-asc" ${sortBy === 'city-asc' ? 'selected' : ''}>עיר (א-ת)</option>
                         <option value="city-desc" ${sortBy === 'city-desc' ? 'selected' : ''}>עיר (ת-א)</option>
+                        <option value="projects-desc" ${sortBy === 'projects-desc' ? 'selected' : ''}>מס׳ פרויקטים</option>
+                        <option value="revenue-desc" ${sortBy === 'revenue-desc' ? 'selected' : ''}>הכנסה</option>
                     </select>
                 </div>
                 <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">
@@ -401,39 +633,55 @@ async renderDashboard() {
             </div>
         `;
 
+        // Client List - enhanced with project count and revenue
         if (filteredClients.length === 0) {
             contentHtml += `<div style="padding: 40px; text-align: center; color: var(--text-muted); background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border);">לא נמצאו לקוחות מתאימים.</div>`;
         } else {
             contentHtml += `
                 <div class="card-list">
-                    ${filteredClients.map(c => `
-                        <div class="list-item">
-                            <div class="item-info">
-                                <span class="item-name">${c.name}</span>
-                                ${c.organization ? `<span class="item-sub" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; margin-top: -2px; margin-bottom: 2px;">${c.organization}</span>` : ''}
-                                <span class="item-sub">${c.phone} | ${this.getSourceLabel(c.source)}${c.city ? ' | ' + c.city : ''}</span>
+                    ${filteredClients.map(c => {
+                        const clientProjects = projects.filter(p => String(p.client_id) === String(c.id));
+                        const clientRev = clientProjects.reduce((s, p) => s + (p.payments?.total || 0), 0);
+                        const lastProject = clientProjects.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
+                        return `
+                        <div class="list-item" style="align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0;">
+                                <div style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #7C3AED, #A78BFA); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; flex-shrink: 0;">
+                                    ${(c.name || '?').charAt(0)}
+                                </div>
+                                <div class="item-info" style="min-width: 0;">
+                                    <span class="item-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${c.name}</span>
+                                    ${c.organization ? `<span class="item-sub" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-top: -2px; margin-bottom: 2px;">${c.organization}</span>` : ''}
+                                    <span class="item-sub" style="font-size: 0.78rem;">${c.phone || ''} ${c.phone && c.source ? '|' : ''} ${this.getSourceLabel(c.source)}${c.city ? ' | ' + c.city : ''}</span>
+                                </div>
                             </div>
-                            <div class="item-actions">
-                                <a href="https://wa.me/972${c.phone?.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm whatsapp-btn" title="שליחת וואטסאפ" style="padding: 4px 8px;">
-                                    <img src="assets/whatsapp.png" alt="WhatsApp" style="width: 16px; height: 16px;">
-                                </a>
-                                <button class="btn btn-secondary btn-sm" onclick="app.viewClient('${c.id}')" title="צפייה בלקוח" style="padding: 4px 8px;">
-                                    <i data-lucide="eye"></i>
-                                </button>
-                                <button class="btn btn-secondary btn-sm delete-btn" onclick="app.directDeleteClient('${c.id}')" title="מחיקת לקוח" style="padding: 4px 8px;">
-                                    <i data-lucide="trash-2"></i>
-                                </button>
-                                <button class="btn btn-primary btn-sm" onclick="app.openProjectModal('פרויקט חדש', null, '${c.id}')" title="פרויקט חדש" style="font-size: 0.8rem;">+ פרויקט</button>
+                            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end;">
+                                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                    ${clientProjects.length > 0 ? `<span style="font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #EDE9FE; color: #6D28D9; white-space: nowrap;">${clientProjects.length} פרויקטים</span>` : '<span style="font-size: 0.7rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: #F3F4F6; color: #9CA3AF; white-space: nowrap;">ללא פרויקטים</span>'}
+                                    ${clientRev > 0 ? `<span style="font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #DCFCE7; color: #166534; white-space: nowrap;">₪${clientRev.toLocaleString()}</span>` : ''}
+                                </div>
+                                <div class="item-actions" style="gap: 4px;">
+                                    <a href="https://wa.me/972${c.phone?.replace(/^0/, '')}" target="_blank" class="btn btn-secondary btn-sm whatsapp-btn" title="שליחת וואטסאפ" style="padding: 4px 8px;">
+                                        <img src="assets/whatsapp.png" alt="WhatsApp" style="width: 16px; height: 16px;">
+                                    </a>
+                                    <button class="btn btn-secondary btn-sm" onclick="app.viewClient('${c.id}')" title="צפייה בלקוח" style="padding: 4px 8px;">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm delete-btn" onclick="app.directDeleteClient('${c.id}')" title="מחיקת לקוח" style="padding: 4px 8px;">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                    <button class="btn btn-primary btn-sm" onclick="app.openProjectModal('פרויקט חדש', null, '${c.id}')" title="פרויקט חדש" style="font-size: 0.8rem;">+ פרויקט</button>
+                                </div>
                             </div>
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 </div>
             `;
         }
 
         document.getElementById('view-container').innerHTML = contentHtml;
         document.getElementById('view-title').innerText = 'ניהול לקוחות';
-        document.getElementById('view-subtitle').innerText = 'כל הלקוחות במקום אחד.';
+        document.getElementById('view-subtitle').innerText = 'סיכום לקוחות, סטטיסטיקות ותובנות.';
         
         // Focus search input and put cursor at end if it was focused
         const searchInput = document.getElementById('client-search');
@@ -443,10 +691,10 @@ async renderDashboard() {
         }
 
         if (window.lucide) {
-        lucide.createIcons({
-            root: document.getElementById('app')
-        });
-    }
+            lucide.createIcons({
+                root: document.getElementById('app')
+            });
+        }
     },
 
     async renderProjects() {

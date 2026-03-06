@@ -1496,7 +1496,26 @@ const Store = {
         let savedItemId = item.id;
         const isCompleted = item.isCompleted !== undefined ? item.isCompleted : (item.is_completed !== undefined ? item.is_completed : false);
         const projectId = item.projectId || item.project_id || null;
-        const dueDate = item.dueDate || item.due_date || null;
+        let dueDate = item.dueDate || item.due_date || null;
+
+        // Default due date: one day before shoot date if assigned to a project and date is missing
+        if (!dueDate && projectId) {
+            try {
+                const projects = await this.getProjects();
+                const project = projects.find(p => String(p.id) === String(projectId));
+                if (project && project.shoot_date) {
+                    const parts = project.shoot_date.split('-');
+                    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    d.setDate(d.getDate() - 1);
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    dueDate = `${y}-${m}-${day}`;
+                }
+            } catch (e) {
+                console.warn('Error calculating default due date:', e);
+            }
+        }
 
         // If table doesn't exist or RLS is blocking consistently, stay local
         if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
