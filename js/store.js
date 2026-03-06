@@ -1167,22 +1167,38 @@ const Store = {
             }
         });
 
-        return allItems;
+        return allItems.map(item => {
+        if (typeof item.reminders === 'string') {
+            try { item.reminders = JSON.parse(item.reminders); } catch(e) { item.reminders = []; }
+        }
+        return item;
+    });
     },
 
     async getTaskById(id) {
         if (this._checklistTableExists === false || String(id).startsWith('local_')) {
             const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-            return localItems.find(item => String(item.id) === String(id));
+            const task = localItems.find(item => String(item.id) === String(id));
+            if (task && typeof task.reminders === 'string') {
+                try { task.reminders = JSON.parse(task.reminders); } catch(e) { task.reminders = []; }
+            }
+            return task;
         }
 
         try {
             const { data, error } = await sb.from('project_checklists').select('*, projects(name)').eq('id', id).maybeSingle();
             if (error) throw error;
+            if (data && typeof data.reminders === 'string') {
+                try { data.reminders = JSON.parse(data.reminders); } catch(e) { data.reminders = []; }
+            }
             return data;
         } catch (e) {
             const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-            return localItems.find(item => String(item.id) === String(id));
+            const task = localItems.find(item => String(item.id) === String(id));
+            if (task && typeof task.reminders === 'string') {
+                try { task.reminders = JSON.parse(task.reminders); } catch(e) { task.reminders = []; }
+            }
+            return task;
         }
     },
 
@@ -1240,8 +1256,13 @@ const Store = {
             return projectIds.has(String(pid));
         });
 
-        this._cache.tasks = finalTasks;
-        return finalTasks;
+        this._cache.tasks = finalTasks.map(item => {
+            if (typeof item.reminders === 'string') {
+                try { item.reminders = JSON.parse(item.reminders); } catch(e) { item.reminders = []; }
+            }
+            return item;
+        });
+        return this._cache.tasks;
     },
 
     cleanupDuplicates() {
@@ -1495,9 +1516,11 @@ const Store = {
                 };
 
                 // Only add reminders if the column is known to exist
-                if (this._remindersColumnExists !== false) {
-                    dataToSave.reminders = item.reminders || [];
-                }
+            if (this._remindersColumnExists !== false) {
+                const remindersData = item.reminders || [];
+                // Stringify the array to avoid "invalid input syntax for type json" if column is TEXT
+                dataToSave.reminders = typeof remindersData === 'string' ? remindersData : JSON.stringify(remindersData);
+            }
 
                 // Only add notes if the column is known to exist
                 if (this._notesColumnExists !== false) {
@@ -1859,9 +1882,9 @@ const Store = {
                             const day = String(d.getDate()).padStart(2, '0');
                             dueDate = `${y}-${m}-${day}`;
                         }
-                        if (clientName) {
-                            finalContent = `${content} (${clientName})`;
-                        }
+                    }
+                    if (clientName) {
+                        finalContent = `${content} (${clientName})`;
                     }
                     return { projectId, content: finalContent, category: 'shoot', dueDate };
                 }),
@@ -1882,10 +1905,12 @@ const Store = {
             const reminderDate = `${y}-${m}-${day}`;
             const content = clientName ? `שליחת תזכורת יום לפני (${clientName})` : 'שליחת תזכורת יום לפני';
             
+            const reminderHour = profile?.reminders_config?.reminder_hour || '08:00';
+        
             const autoReminders = [{
                 id: 'auto_1',
                 date: reminderDate,
-                hour: '08:00',
+                hour: reminderHour,
                 sent: false
             }];
 
@@ -1927,14 +1952,38 @@ const Store = {
                 const day = String(d.getDate()).padStart(2, '0');
                 const wdateStr = `${y}-${m}-${day}`;
                 
-                const existing = existingItems.find(i => i.content.includes(wt.content.split('/')[0]));
+                const baseContent = wt.content;
+                let finalContent = baseContent;
+                if (clientName) {
+                    finalContent = `${baseContent} (${clientName})`;
+                }
+
+                const existing = existingItems.find(i => i.content.includes(baseContent.split('/')[0]));
                 if (!existing) {
-                    itemsToSave.push({
+                    let taskData = {
                         project_id: projectId,
-                        content: wt.content,
+                        content: finalContent,
                         category: 'workflow',
                         due_date: wdateStr
-                    });
+                    };
+
+                    if (baseContent === 'יצירת גיבוי לחומרים מהצילומים' && pDate) {
+                        taskData.reminders = [{
+                            id: 'auto_backup_1',
+                            date: wdateStr,
+                            hour: '18:00',
+                            sent: false
+                        }];
+                    }
+
+                    itemsToSave.push(taskData);
+                } else if (clientName && existing.content !== finalContent) {
+                    // Update existing task if client name changed and it doesn't match
+                    const existingBase = existing.content.split(' (')[0];
+                    if (existingBase === baseContent) {
+                        existing.content = finalContent;
+                        itemsToSave.push(existing);
+                    }
                 }
             }
         }
@@ -2035,6 +2084,7 @@ const Store = {
         console.log('Defaults for category', category, ':', categoryDefaults.length);
 
         const pDate = shootDate || projectData?.shoot_date || projectData?.shootDate;
+        const profile = await this.getUserProfile();
 
         const itemsToSave = categoryDefaults.map(content => {
             let dueDate = null;
@@ -2050,14 +2100,15 @@ const Store = {
                     const m = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
                     dueDate = `${y}-${m}-${day}`;
-                    
-                    // Add automatic reminder object
-                    reminders = [{
-                        id: 'auto_' + Date.now(),
-                        date: dueDate,
-                        hour: '08:00',
-                        sent: false
-                    }];
+                    if (reminders === '[]' || (Array.isArray(reminders) && reminders.length === 0)) {
+                        const rHour = profile?.reminders_config?.reminder_hour || '08:00';
+                        reminders = [{
+                            id: 'auto_' + Date.now(),
+                            date: dueDate,
+                            hour: rHour,
+                            sent: false
+                        }];
+                    }
                 }
                 if (clientName) {
                     finalContent = `${content} (${clientName})`;

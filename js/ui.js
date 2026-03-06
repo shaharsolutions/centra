@@ -647,61 +647,81 @@ async renderDashboard() {
                         ${filteredTasks.length} משימות
                     </div>
                 </div>
-            </div>
+            `;
 
+            const projectsCache = await Store.getProjects();
+            const projectMap = {};
+            projectsCache.forEach(p => { 
+                projectMap[String(p.id)] = p; 
+            });
+
+            const tasksToRender = filteredTasks.map(t => {
+                const pid = t.project_id || t.projectId;
+                const resolvedProj = pid ? projectMap[String(pid)] : null;
+                const projectName = t.projects?.name || resolvedProj?.name || (pid ? 'פרויקט לא ידוע' : 'משימה כללית');
+                const clientName = t.projects?.clients?.name || resolvedProj?.clients?.name || '';
+                const isGlobal = !pid;
+                const isStyling = t.category === 'styling' || (t.content || '').includes('שיחת סטיילינג');
+                const remindersCount = (t.reminders || []).length;
+                
+                let badgeBg = '#F3E8FF';
+                let badgeColor = '#7E22CE';
+                let badgeLabel = 'כללי';
+
+                if (!isGlobal) {
+                    if (isStyling) {
+                        badgeBg = '#D1FAE5';
+                        badgeColor = '#059669';
+                        badgeLabel = 'סטיילינג';
+                    } else {
+                        badgeBg = '#E0F2FE';
+                        badgeColor = '#0369A1';
+                        badgeLabel = clientName ? `${projectName} (${clientName})` : projectName;
+                    }
+                }
+
+                return {
+                    ...t,
+                    projectName,
+                    badgeBg,
+                    badgeColor,
+                    badgeLabel,
+                    remindersCount,
+                    dueDateStr: t.due_date ? new Date(t.due_date).toLocaleDateString('he-IL') : null,
+                    createdDateStr: new Date(t.created_at).toLocaleDateString('he-IL')
+                };
+            });
+
+            html += `
             <div class="card-list">
-                ${filteredTasks.length === 0 ? 
+                ${tasksToRender.length === 0 ? 
                     '<div style="padding: 60px 40px; text-align: center; color: var(--text-muted); background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border);">לא נמצאו משימות מתאימות.</div>' : 
-                    filteredTasks.map(t => {
-                        const projectName = t.projects?.name || 'משימה כללית';
-                        const isGlobal = !t.project_id;
-                        const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
-                        const dueDate = t.due_date ? new Date(t.due_date).toLocaleDateString('he-IL') : null;
-                        const remindersCount = (t.reminders || []).length;
-                        
-                        let badgeBg = '#F3E8FF';
-                        let badgeColor = '#7E22CE';
-                        let badgeLabel = 'כללי';
-
-                        if (!isGlobal) {
-                            if (isStyling) {
-                                badgeBg = '#D1FAE5';
-                                badgeColor = '#059669';
-                                badgeLabel = 'סטיילינג';
-                            } else {
-                                badgeBg = '#E0F2FE';
-                                badgeColor = '#0369A1';
-                                badgeLabel = projectName;
-                            }
-                        }
-
-                        return `
-                            <div class="list-item" style="opacity: ${t.is_completed ? '0.6' : '1'}; transition: all 0.2s;">
-                                <div style="display:flex; align-items:flex-start; gap:12px; flex:1;">
-                                    <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="app.toggleChecklistItem('${t.id}', this.checked, '${t.project_id || ''}')" style="width:20px; height:20px; margin-top:2px;">
-                                    <div style="flex:1;">
-                                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap: wrap;">
-                                            <span style="font-weight:600; font-size:1rem; cursor:pointer; ${t.is_completed ? 'text-decoration:line-through; color:var(--text-muted)' : 'color:var(--text-main)'}" onclick="app.viewTask('${t.id}')">${t.content}</span>
-                                            <span style="font-size: 0.7rem; background:${badgeBg}; color:${badgeColor}; padding:2px 8px; border-radius:999px; font-weight:700;">${badgeLabel}</span>
-                                            ${remindersCount > 0 ? `<span style="font-size: 0.7rem; background:#FFFBEB; color:#92400E; padding:2px 8px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px;"><i data-lucide="bell" style="width:10px;"></i> ${remindersCount}</span>` : ''}
-                                        </div>
-                                        <div style="display:flex; gap:12px; align-items:center; font-size:0.8rem; color:var(--text-muted);">
-                                            ${dueDate ? `<span style="display:flex; align-items:center; gap:4px;"><i data-lucide="calendar" style="width:14px;"></i> תאריך יעד: ${dueDate}</span>` : ''}
-                                            <span style="display:flex; align-items:center; gap:4px;"><i data-lucide="plus" style="width:14px;"></i> נוסף ב: ${new Date(t.created_at).toLocaleDateString('he-IL')}</span>
-                                        </div>
+                    tasksToRender.map(t => `
+                        <div class="list-item" style="opacity: ${t.is_completed ? '0.6' : '1'}; transition: all 0.2s;">
+                            <div style="display:flex; align-items:flex-start; gap:12px; flex:1;">
+                                <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="app.toggleChecklistItem('${t.id}', this.checked, '${t.project_id || ''}')" style="width:20px; height:20px; margin-top:2px;">
+                                <div style="flex:1;">
+                                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap: wrap;">
+                                        <span style="font-weight:600; font-size:1rem; cursor:pointer; ${t.is_completed ? 'text-decoration:line-through; color:var(--text-muted)' : 'color:var(--text-main)'}" onclick="app.viewTask('${t.id}')">${t.content}</span>
+                                        <span style="font-size: 0.7rem; background:${t.badgeBg}; color:${t.badgeColor}; padding:2px 8px; border-radius:999px; font-weight:700;">${t.badgeLabel}</span>
+                                        ${t.remindersCount > 0 ? `<span style="font-size: 0.7rem; background:#FFFBEB; color:#92400E; padding:2px 8px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px;"><i data-lucide="bell" style="width:10px;"></i> ${t.remindersCount}</span>` : ''}
+                                    </div>
+                                    <div style="display:flex; gap:12px; align-items:center; font-size:0.8rem; color:var(--text-muted);">
+                                        ${t.dueDateStr ? `<span style="display:flex; align-items:center; gap:4px;"><i data-lucide="calendar" style="width:14px;"></i> תאריך יעד: ${t.dueDateStr}</span>` : ''}
+                                        <span style="display:flex; align-items:center; gap:4px;"><i data-lucide="plus" style="width:14px;"></i> נוסף ב: ${t.createdDateStr}</span>
                                     </div>
                                 </div>
-                                <div class="item-actions">
-                                    <button class="btn btn-secondary btn-sm" onclick="app.viewTask('${t.id}')">
-                                        <i data-lucide="edit-2"></i>
-                                    </button>
-                                    <button class="btn btn-secondary btn-sm delete-btn" onclick="app.deleteChecklistItem('${t.id}', '${t.project_id || ''}')">
-                                        <i data-lucide="trash-2"></i>
-                                    </button>
-                                </div>
                             </div>
-                        `;
-                    }).join('')
+                            <div class="item-actions">
+                                <button class="btn btn-secondary btn-sm" onclick="app.viewTask('${t.id}')">
+                                    <i data-lucide="edit-2"></i>
+                                </button>
+                                <button class="btn btn-secondary btn-sm delete-btn" onclick="app.deleteChecklistItem('${t.id}', '${t.project_id || ''}')">
+                                    <i data-lucide="trash-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')
                 }
             </div>
         `;

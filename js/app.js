@@ -74,8 +74,8 @@ const app = {
         // Check if the 14-day trial for Pro has expired
         await this.checkTrialStatus().catch(e => console.error('Trial check failed:', e));
         
-        // Check for project reminders
-        await this.checkReminders().catch(e => console.error('Reminders check failed:', e));
+        // Start periodic reminders check
+        this.startReminderInterval();
         
         await this.navigate('dashboard');
     },
@@ -210,6 +210,27 @@ const app = {
             
             if (selectedPackage) {
                 document.getElementById('proj-total-price').value = selectedPackage.price;
+            }
+        });
+
+        // Update reminder task if client changes before saving a new project
+        document.getElementById('project-client').addEventListener('change', (e) => {
+            if (!this.editingProjectId && this._pendingChecklistItems) {
+                const clientSelect = e.target;
+                const clientName = clientSelect.options[clientSelect.selectedIndex]?.text.split(' (')[0] || '';
+                
+                this._pendingChecklistItems = this._pendingChecklistItems.map(item => {
+                    if (item.category === 'shoot' || item.category === 'workflow') {
+                        const baseContent = item.content.split(' (')[0].trim();
+                        if (clientName) {
+                            item.content = `${baseContent} (${clientName})`;
+                        } else {
+                            item.content = baseContent;
+                        }
+                    }
+                    return item;
+                });
+                UI.renderChecklist(null);
             }
         });
 
@@ -607,7 +628,10 @@ const app = {
         
         // Reset new reminder inputs
         document.getElementById('new-task-reminder-date').value = '';
-        document.getElementById('new-task-reminder-hour').value = '08:00';
+        Store.getUserProfile().then(profile => {
+            const preferredHour = profile?.reminders_config?.reminder_hour || '08:00';
+            document.getElementById('new-task-reminder-hour').value = preferredHour;
+        });
     },
 
     async handleLocationSubmit() {
@@ -2080,29 +2104,51 @@ const app = {
         
         // Reset and show modal basic fields
         document.getElementById('task-modal-title').innerText = 'עריכת משימה';
-        document.getElementById('task-content').value = task.content || '';
         this._setElementDate('task-due-date', task.due_date || '');
         document.getElementById('task-completed-checkbox').checked = task.is_completed || false;
         document.getElementById('task-notes').value = task.notes || '';
         
         // Reset new reminder inputs EARLY to avoid overwriting calculated values
         this._setElementDate('new-task-reminder-date', '');
-        document.getElementById('new-task-reminder-hour').value = '08:00';
         
-        this._currentTaskReminders = task.reminders || [];
+        let parsedReminders = [];
+        if (typeof task.reminders === 'string') {
+            try { parsedReminders = JSON.parse(task.reminders); } catch(e) {}
+        } else if (Array.isArray(task.reminders)) {
+            parsedReminders = task.reminders;
+        }
+        this._currentTaskReminders = parsedReminders;
         this.renderTaskReminders();
+        
+        // Use user profile for the default hour, but prefer existing reminder hour if present
+        Store.getUserProfile().then(profile => {
+            let preferredHour = profile?.reminders_config?.reminder_hour || '08:00';
+            if (this._currentTaskReminders.length > 0) {
+                preferredHour = this._currentTaskReminders[0].hour;
+            }
+            document.getElementById('new-task-reminder-hour').value = preferredHour;
+        });
 
-        // 1. Resolve project shoot date if missing from join
-        let projectShootDate = task.projects?.shoot_date;
-        if (!projectShootDate && this.editingProjectId) {
+        // 1. Resolve project shoot date and name if missing from join
+        let resolvedProject = null;
+        if (this.editingProjectId) {
             try {
                 const projects = await Store.getProjects();
-                const project = projects.find(p => String(p.id) === String(this.editingProjectId));
-                projectShootDate = project?.shoot_date;
+                resolvedProject = projects.find(p => String(p.id) === String(this.editingProjectId));
             } catch (e) {
                 console.warn('Could not resolve project for modal defaults');
             }
         }
+
+        const projectShootDate = task.projects?.shoot_date || resolvedProject?.shoot_date;
+        const projectName = task.projects?.name || resolvedProject?.name;
+        const clientName = task.projects?.clients?.name || resolvedProject?.clients?.name;
+        
+        let displayContent = task.content || '';
+        if (clientName && displayContent && !displayContent.includes('(') && (task.category === 'shoot' || task.category === 'workflow')) {
+            displayContent = `${displayContent} (${clientName})`;
+        }
+        document.getElementById('task-content').value = displayContent;
 
         // 2. Set default reminder selection logic
         let calculatedDate = task.due_date;
@@ -2150,8 +2196,12 @@ const app = {
         });
 
         const projectInfo = document.getElementById('task-project-info');
-        if (task.projects) {
-            projectInfo.innerHTML = `משויך לפרויקט: <strong>${task.projects.name}</strong>`;
+        if (projectName) {
+            if (clientName) {
+                projectInfo.innerHTML = `משויך לפרויקט: <strong>${projectName} (${clientName})</strong>`;
+            } else {
+                projectInfo.innerHTML = `משויך לפרויקט: <strong>${projectName}</strong>`;
+            }
         } else {
             projectInfo.innerHTML = 'משימה כללית (לא משויכת לפרויקט)';
         }
@@ -2231,6 +2281,15 @@ const app = {
         }
     },
 
+    updateTaskReminder(id, field, value) {
+        const reminder = this._currentTaskReminders.find(r => r.id === id);
+        if (reminder) {
+            reminder[field] = value;
+            // No need to re-render everything unless we want to show it explicitly
+            // But for date/time it's usually better to just keep it in the input
+        }
+    },
+
     renderTaskReminders() {
         const list = document.getElementById('task-reminders-list');
         if (this._currentTaskReminders.length === 0) {
@@ -2238,18 +2297,35 @@ const app = {
             return;
         }
 
-        list.innerHTML = this._currentTaskReminders.map(r => `
+        list.innerHTML = this._currentTaskReminders.map(r => {
+            if (r.sent) {
+                return `
+                <div style="display: flex; align-items: center; justify-content: space-between; background: #F9FAFB; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem; opacity: 0.8;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="check-circle" style="width: 14px; color: #10B981;"></i>
+                        <span style="color: var(--text-muted);">${new Date(r.date).toLocaleDateString('he-IL')} בשעה ${r.hour}</span>
+                        <span style="color: #10B981; font-weight: 600;">(נשלח)</span>
+                    </div>
+                </div>`;
+            }
+
+            return `
             <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);"></i>
-                    <span>${new Date(r.date).toLocaleDateString('he-IL')} בשעה ${r.hour}</span>
-                    ${r.sent ? '<span style="color: #10B981; font-weight: 600;">(נשלח)</span>' : ''}
+                <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                    <input type="date" value="${r.date}" 
+                        style="border: none; background: transparent; padding: 2px; font-size: 0.85rem; font-family: inherit; width: 110px;"
+                        onchange="app.updateTaskReminder('${r.id}', 'date', this.value)">
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">בשעה</span>
+                    <input type="time" value="${r.hour}" 
+                        style="border: none; background: transparent; padding: 2px; font-size: 0.85rem; font-family: inherit; width: 70px;"
+                        onchange="app.updateTaskReminder('${r.id}', 'hour', this.value)">
                 </div>
-                <button type="button" class="btn-icon" style="color: #EF4444;" onclick="app.removeTaskReminder('${r.id}')">
+                <button type="button" class="btn-icon" style="color: #EF4444; padding: 4px;" onclick="app.removeTaskReminder('${r.id}')">
                     <i data-lucide="x" style="width: 14px;"></i>
                 </button>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
         this._updateQuickRemindersUI();
         if (window.lucide) lucide.createIcons({ root: list });
@@ -2289,20 +2365,32 @@ const app = {
     },
 
     async handleTaskSubmit() {
+        // Ensure any unblurred reminder inputs are synced before saving
+        document.querySelectorAll('#task-reminders-list input').forEach(input => {
+            const oc = input.getAttribute('onchange');
+            if (oc) {
+                const match = oc.match(/app\.updateTaskReminder\('([^']+)',\s*'([^']+)'/);
+                if (match) this.updateTaskReminder(match[1], match[2], input.value);
+            }
+        });
+
         const content = document.getElementById('task-content').value;
         const dueDate = document.getElementById('task-due-date').value;
         const isCompleted = document.getElementById('task-completed-checkbox').checked;
         const notes = document.getElementById('task-notes').value;
 
+        let task = this.editingTaskId ? await Store.getTaskById(this.editingTaskId) : null;
+        let isNew = !task;
+
         const taskData = {
-            id: this.editingTaskId,
-            project_id: this.editingProjectId,
+            id: isNew ? 'local_' + Date.now() : task.id,
+            project_id: isNew ? this.editingProjectId : task.project_id,
             content: content,
             due_date: dueDate || null,
             is_completed: isCompleted,
             notes: notes,
             reminders: this._currentTaskReminders,
-            category: 'general'
+            category: isNew ? 'task' : task.category
         };
 
         const result = await Store.saveChecklistItem(taskData);
@@ -2318,7 +2406,11 @@ const app = {
                     this.viewProject(this.editingProjectId);
                 }
             }
-            UI.showToast('המשימה נשמרה בהצלחה');
+            if (window.UI && typeof UI.showToast === 'function') {
+                UI.showToast('המשימה נשמרה בהצלחה');
+            } else {
+                this.confirmAction('עודכן', 'המשימה נשמרה בהצלחה.', null, true);
+            }
         } else {
             this.confirmAction('שגיאה', 'לא ניתן לשמור את המשימה: ' + result.error, null, true);
         }
@@ -2951,9 +3043,68 @@ const app = {
     },
 
     async checkReminders() {
-        // Background reminders are now handled by Google Apps Script CRON
-        // This function is kept empty to avoid duplicate emails while the app is open.
-        // The GAS script runs once per hour and checks for due reminders.
+        if (!Auth.session) return;
+        
+        const profile = await Store.getUserProfile();
+        if (!profile || !profile.reminders_enabled) return;
+
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const currentHour = now.getHours();
+        const currentMin = now.getMinutes();
+
+        console.log(`Checking reminders at ${currentHour}:${currentMin}...`);
+
+        try {
+            // 1. Task Reminders (Checklist)
+            const tasks = await Store.getAllTasks();
+            for (const task of tasks) {
+                if (task.reminders && Array.isArray(task.reminders) && task.reminders.length > 0) {
+                    let hasChanges = false;
+                    const reminders = [...task.reminders];
+
+                    for (const r of reminders) {
+                        if (r.sent === true) continue;
+
+                        const rDate = r.date;
+                        const rHourStr = r.hour || profile?.reminders_config?.reminder_hour || '08:00';
+                        const [rh, rm] = rHourStr.split(':').map(Number);
+
+                        const isPastDate = rDate < todayStr;
+                        const isToday = rDate === todayStr;
+                        const isPastHour = currentHour > rh || (currentHour === rh && currentMin >= rm);
+
+                        console.log(`- Checking reminder: ${rDate} ${rHourStr}. Result: isPastDate=${isPastDate}, isToday=${isToday}, isPastHour=${isPastHour}`);
+
+                        if (isPastDate || (isToday && isPastHour)) {
+                            console.log(`Sending reminder email for task: ${task.content}`);
+                            await this.prepareTaskReminderEmail(task, true);
+                            r.sent = true;
+                            hasChanges = true;
+                        }
+                    }
+
+                    if (hasChanges) {
+                        task.reminders = reminders;
+                        await Store.saveChecklistItem(task);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error in checkReminders loop:', error);
+        }
+    },
+
+    startReminderInterval() {
+        if (this._reminderInterval) clearInterval(this._reminderInterval);
+        
+        // Check once on start
+        this.checkReminders();
+        
+        // And then every 5 minutes
+        this._reminderInterval = setInterval(() => {
+            this.checkReminders();
+        }, 5 * 60 * 1000);
     },
 
     _isReminderExpired(lastAt) {
@@ -2971,8 +3122,13 @@ const app = {
     async prepareReminderEmail(project, type, days, isAuto = false) {
         const profile = await Store.getUserProfile();
         const myName = profile?.name || 'משתמש Centra';
-        const recipient = profile?.reminders_email || '';
-        if (!recipient) return;
+        const recipient = profile?.reminders_email || profile?.email || Auth.getEmail() || '';
+        if (!recipient) {
+            console.warn('Cannot send project reminder: No recipient email found.');
+            return;
+        }
+
+        console.log(`Preparing to send project reminder email to ${recipient}...`);
 
         const dateStr = new Date(project.shoot_date).toLocaleDateString('he-IL');
         const clientName = project.clients?.name || 'לקוח';
@@ -2981,28 +3137,36 @@ const app = {
         let body = '';
 
         if (type === 'before') {
-            subject = `תזכורת מערכת: יום צילום בעוד ${days} ימים - ${project.name}`;
+            subject = `תזכורת: יום צילום בעוד ${days} ימים - ${project.name}`;
             body = `שלום ${myName},
-    
-    זוהי תזכורת אוטומטית ממערכת Centra:
-    בעוד ${days} ימים יתקיים יום הצילומים עבור הפרויקט "${project.name}" (לקוח: ${clientName}).
-    תאריך: ${dateStr}
-    
-    מומלץ לוודא שכל הציוד מוכן וליצור קשר עם הלקוח במידת הצורך.
-    
-    בברכה,
-    Centra System Reminders`;
+
+זוהי תזכורת אוטומטית ממערכת Centra:
+
+━━━━━━━━━━━━━━━━━━━━━━
+📸 בעוד ${days} ימים יתקיים יום הצילומים עבור הפרויקט "${project.name}"
+👤 לקוח/ה: ${clientName}
+📅 תאריך: ${dateStr}
+━━━━━━━━━━━━━━━━━━━━━━
+
+מומלץ לוודא שכל הציוד מוכן וליצור קשר עם הלקוח במידת הצורך.
+
+בברכה,
+מערכת Centra`;
         } else {
-            subject = `תזכורת מערכת: סיכום פרויקט - ${project.name}`;
+            subject = `תזכורת: סיכום פרויקט - ${project.name}`;
             body = `שלום ${myName},
-    
-    זוהי תזכורת אוטומטית ממערכת Centra:
-    עברו ${days} ימים מאז יום הצילומים עבור הפרויקט "${project.name}" (לקוח: ${clientName}).
-    
-    נא לוודא מול המערכת שכל המשימות בוצעו: העלאת תמונות, עריכה או גביית תשלום יתרה.
-    
-    בברכה,
-    Centra System Reminders`;
+
+זוהי תזכורת אוטומטית ממערכת Centra:
+
+━━━━━━━━━━━━━━━━━━━━━━
+✅ עברו ${days} ימים מאז יום הצילומים עבור הפרויקט "${project.name}"
+👤 לקוח/ה: ${clientName}
+━━━━━━━━━━━━━━━━━━━━━━
+
+נא לוודא מול המערכת שכל המשימות בוצעו: העלאת תמונות, עריכה או גביית תשלום יתרה.
+
+בברכה,
+מערכת Centra`;
         }
 
         const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -3032,31 +3196,43 @@ const app = {
     async prepareTaskReminderEmail(task, isAuto = false) {
         const profile = await Store.getUserProfile();
         const myName = profile?.name || 'משתמש Centra';
-        const recipient = profile?.reminders_email || '';
-        if (!recipient) return;
+        const recipient = profile?.reminders_email || profile?.email || Auth.getEmail() || '';
+        
+        if (!recipient) {
+            console.warn('Cannot send task reminder: No recipient email found in profile or session.');
+            return;
+        }
+
+        console.log(`Preparing to send task reminder email to ${recipient}...`);
 
         const dueDateStr = new Date(task.due_date).toLocaleDateString('he-IL');
         
-        let projectName = '';
-        const pid = task.project_id || task.projectId;
-        if (pid) {
-            const projects = await Store.getProjects();
-            const proj = projects.find(p => String(p.id) === String(pid));
-            if (proj) projectName = proj.name;
+        let projectDisplay = '';
+    const pid = task.project_id || task.projectId;
+    if (pid) {
+        const projects = await Store.getProjects();
+        const proj = projects.find(p => String(p.id) === String(pid));
+        if (proj) {
+            const clientName = proj.clients?.name;
+            projectDisplay = proj.name + (clientName ? ` (${clientName})` : '');
         }
+    }
 
-        const subject = `תזכורת משימה: ${task.content}`;
-        const body = `שלום ${myName},
-    
-    זוהי תזכורת אוטומטית ממערכת Centra למשימה לביצוע:
-    המשימה: "${task.content}"
-    תאריך יעד: ${dueDateStr}
-    ${projectName ? `שיוך לפרויקט: ${projectName}` : ''}
-    
-    נא להיכנס למערכת כדי לעדכן סטטוס משימה.
-    
-    בברכה,
-    Centra System Reminders`;
+    const subject = `תזכורת משימה: ${task.content}`;
+    const body = `שלום ${myName},
+
+זוהי תזכורת אוטומטית ממערכת Centra למשימה לביצוע:
+
+━━━━━━━━━━━━━━━━━━━━━━
+📌 המשימה: "${task.content}"
+📅 תאריך יעד: ${dueDateStr}
+${projectDisplay ? `📂 שיוך לפרויקט: ${projectDisplay}` : ''}
+━━━━━━━━━━━━━━━━━━━━━━
+
+נא להיכנס למערכת כדי לעדכן סטטוס משימה.
+
+בברכה,
+מערכת Centra`;
 
         const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         

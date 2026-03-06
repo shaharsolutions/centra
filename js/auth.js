@@ -319,6 +319,10 @@ const Auth = {
         return this.session?.user?.id;
     },
 
+    getEmail() {
+        return this.session?.user?.email || null;
+    },
+
     async updatePassword(newPassword) {
         try {
             const { error } = await sb.auth.updateUser({ password: newPassword });
