@@ -1346,7 +1346,18 @@ const app = {
                             finalContent = `${content} (${clientName})`;
                         }
                     }
-                    return { content: finalContent, category, dueDate, is_completed: false, tempId: Date.now() + Math.random() };
+
+                    let reminders = null;
+                    if (category === 'shoot' && content.includes('תזכורת') && dueDate) {
+                        const rHour = profile?.reminders_config?.reminder_hour || '08:00';
+                        reminders = [{
+                            id: 'auto_' + Date.now() + Math.random(),
+                            date: dueDate,
+                            hour: rHour,
+                            sent: false
+                        }];
+                    }
+                    return { content: finalContent, category, dueDate, reminders, is_completed: false, tempId: Date.now() + Math.random() };
                 });
 
                 // Filter out duplicates in pending items
@@ -2961,16 +2972,18 @@ const app = {
             const enabled = document.getElementById('settings-reminders-enabled')?.checked ?? profile?.reminders_enabled ?? false;
             const before = parseInt(document.getElementById('settings-reminders-before')?.value || 2);
             const after = parseInt(document.getElementById('settings-reminders-after')?.value || 1);
+            const payment = parseInt(document.getElementById('settings-reminders-payment')?.value || 14);
             const hour = document.getElementById('settings-reminders-hour')?.value || '08:00';
 
             const config = {
                 before_shoot_days: before,
                 after_shoot_days: after,
+                payment_verification_days: payment,
                 reminder_hour: hour,
                 checkpoints: [
                     { id: 'prep', days: before, type: 'before', label: 'הכנת ציוד ואישור לקוח', enabled: before > 0 },
                     { id: 'backup', days: after, type: 'after', label: 'גיבוי וסינון תמונות', enabled: after > 0 },
-                    { id: 'payment', days: 7, type: 'after', label: 'וידוא תשלום סופי', enabled: true }
+                    { id: 'payment', days: payment, type: 'after', label: 'וידוא תשלום סופי', enabled: payment > 0 }
                 ]
             };
 

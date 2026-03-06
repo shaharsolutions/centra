@@ -194,7 +194,6 @@
                             <span>לקוח חדש</span>
                         </button>
                         <button id="quick-add-project-btn" class="btn btn-primary">
-                            <i data-lucide="plus"></i>
                             <span>פרויקט חדש</span>
                         </button>
                     </div>
@@ -409,7 +408,7 @@
                             <!-- Populated by JS -->
                         </select>
                         <button type="button" class="btn btn-secondary" style="padding: 0 12px; height: 46px;" title="לקוח חדש" onclick="app.openNewClientFromProject()">
-                            <i data-lucide="plus" style="width: 18px;"></i>
+                            <span style="font-size: 1.5rem; font-weight: bold; line-height: 1;">+</span>
                         </button>
                         <button type="button" id="project-client-link-btn" class="btn btn-secondary" style="display: none; padding: 0 12px; height: 46px;" title="צפייה בכרטיס לקוח" onclick="if(app.openProjectClientCard) app.openProjectClientCard()">
                             <i data-lucide="user" style="width: 18px;"></i>
@@ -822,7 +821,6 @@
                                 <input type="date" id="new-task-reminder-date" style="flex: 2; padding: 8px 12px; font-size: 0.9rem; min-width: 140px;" placeholder="בחירת תאריך" oninput="app._updateQuickRemindersUI()">
                                 <input type="time" id="new-task-reminder-hour" value="08:00" style="flex: 1; padding: 8px 12px; font-size: 0.9rem; min-width: 100px;">
                                 <button type="button" class="btn btn-primary btn-sm" onclick="app.registerTaskReminder()" style="height: 40px; padding: 0 16px;">
-                                    <i data-lucide="plus" style="width: 16px;"></i>
                                     הוספה
                                 </button>
                             </div>

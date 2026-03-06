@@ -601,7 +601,6 @@ async renderDashboard() {
                 <div style="display:flex; gap:12px; align-items:center; margin-bottom: 16px;">
                     <input type="text" id="new-global-task-input" placeholder="הוספת משימה כללית חדשה..." style="flex:1; padding:10px 16px; border:1px solid var(--border); border-radius:var(--radius-md); font-size:0.95rem;">
                     <button class="btn btn-primary" onclick="app.addGlobalTask()">
-                        <i data-lucide="plus"></i>
                         הוספה
                     </button>
                 </div>
@@ -704,11 +703,28 @@ async renderDashboard() {
                                     <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap: wrap;">
                                         <span style="font-weight:600; font-size:1rem; cursor:pointer; ${t.is_completed ? 'text-decoration:line-through; color:var(--text-muted)' : 'color:var(--text-main)'}" onclick="app.viewTask('${t.id}')">${t.content}</span>
                                         <span style="font-size: 0.7rem; background:${t.badgeBg}; color:${t.badgeColor}; padding:2px 8px; border-radius:999px; font-weight:700;">${t.badgeLabel}</span>
-                                        ${t.remindersCount > 0 ? `<span style="font-size: 0.7rem; background:#FFFBEB; color:#92400E; padding:2px 8px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px;"><i data-lucide="bell" style="width:10px;"></i> ${t.remindersCount}</span>` : ''}
+                                        ${t.remindersCount > 0 ? `
+                                            <div class="reminders-tooltip-container" style="display: inline-flex;">
+                                                <span style="font-size: 0.7rem; background:#FFFBEB; color:#92400E; padding:2px 10px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px; cursor: help;">
+                                                    <i data-lucide="bell" style="width:10px;"></i> ${t.remindersCount} תזכורות
+                                                </span>
+                                                <div class="reminders-tooltip">
+                                                    ${(t.reminders || []).map(r => `
+                                                        <div class="reminder-tooltip-item">
+                                                            <i data-lucide="calendar" style="width: 12px; margin-left: 6px; opacity: 0.7;"></i>
+                                                            <span class="reminder-tooltip-date">${r.date ? r.date.split('-').reverse().join('/') : ''}</span>
+                                                            <span style="margin: 0 4px; opacity: 0.5;">|</span>
+                                                            <i data-lucide="clock" style="width: 12px; margin-left: 6px; opacity: 0.7;"></i>
+                                                            <span class="reminder-tooltip-hour">${r.hour || '08:00'}</span>
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            </div>
+                                        ` : ''}
                                     </div>
                                     <div style="display:flex; gap:12px; align-items:center; font-size:0.8rem; color:var(--text-muted);">
                                         ${t.dueDateStr ? `<span style="display:flex; align-items:center; gap:4px;"><i data-lucide="calendar" style="width:14px;"></i> תאריך יעד: ${t.dueDateStr}</span>` : ''}
-                                        <span style="display:flex; align-items:center; gap:4px;"><i data-lucide="plus" style="width:14px;"></i> נוסף ב: ${t.createdDateStr}</span>
+                                        <span style="display:flex; align-items:center; gap:4px;">נוסף ב: ${t.createdDateStr}</span>
                                     </div>
                                 </div>
                             </div>
@@ -1380,12 +1396,18 @@ async renderDashboard() {
                                     <div class="workflow-card" style="border: 1px solid #FCD34D; padding: 15px; border-radius: 12px; background: #FFFBEB; transition: all 0.3s; height: 100%; display: flex; flex-direction: column;">
                                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                                             <span style="background: #FEF3C7; color: #92400E; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">פיננסי</span>
-                                            <div style="font-size: 0.65rem; color: #92400E; font-weight: 800; text-transform: uppercase;">קבוע (7 ימים)</div>
+                                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #D97706; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;"><i data-lucide="check" style="width: 12px; height: 12px;"></i></div>
                                         </div>
                                         <div style="font-weight: 700; margin-bottom: 6px; color: #92400E;">וידוא תשלום סופי</div>
-                                        <div style="font-size: 0.8rem; color: #B45309; line-height: 1.4;">תזכורת לבדוק אם יתרת התשלום הועברה בהתאם לחוזה.</div>
-                                        <div style="margin-top: auto; padding-top: 10px; border-top: 1px dashed #FDE68A;">
-                                            <div style="font-size: 0.75rem; color: #92400E; font-weight: 600;">נשלח אוטומטית שבוע אחרי הצילומים</div>
+                                        <div style="font-size: 0.8rem; color: #B45309; line-height: 1.4; margin-bottom: 15px;">תזכורת לבדוק אם יתרת התשלום הועברה בהתאם לחוזה.</div>
+                                        <div style="margin-top: auto;">
+                                            <div style="font-size: 0.75rem; color: #92400E; margin-bottom: 5px;">תזמון שליחה:</div>
+                                            <select id="settings-reminders-payment" ${!isProfessional ? 'disabled' : 'onchange="app.updateRemindersConfig()"'} style="width: 100%; font-size: 0.85rem; padding: 8px; border-radius: 8px; border: 1px solid #FDE68A; background: white; color: #92400E;">
+                                                <option value="7" ${profile?.reminders_config?.payment_verification_days === 7 ? 'selected' : ''}>שבוע (7 ימים) אחרי</option>
+                                                <option value="14" ${profile?.reminders_config?.payment_verification_days === 14 ? 'selected' : ''}>שבועיים (14 ימים) אחרי</option>
+                                                <option value="30" ${profile?.reminders_config?.payment_verification_days === 30 ? 'selected' : ''}>חודש (30 ימים) אחרי</option>
+                                                <option value="0" ${profile?.reminders_config?.payment_verification_days === 0 ? 'selected' : ''}>כבוי</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -1393,7 +1415,7 @@ async renderDashboard() {
                                 <div style="background: var(--bg-main); padding: 15px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); margin-top: 5px;">
                                     <div style="display: flex; align-items: center; gap: 10px;">
                                         <i data-lucide="clock" style="width: 18px; height: 18px; color: var(--text-muted);"></i>
-                                        <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">שעת שליחת התזכורות:</div>
+                                        <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">שעת ברירת מחדל לשליחת התזכורות:</div>
                                     </div>
                                     <input type="time" id="settings-reminders-hour" ${!isProfessional ? 'disabled' : 'onchange="app.updateRemindersConfig()"'} value="${profile?.reminders_config?.reminder_hour || '08:00'}" style="width: 120px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: white;">
                                 </div>
@@ -1420,7 +1442,7 @@ async renderDashboard() {
                             <p class="section-desc">הגדרת החבילות לשימוש מהיר.</p>
                         </div>
                         <button class="btn btn-primary" onclick="app.openPackageModal('חבילה חדשה')">
-                            <i data-lucide="plus"></i> הוספת חבילה
+                            הוספת חבילה
                         </button>
                     </div>
 
@@ -1542,7 +1564,6 @@ async renderDashboard() {
                     `).join('')}
                 </div>
                 <button class="btn btn-primary btn-sm" onclick="app.openLocationModal()" style="flex-shrink: 0;">
-                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
                     לוקיישן חדש
                 </button>
             </div>
@@ -1979,7 +2000,24 @@ async renderDashboard() {
                                         </span>
                                     ` : ''}
                                 </div>
-                                ${hasReminders ? `<span style="font-size: 0.65rem; color: #D97706; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i data-lucide="bell" style="width: 10px;"></i> ${item.reminders.length} תזכורות</span>` : ''}
+                                ${hasReminders ? `
+                                <div class="reminders-tooltip-container" style="display: inline-flex;">
+                                    <span style="font-size: 0.65rem; color: #D97706; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                                        <i data-lucide="bell" style="width: 10px;"></i> ${item.reminders.length} תזכורות
+                                    </span>
+                                    <div class="reminders-tooltip">
+                                        ${item.reminders.map(r => `
+                                            <div class="reminder-tooltip-item">
+                                                <i data-lucide="calendar" style="width: 12px; margin-left: 6px; opacity: 0.7;"></i>
+                                                <span class="reminder-tooltip-date">${r.date ? r.date.split('-').reverse().join('/') : ''}</span>
+                                                <span style="margin: 0 4px; opacity: 0.5;">|</span>
+                                                <i data-lucide="clock" style="width: 12px; margin-left: 6px; opacity: 0.7;"></i>
+                                                <span class="reminder-tooltip-hour">${r.hour || '08:00'}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                ` : ''}
                             </div>
                         </div>
                         <div style="display: flex; gap: 4px;">

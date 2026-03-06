@@ -1934,3 +1934,67 @@ span.flatpickr-weekday {
     border-color: #EF4444;
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
+
+/* Reminders Tooltip */
+.reminders-tooltip-container {
+    position: relative;
+}
+
+.reminders-tooltip {
+    position: absolute;
+    bottom: 110%;
+    left: 10px;
+    background: #1E293B;
+    color: white;
+    padding: 12px;
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    z-index: 1100;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255,255,255,0.1);
+    min-width: 140px;
+}
+
+.reminders-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 15px;
+    border-width: 6px;
+    border-style: solid;
+    border-color: #1E293B transparent transparent transparent;
+}
+
+.reminders-tooltip-container:hover .reminders-tooltip {
+    opacity: 1;
+    transform: translateY(-5px);
+    pointer-events: auto;
+}
+
+.reminder-tooltip-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.reminder-tooltip-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.reminder-tooltip-date {
+    font-weight: 600;
+    color: #FBBF24;
+}
+
+.reminder-tooltip-hour {
+    opacity: 0.8;
+}

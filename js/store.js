@@ -1883,10 +1883,20 @@ const Store = {
                             dueDate = `${y}-${m}-${day}`;
                         }
                     }
+                    let reminders = null;
+                    if (content.includes('תזכורת') && dueDate) {
+                        const rHour = profile?.reminders_config?.reminder_hour || '08:00';
+                        reminders = [{
+                            id: 'auto_' + Date.now() + Math.random(),
+                            date: dueDate,
+                            hour: rHour,
+                            sent: false
+                        }];
+                    }
                     if (clientName) {
                         finalContent = `${content} (${clientName})`;
                     }
-                    return { projectId, content: finalContent, category: 'shoot', dueDate };
+                    return { projectId, content: finalContent, category: 'shoot', dueDate, reminders };
                 }),
                 ...defaults.equipment.map(content => ({ projectId, content, category: 'equipment' }))
             ];
@@ -1935,12 +1945,14 @@ const Store = {
                 });
             }
 
+            const payOffset = profile?.reminders_config?.payment_verification_days !== undefined ? profile.reminders_config.payment_verification_days : 14;
+
             // Standard Workflow Tasks
             const workflowTasks = [
                 { content: 'יצירת גיבוי לחומרים מהצילומים', offset: 0 },
                 { content: 'שליחת גלריה ללקוח/ה', offset: 7 },
-                { content: 'וידוא קבלת תשלום סופי', offset: 14 }
-            ];
+                { content: 'וידוא קבלת תשלום סופי', offset: payOffset }
+            ].filter(t => t.content !== 'וידוא קבלת תשלום סופי' || payOffset > 0);
 
             for (const wt of workflowTasks) {
                 const parts = pDate.split('-');
@@ -2100,10 +2112,10 @@ const Store = {
                     const m = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
                     dueDate = `${y}-${m}-${day}`;
-                    if (reminders === '[]' || (Array.isArray(reminders) && reminders.length === 0)) {
+                    if (!reminders || reminders.length === 0) {
                         const rHour = profile?.reminders_config?.reminder_hour || '08:00';
                         reminders = [{
-                            id: 'auto_' + Date.now(),
+                            id: 'auto_' + Date.now() + Math.random(),
                             date: dueDate,
                             hour: rHour,
                             sent: false
