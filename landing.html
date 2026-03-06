@@ -215,7 +215,7 @@
                             <li><i data-lucide="check-circle-2"></i>מעקב תשלומים בסיסי</li>
                             <li><i data-lucide="x-circle" style="color:#CBD5E1; width:16px;"></i>ללא חגים וזמני שבת בלוח שנה</li>
                             <li><i data-lucide="x-circle" style="color:#CBD5E1; width:16px;"></i>ללא מערכת תזרים עבודה ותזכורות</li>
-                            <li><i data-lucide="x-circle" style="color:#CBD5E1; width:16px;"></i>אפשרות להעלאת ושיוך קבצים ללקוחות או פרויקטים</li>
+                            <li><i data-lucide="x-circle" style="color:#CBD5E1; width:16px;"></i>ללא אפשרות להעלאת ושיוך קבצים ללקוחות או פרויקטים</li>
                         </ul>
                         <a href="login.html" class="p-btn p-btn-outline">התחילו בחינם</a>
                     </div>
@@ -279,17 +279,19 @@
                 <button class="modal-close" onclick="closeModal(null, 'terms-modal')"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
-                <h4>1. הסכמה לתנאים</h4>
-                <p>השימוש במערכת Centra מהווה הסכמה מלאה לתנאי השימוש המפורטים להלן. המערכת מיועדת לשימוש עסקי של צלמים בלבד.</p>
-                
-                <h4>2. חשבון משתמש</h4>
-                <p>המשתמש אחראי לשמירה על סודיות פרטי הגישה לחשבונו. כל פעולה שתבוצע תחת החשבון הינה באחריות המשתמש בלבד.</p>
-                
-                <h4>3. קניין רוחני</h4>
-                <p>כל הזכויות במערכת Centra, כולל קוד המקור, העיצוב, והמיתוג, שייכות ל"שחר פתרונות דיגיטליים". אין להעתיק, לשכפל או להפיץ חלקים מהמערכת ללא אישור בכתב.</p>
-                
-                <h4>4. הגבלת אחריות</h4>
-                <p>המערכת ניתנת לשימוש "כפי שהיא" (As-is). שחר פתרונות דיגיטליים לא יישאו באחריות לכל נזק ישיר או עקיף הנובע מהשימוש במערכת או מהסתמכות על הנתונים המופיעים בה.</p>
+                <div style="line-height: 1.6;">
+                    <h4 style="margin-bottom:8px; color:var(--text-main); font-size:1.05rem;">1. הסכמה לתנאים</h4>
+                    <p style="margin-bottom:16px;">השימוש במערכת Centra מבית "שחר פתרונות דיגיטליים" מהווה הסכמה מלאה לתנאי השימוש המפורטים להלן. המערכת מיועדת לשימוש עסקי של צלמים בלבד.</p>
+                    
+                    <h4 style="margin-bottom:8px; color:var(--text-main); font-size:1.05rem;">2. חשבון משתמש</h4>
+                    <p style="margin-bottom:16px;">המשתמש אחראי לשמירה על סודיות פרטי הגישה לחשבונו, ועל כך שהכנסת מידע למערכת נעשית באופן חוקי ובהסכמת לקוחותיו. כל פעולה שתבוצע תחת החשבון הינה באחריות המשתמש בלבד.</p>
+                    
+                    <h4 style="margin-bottom:8px; color:var(--text-main); font-size:1.05rem;">3. קניין רוחני</h4>
+                    <p style="margin-bottom:16px;">כל הזכויות במערכת Centra, כולל קוד המקור, העיצוב (UI/UX), והמיתוג, שייכות בלעדית ל"שחר פתרונות דיגיטליים". אין להעתיק, לשכפל או להפיץ חלקים מהמערכת ללא אישור מפורש בכתב.</p>
+                    
+                    <h4 style="margin-bottom:8px; color:var(--text-main); font-size:1.05rem;">4. הגבלת אחריות</h4>
+                    <p style="margin-bottom:16px;">המערכת ניתנת לשימוש "כפי שהיא" (As-is). "שחר פתרונות דיגיטליים" אינה נושאת באחריות לכל נזק, ישיר או עקיף, אובדן מידע, או פגיעה בהכנסות הנובעים משימוש במערכת או מהסתמכות על הנתונים המופיעים בה, למרות מאמצינו הכנים לשמור על זמינות ואבטחה ברמה הגבוהה ביותר.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -302,17 +304,19 @@
                 <button class="modal-close" onclick="closeModal(null, 'privacy-modal')"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
-                <h4>1. איסוף המידע</h4>
-                <p>המערכת אוספת מידע הכרחי לניהול העסק שלכם: פרטי לקוחות, פרטי פרויקטים ונתונים פיננסיים. המידע נשמר בבסיס נתונים מאובטח בענן (Supabase).</p>
-                
-                <h4>2. שימוש במידע</h4>
-                <p>המידע שלכם שייך לכם בלבד. שחר פתרונות דיגיטליים אינה עושה שימוש במידע העסקי שלכם לצרכים מסחריים ואינה מעבירה אותו לצד ג'.</p>
-                
-                <h4>3. אבטחת מידע</h4>
-                <p>אנו משתמשים בטכנולוגיות אבטחה מתקדמות כדי להגן על המידע שלכם. עם זאת, אין אבטחה מוחלטת באינטרנט והאחריות הסופית על הגישה לחשבון הינה של המשתמש.</p>
-                
-                <h4>4. זכות הגישה והמחיקה</h4>
-                <p>ניתן לערוך, למחוק או לייצא את המידע מהמערכת בכל עת דרך כלי הניהול המובנים.</p>
+                <div style="line-height: 1.6;">
+                    <h4 style="margin-bottom:8px; color:var(--text-main); font-size:1.05rem;">1. איסוף המידע והשימוש בו</h4>
+                    <p style="margin-bottom:16px;">אנו אוספים מידע הכרחי לרישום למערכת (כגון אימייל ליצירת משתמש). כל שאר המידע שמוזן למערכת (פרטי הלקוחות שלכם, פרויקטים, חוזים, הערות) נשמר עבורכם בלבד, בבסיס נתונים מאובטח.</p>
+                    
+                    <h4 style="margin-bottom:8px; color:var(--text-main); font-size:1.05rem;">2. פרטיות המידע העסקי שלכם</h4>
+                    <p style="margin-bottom:16px;">המידע העסקי שאתם שומרים במערכת (סכומי עסקאות, לקוחות וכו') שייך אך ורק לכם. "שחר פתרונות דיגיטליים" אינה עושה שימוש מסחרי במידע זה ואינה מעבירה אותו לצד ג', אלא כנדרש על פי חוק.</p>
+                    
+                    <h4 style="margin-bottom:8px; color:var(--text-main); font-size:1.05rem;">3. אבטחת מידע</h4>
+                    <p style="margin-bottom:16px;">אנו נוקטים באמצעי אבטחה טכנולוגיים מתקדמים (התחברות מאובטחת, הצפנה, ושמירת הנתונים בשרתי ענן אמינים). יתר על כן, באחריות המשתמש להשתמש בסיסמה חזקה ולא לשתף אותה.</p>
+                    
+                    <h4 style="margin-bottom:8px; color:var(--text-main); font-size:1.05rem;">4. זכות הגישה, ייצוא ומחיקה</h4>
+                    <p style="margin-bottom:16px;">תוכלו לייצא את הנתונים לעצמכם כקובץ Excel, או למחוק נתונים מהמערכת בכל עת. משתמש שמעוניין למחוק את חשבונו לחלוטין ולמחוק את נתוניו, מוזמן לפנות אלינו ונדאג לכך בהקדם.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -325,27 +329,37 @@
                 <button class="modal-close" onclick="closeModal(null, 'contact-modal')"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
-                <p>יש לכם שאלה? צריכים עזרה טכנית? אנחנו כאן בשבילכם.</p>
-                <div class="contact-links">
-                    <a href="mailto:shaharsolutions@gmail.com" class="contact-item">
-                        <i data-lucide="mail"></i>
-                        <div class="contact-info-text">
-                            <span class="contact-info-label">שלחו לנו מייל</span>
-                            <span class="contact-info-val">shaharsolutions@gmail.com</span>
+                <p style="margin-bottom: 24px;">יש לכם שאלה? צריכים עזרה טכנית או ייעוץ לפני התחברות למערכת? נשמח לעמוד לשירותכם.</p>
+                <div class="contact-links" style="display: flex; flex-direction: column; gap: 12px;">
+                    <a href="https://wa.me/972528366744" target="_blank" class="contact-item" style="display:flex; align-items:center; gap:16px; padding:16px; border:1px solid #25D366; border-radius:12px; text-decoration:none; color:var(--text-main); background: #f0fdf4; transition: transform 0.2s;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#25D366" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-whatsapp"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                        <div class="contact-info-text" style="display:flex; flex-direction:column; gap:2px;">
+                            <span class="contact-info-label" style="font-weight:700; font-size:1.05rem; color:#166534;">הודעה בוואטסאפ (שחר)</span>
+                            <span class="contact-info-val" style="color:#15803D; font-size:1rem; font-weight:500;" dir="ltr">052-8366744</span>
                         </div>
                     </a>
-                    <a href="tel:0528366744" class="contact-item">
+                    
+                    <a href="tel:0528366744" class="contact-item" style="display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--border); border-radius:12px; text-decoration:none; color:var(--text-main); transition: transform 0.2s;">
                         <i data-lucide="phone"></i>
-                        <div class="contact-info-text">
-                            <span class="contact-info-label">התקשרו אלינו</span>
-                            <span class="contact-info-val">052 8366744</span>
+                        <div class="contact-info-text" style="display:flex; flex-direction:column; gap:2px;">
+                            <span class="contact-info-label" style="font-weight:600; font-size:1rem;">התקשרו אלינו (שחר)</span>
+                            <span class="contact-info-val" style="color:var(--text-muted);" dir="ltr">052-8366744</span>
                         </div>
                     </a>
-                    <a href="https://shaharsolutions.github.io/shahardigitalsolutions/" target="_blank" class="contact-item">
+
+                    <a href="mailto:shaharsolutions@gmail.com" class="contact-item" style="display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--border); border-radius:12px; text-decoration:none; color:var(--text-main); transition: transform 0.2s;">
+                        <i data-lucide="mail"></i>
+                        <div class="contact-info-text" style="display:flex; flex-direction:column; gap:2px;">
+                            <span class="contact-info-label" style="font-weight:600; font-size:1rem;">שלחו לנו מייל</span>
+                            <span class="contact-info-val" style="color:var(--text-muted);" dir="ltr">shaharsolutions@gmail.com</span>
+                        </div>
+                    </a>
+                    
+                    <a href="https://shaharsolutions.github.io/shahardigitalsolutions/" target="_blank" class="contact-item" style="display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--border); border-radius:12px; text-decoration:none; color:var(--text-main); transition: transform 0.2s;">
                         <i data-lucide="globe"></i>
-                        <div class="contact-info-text">
-                            <span class="contact-info-label">האתר שלנו</span>
-                            <span class="contact-info-val">Shahar Digital Solutions</span>
+                        <div class="contact-info-text" style="display:flex; flex-direction:column; gap:2px;">
+                            <span class="contact-info-label" style="font-weight:600; font-size:1rem;">שחר פתרונות דיגיטליים</span>
+                            <span class="contact-info-val" style="color:var(--text-muted);">מעבר לאתר הבית שלנו</span>
                         </div>
                     </a>
                 </div>
