@@ -477,7 +477,7 @@ async renderDashboard() {
                                     <div class="kanban-card" draggable="true" ondragstart="app.handleCardDragStart(event, '${p.id}')" onclick="app.viewProject('${p.id}')">
                                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px;">
                                             <div class="kanban-card-title" style="margin:0;">${p.name}</div>
-                                            ${(p.payments?.total || 0) > 0 ? `<div style="font-size:0.75rem; font-weight:700; color:var(--text-main); background:var(--bg-main); padding:2px 6px; border-radius:4px; border:1px solid var(--border);">₪${(p.payments.total - (p.payments.deposit || 0)).toLocaleString()}</div>` : ''}
+                                            ${(p.payments?.total || 0) > 0 ? `<div style="font-size:0.75rem; font-weight:700; color:var(--text-main); background:var(--bg-main); padding:2px 6px; border-radius:4px; border:1px solid var(--border);">₪${p.payments.total.toLocaleString()}</div>` : ''}
                                         </div>
                                         <div class="kanban-card-client">${clientName}</div>
                                         ${p.clients?.organization ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: -4px; margin-bottom: 8px;">${p.clients.organization}</div>` : ''}
