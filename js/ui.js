@@ -481,6 +481,12 @@ async renderDashboard() {
                                         </div>
                                         <div class="kanban-card-client">${clientName}</div>
                                         ${p.clients?.organization ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: -4px; margin-bottom: 8px;">${p.clients.organization}</div>` : ''}
+                                        ${(p.payments?.deposit || 0) > 0 ? `
+                                            <div style="display: flex; gap: 6px; font-size: 0.65rem; margin-top: 6px; margin-bottom: 8px; flex-wrap: wrap;">
+                                                <div style="background: #DCFCE7; color: #166534; padding: 1px 6px; border-radius: 4px; border: 1px solid #BBF7D0; font-weight: 700;">מקדמה: ₪${p.payments.deposit.toLocaleString()}</div>
+                                                ${(p.payments.total - p.payments.deposit) > 0 ? `<div style="background: #FEE2E2; color: #991B1B; padding: 1px 6px; border-radius: 4px; border: 1px solid #FECACA; font-weight: 700;">יתרה: ₪${(p.payments.total - p.payments.deposit).toLocaleString()}</div>` : ''}
+                                            </div>
+                                        ` : ''}
                                         <div class="kanban-card-footer">
                                             <div class="kanban-card-date">
                                                 <i data-lucide="calendar" style="width:12px;"></i>
