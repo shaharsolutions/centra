@@ -79,9 +79,11 @@ const Store = {
         localStorage.removeItem('sb_checklists_missing');
         localStorage.removeItem('sb_checklists_rls_blocked');
         localStorage.removeItem('sb_checklists_notes_missing');
+        localStorage.removeItem('sb_checklists_reminders_missing');
 
         this._checklistTableExists = true;
         this._notesColumnExists = true;
+        this._remindersColumnExists = true;
         this._rlsChecklistEnabled = true;
 
         try {
@@ -433,6 +435,7 @@ const Store = {
         const pid = p.id;
         return {
             ...p,
+            shoot_date: p.shoot_date || p.shootDate || null,
             clients: normalizedClients,
             location: p.location || localData.locations[pid] || '',
             payment_status: p.payment_status || localData.paymentStatuses[pid] || 'not_paid',
@@ -651,6 +654,11 @@ const Store = {
 
         // Sync tasks (add/update/delete styling task)
         await this.addDefaultsToProject(id, p.shoot_date, { ...p, styling_call });
+
+        // Refresh UI
+        if (typeof UI !== 'undefined' && UI.renderChecklist) {
+            UI.renderChecklist(id);
+        }
     },
 
     async updateProjectPaymentStatus(id, payment_status) {
@@ -1134,7 +1142,7 @@ const Store = {
             try {
                 const { data, error } = await sb
                     .from('project_checklists')
-                    .select('*')
+                    .select('*, projects(name, shoot_date)')
                     .eq('project_id', projectId)
                     .order('created_at', { ascending: true });
                 
@@ -1189,7 +1197,7 @@ const Store = {
             try {
                 const { data, error } = await sb
                     .from('project_checklists')
-                    .select('*, projects(name)')
+                    .select('*, projects(name, shoot_date)')
                     .eq('user_id', Auth.getUserId())
                     .order('created_at', { ascending: false });
                 
@@ -1314,9 +1322,12 @@ const Store = {
                     user_id: Auth.getUserId()
                 };
 
-                // Try with notes column first
+                // Try with notes/reminders columns if they are known to exist
                 if (this._notesColumnExists !== false && item.notes) {
                     dataToSave.notes = item.notes;
+                }
+                if (this._remindersColumnExists !== false && item.reminders) {
+                    dataToSave.reminders = item.reminders;
                 }
 
                 const { data, error } = await sb.from('project_checklists').insert([dataToSave]).select();
@@ -1339,12 +1350,43 @@ const Store = {
                         localStorage.setItem('sb_checklists_rls_blocked', 'true');
                         console.warn('RLS blocking sync, stopping.');
                         break;
-                    } else if (error.code === '23503' || error.message?.includes('foreign key')) {
-                        // Foreign Key exception - typically project was deleted before task synced.
-                        // Just drop it locally so it stops spamming the API on every refresh.
-                        console.warn(`Foreign key error for un-synced task "${item.content}". Dropping it to stop infinite retries.`);
-                        const lc = JSON.parse(localStorage.getItem('local_checklists') || '[]');
-                        localStorage.setItem('local_checklists', JSON.stringify(lc.filter(i => String(i.id) !== String(item.id))));
+                    } else if (error.code === '23505' || error.status === 409 || error.message?.includes('unique constraint')) {
+                        // Task already exists on server — fetch its real ID and link it
+                        console.log(`Task "${item.content}" already exists in Supabase, linking local record...`);
+                        
+                        let query = sb.from('project_checklists')
+                            .select('id')
+                            .eq('category', dataToSave.category)
+                            .eq('content', dataToSave.content);
+                            
+                        if (dataToSave.project_id) {
+                            query = query.eq('project_id', dataToSave.project_id);
+                        } else {
+                            query = query.is('project_id', null);
+                        }
+                        
+                        const fetchReq = await query.single();
+                        
+                        if (fetchReq.data && fetchReq.data.id) {
+                            this._replaceLocalId(item.id, fetchReq.data.id);
+                            syncedCount++;
+                        } else {
+                            // If we can't find it for some reason, just drop the local one to stop it from bothering us
+                            console.warn(`Could not find existing ID for task "${item.content}", dropping local copy.`);
+                            const lc = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+                            localStorage.setItem('local_checklists', JSON.stringify(lc.filter(i => String(i.id) !== String(item.id))));
+                        }
+                    } else if (error.message?.includes('reminders') || error.code === '42703') {
+                        // Handle missing reminders column during sync
+                        this._remindersColumnExists = false;
+                        localStorage.setItem('sb_checklists_reminders_missing', 'true');
+                        delete dataToSave.reminders;
+                        const retry = await sb.from('project_checklists').insert([dataToSave]).select();
+                        if (retry.error) throw retry.error;
+                        if (retry.data && retry.data[0]) {
+                            this._replaceLocalId(item.id, retry.data[0].id);
+                            syncedCount++;
+                        }
                     } else {
                         throw error;
                     }
@@ -1449,11 +1491,13 @@ const Store = {
                     is_completed: isCompleted,
                     category: item.category || 'task',
                     due_date: dueDate,
-                    reminder_enabled: item.reminder_enabled || false,
-                    reminder_days: item.reminder_days || 1,
-                    reminder_hour: item.reminder_hour || '08:00',
                     user_id: Auth.getUserId()
                 };
+
+                // Only add reminders if the column is known to exist
+                if (this._remindersColumnExists !== false) {
+                    dataToSave.reminders = item.reminders || [];
+                }
 
                 // Only add notes if the column is known to exist
                 if (this._notesColumnExists !== false) {
@@ -1466,6 +1510,24 @@ const Store = {
                     res = await sb.from('project_checklists').insert([dataToSave]).select();
                 }
                 
+                if (res.error) {
+                    // Handle missing 'reminders' column if we thought it existed
+                    if (res.error.message?.includes('reminders') || res.error.code === '42703') {
+                        console.warn('Supabase project_checklists missing reminders column, deleting from save request');
+                        this._remindersColumnExists = false;
+                        localStorage.setItem('sb_checklists_reminders_missing', 'true');
+                        
+                        const fallbackData = { ...dataToSave };
+                        delete fallbackData.reminders;
+                        
+                        if (item.id && !String(item.id).startsWith('local_')) {
+                            res = await sb.from('project_checklists').update(fallbackData).eq('id', item.id).select();
+                        } else {
+                            res = await sb.from('project_checklists').insert([fallbackData]).select();
+                        }
+                    }
+                }
+
                 if (res.error) {
                     // Handle unique constraint violation
                     if (res.error.code === '23505' || res.error.message?.includes('unique constraint')) {
@@ -1552,17 +1614,18 @@ const Store = {
         const localItems = JSON.parse(localStorage.getItem('local_checklists') || '[]');
         
         // Find existing index: 
-        // 1. By exact ID match
-        // 2. OR if it's a new item (no ID or local ID), by content/project match but ONLY if the item to save also doesn't have a final ID yet
         const existingIdx = localItems.findIndex(i => {
+            // Priority 1: Exact Supabase ID match (if we have one now)
             if (savedItemId && String(i.id) === String(savedItemId)) return true;
+            // Priority 2: Original ID match (could be local)
             if (item.id && String(i.id) === String(item.id)) return true;
             
-            // If both don't have a real DB ID, match by content to prevent duplicates during creation
-            const isLocal = (id) => !id || String(id).startsWith('local_');
-            if (isLocal(savedItemId) && isLocal(item.id) && isLocal(i.id)) {
-                return i.content === item.content && i.project_id === projectId && i.category === item.category;
-            }
+            // Priority 3: Content-based matching for un-synced/duplicate items
+            const sameContent = i.content === item.content && i.category === (item.category || 'task');
+            const sameProj = (String(i.project_id) === String(projectId)) || (!i.project_id && !projectId);
+            
+            if (sameContent && sameProj) return true;
+            
             return false;
         });
         
@@ -1574,16 +1637,23 @@ const Store = {
             category: item.category || 'task',
             due_date: dueDate,
             notes: item.notes || null,
+            reminders: item.reminders || [],
             created_at: item.created_at || new Date().toISOString()
         };
 
-        if (existingIdx !== -1) {
-            localItems[existingIdx] = itemToSave;
-        } else {
-            localItems.push(itemToSave);
+        try {
+            if (existingIdx !== -1) {
+                localItems[existingIdx] = itemToSave;
+            } else {
+                localItems.push(itemToSave);
+            }
+            localStorage.setItem('local_checklists', JSON.stringify(localItems));
+            this.invalidateCache('tasks');
+            return { success: true, data: itemToSave };
+        } catch (e) {
+            console.error('Finalizing saveChecklistItem failed:', e);
+            return { success: false, error: e.message };
         }
-        localStorage.setItem('local_checklists', JSON.stringify(localItems));
-        this.invalidateCache('tasks');
     },
 
     async toggleChecklistItem(id, isCompleted) {
@@ -1736,7 +1806,7 @@ const Store = {
         const profile = await this.getUserProfile();
         if (profile?.plan === 'starter') return;
 
-        
+        const pDate = shootDate || projectData?.shoot_date || projectData?.shootDate;
         let clientName = '';
         let projectName = '';
         let stylingCall = 'none';
@@ -1779,10 +1849,15 @@ const Store = {
                     let dueDate = null;
                     let finalContent = content;
                     if (content.includes('תזכורת')) {
-                        if (shootDate) {
-                            const date = new Date(shootDate);
-                            date.setDate(date.getDate() - 1);
-                            dueDate = date.toISOString().split('T')[0];
+                        if (pDate) {
+                            const parts = pDate.split('-');
+                            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                            d.setDate(d.getDate() - 1);
+                            
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            dueDate = `${y}-${m}-${day}`;
                         }
                         if (clientName) {
                             finalContent = `${content} (${clientName})`;
@@ -1792,31 +1867,75 @@ const Store = {
                 }),
                 ...defaults.equipment.map(content => ({ projectId, content, category: 'equipment' }))
             ];
-        } else if (shootDate) {
+        }
+        
+        if (pDate) {
             // Even if not forcing defaults, if there's a shoot date, update or CREATE the 'Reminder' task
             const reminderTask = existingItems.find(i => i.content.includes('תזכורת'));
-            const date = new Date(shootDate);
-            date.setDate(date.getDate() - 1);
-            const newDueDate = date.toISOString().split('T')[0];
+            const parts = pDate.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            d.setDate(d.getDate() - 1);
+            
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const reminderDate = `${y}-${m}-${day}`;
             const content = clientName ? `שליחת תזכורת יום לפני (${clientName})` : 'שליחת תזכורת יום לפני';
+            
+            const autoReminders = [{
+                id: 'auto_1',
+                date: reminderDate,
+                hour: '08:00',
+                sent: false
+            }];
 
             if (reminderTask) {
-                if (reminderTask.due_date !== newDueDate || reminderTask.dueDate !== newDueDate || reminderTask.content !== content) {
+                if (reminderTask.due_date !== reminderDate || reminderTask.content !== content) {
                     await this.saveChecklistItem({
                         ...reminderTask,
-                        dueDate: newDueDate,
+                        due_date: reminderDate,
                         content: content,
-                        projectId: projectId
+                        project_id: projectId,
+                        reminders: autoReminders
                     });
                 }
             } else {
                 // CREATE missing reminder
                 itemsToSave.push({
-                    projectId,
+                    project_id: projectId,
                     content: content,
-                    category: 'shoot',
-                    dueDate: newDueDate
+                    category: 'workflow',
+                    due_date: reminderDate,
+                    reminders: autoReminders
                 });
+            }
+
+            // Standard Workflow Tasks
+            const workflowTasks = [
+                { content: 'יצירת גיבוי לחומרים מהצילומים', offset: 0 },
+                { content: 'שליחת גלריה ללקוח/ה', offset: 7 },
+                { content: 'וידוא קבלת תשלום סופי', offset: 14 }
+            ];
+
+            for (const wt of workflowTasks) {
+                const parts = pDate.split('-');
+                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                d.setDate(d.getDate() + wt.offset);
+                
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const wdateStr = `${y}-${m}-${day}`;
+                
+                const existing = existingItems.find(i => i.content.includes(wt.content.split('/')[0]));
+                if (!existing) {
+                    itemsToSave.push({
+                        project_id: projectId,
+                        content: wt.content,
+                        category: 'workflow',
+                        due_date: wdateStr
+                    });
+                }
             }
         }
 
@@ -1836,9 +1955,10 @@ const Store = {
                 if (firstTask.due_date !== stylingDate || firstTask.content !== content) {
                     await this.saveChecklistItem({
                         ...firstTask,
-                        dueDate: stylingDate,
+                        due_date: stylingDate,
                         content: content,
-                        projectId: projectId
+                        project_id: projectId,
+                        category: 'workflow'
                     });
                 }
                 
@@ -1849,10 +1969,10 @@ const Store = {
             } else {
                 // Create new styling task
                 itemsToSave.push({
-                    projectId,
+                    project_id: projectId,
                     content: content,
-                    category: 'styling',
-                    dueDate: stylingDate
+                    category: 'workflow',
+                    due_date: stylingDate
                 });
             }
         } else if (stylingCall === 'none' && existingStylingTasks.length > 0) {
@@ -1914,20 +2034,36 @@ const Store = {
         const categoryDefaults = allDefaults[category] || [];
         console.log('Defaults for category', category, ':', categoryDefaults.length);
 
+        const pDate = shootDate || projectData?.shoot_date || projectData?.shootDate;
+
         const itemsToSave = categoryDefaults.map(content => {
             let dueDate = null;
+            let reminders = null;
             let finalContent = content;
             if (category === 'shoot' && content.includes('תזכורת')) {
-                if (shootDate) {
-                    const date = new Date(shootDate);
-                    date.setDate(date.getDate() - 1);
-                    dueDate = date.toISOString().split('T')[0];
+                if (pDate) {
+                    const parts = pDate.split('-');
+                    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    d.setDate(d.getDate() - 1);
+                    
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    dueDate = `${y}-${m}-${day}`;
+                    
+                    // Add automatic reminder object
+                    reminders = [{
+                        id: 'auto_' + Date.now(),
+                        date: dueDate,
+                        hour: '08:00',
+                        sent: false
+                    }];
                 }
                 if (clientName) {
                     finalContent = `${content} (${clientName})`;
                 }
             }
-            return { projectId, content: finalContent, category, dueDate };
+            return { projectId, content: finalContent, category, dueDate, reminders };
         });
 
         const finalItemsToSave = itemsToSave.filter(defItem => 

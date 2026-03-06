@@ -561,34 +561,103 @@ async renderDashboard() {
     }
     },
 
-    async renderTasks() {
+    async renderTasks(searchQuery = '', filterStatus = 'all', filterProject = 'all', sortBy = '') {
         const allItems = await Store.getAllTasks();
+        const projects = await Store.getProjects();
         
         // Filter out 'shoot' and 'equipment' categories - user requested, but include reminders
-        const filteredTasks = allItems.filter(item => (item.category !== 'shoot' && item.category !== 'equipment') || (item.content || '').includes('תזכורת'));
+        let filteredTasks = allItems.filter(item => (item.category !== 'shoot' && item.category !== 'equipment') || (item.content || '').includes('תזכורת'));
         
-        // Sort: incomplete first, then by date 
-        filteredTasks.sort((a, b) => (a.is_completed === b.is_completed) ? (new Date(b.created_at) - new Date(a.created_at)) : (a.is_completed ? 1 : -1));
+        // Apply search and filters
+        filteredTasks = filteredTasks.filter(t => {
+            const matchesSearch = (t.content || '').toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesStatus = filterStatus === 'all' || 
+                                 (filterStatus === 'completed' && t.is_completed) || 
+                                 (filterStatus === 'pending' && !t.is_completed);
+            const matchesProject = filterProject === 'all' || String(t.project_id) === String(filterProject);
+            
+            return matchesSearch && matchesStatus && matchesProject;
+        });
+
+        // Sort
+        filteredTasks.sort((a, b) => {
+            if (sortBy === 'due-date-asc' || !sortBy) {
+                if (!a.due_date) return 1;
+                if (!b.due_date) return -1;
+                return new Date(a.due_date) - new Date(b.due_date);
+            }
+            if (sortBy === 'due-date-desc') {
+                return new Date(b.due_date || 0) - new Date(a.due_date || 0);
+            }
+            if (sortBy === 'created-desc') return new Date(b.created_at) - new Date(a.created_at);
+            if (sortBy === 'created-asc') return new Date(a.created_at) - new Date(b.created_at);
+            if (sortBy === 'status') return (a.is_completed === b.is_completed) ? 0 : (a.is_completed ? 1 : -1);
+            if (sortBy === 'project') return (a.projects?.name || 'ת').localeCompare(b.projects?.name || 'ת', 'he');
+            return 0;
+        });
 
         let html = `
             <div class="tasks-header" style="margin-bottom: 24px; background: white; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--border);">
-                <div style="display:flex; gap:12px; align-items:center;">
+                <div style="display:flex; gap:12px; align-items:center; margin-bottom: 16px;">
                     <input type="text" id="new-global-task-input" placeholder="הוספת משימה כללית חדשה..." style="flex:1; padding:10px 16px; border:1px solid var(--border); border-radius:var(--radius-md); font-size:0.95rem;">
                     <button class="btn btn-primary" onclick="app.addGlobalTask()">
                         <i data-lucide="plus"></i>
                         הוספה
                     </button>
                 </div>
+
+                <div class="filters-bar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--border); padding-top: 16px;">
+                    <div style="flex: 1; min-width: 200px; position: relative;">
+                        <i data-lucide="search" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 14px; color: var(--text-muted); pointer-events: none;"></i>
+                        <input type="text" id="task-search" placeholder="חיפוש משימה..." 
+                            value="${searchQuery}"
+                            style="width: 100%; padding: 8px 36px 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.9rem;"
+                            oninput="UI.renderTasks(this.value, document.getElementById('task-filter-status').value, document.getElementById('task-filter-project').value, document.getElementById('task-sort').value)"
+                        >
+                    </div>
+                    
+                    <select id="task-filter-status" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; min-width: 110px;"
+                        onchange="UI.renderTasks(document.getElementById('task-search').value, this.value, document.getElementById('task-filter-project').value, document.getElementById('task-sort').value)"
+                    >
+                        <option value="all">סינון לפי סטטוס...</option>
+                        <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>בביצוע</option>
+                        <option value="completed" ${filterStatus === 'completed' ? 'selected' : ''}>הושלמו</option>
+                    </select>
+
+                    <select id="task-filter-project" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; min-width: 130px; max-width: 180px;"
+                        onchange="UI.renderTasks(document.getElementById('task-search').value, document.getElementById('task-filter-status').value, this.value, document.getElementById('task-sort').value)"
+                    >
+                        <option value="all">סינון לפי פרויקט...</option>
+                        ${projects.map(p => `<option value="${p.id}" ${filterProject === String(p.id) ? 'selected' : ''}>${p.name}</option>`).join('')}
+                    </select>
+
+                    <select id="task-sort" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; min-width: 130px;"
+                        onchange="UI.renderTasks(document.getElementById('task-search').value, document.getElementById('task-filter-status').value, document.getElementById('task-filter-project').value, this.value)"
+                    >
+                        <option value="" disabled ${!sortBy ? 'selected' : ''}>מיון לפי...</option>
+                        <option value="due-date-asc" ${sortBy === 'due-date-asc' ? 'selected' : ''}>תאריך יעד (קרוב לרחוק)</option>
+                        <option value="due-date-desc" ${sortBy === 'due-date-desc' ? 'selected' : ''}>תאריך יעד (רחוק לקרוב)</option>
+                        <option value="created-desc" ${sortBy === 'created-desc' ? 'selected' : ''}>תאריך יצירה (חדש לישן)</option>
+                        <option value="created-asc" ${sortBy === 'created-asc' ? 'selected' : ''}>תאריך יצירה (ישן לחדש)</option>
+                        <option value="status" ${sortBy === 'status' ? 'selected' : ''}>לפי סטטוס</option>
+                        <option value="project" ${sortBy === 'project' ? 'selected' : ''}>לפי פרויקט</option>
+                    </select>
+
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-right: auto;">
+                        ${filteredTasks.length} משימות
+                    </div>
+                </div>
             </div>
 
             <div class="card-list">
                 ${filteredTasks.length === 0 ? 
-                    '<div style="padding: 40px; text-align: center; color: var(--text-muted);">עדיין אין משימות. הוספת משימה חדשה למעלה.</div>' : 
+                    '<div style="padding: 60px 40px; text-align: center; color: var(--text-muted); background: white; border-radius: var(--radius-lg); border: 1px dashed var(--border);">לא נמצאו משימות מתאימות.</div>' : 
                     filteredTasks.map(t => {
                         const projectName = t.projects?.name || 'משימה כללית';
                         const isGlobal = !t.project_id;
                         const isStyling = t.category === 'styling' || t.content.includes('שיחת סטיילינג');
                         const dueDate = t.due_date ? new Date(t.due_date).toLocaleDateString('he-IL') : null;
+                        const remindersCount = (t.reminders || []).length;
                         
                         let badgeBg = '#F3E8FF';
                         let badgeColor = '#7E22CE';
@@ -598,46 +667,42 @@ async renderDashboard() {
                             if (isStyling) {
                                 badgeBg = '#D1FAE5';
                                 badgeColor = '#059669';
-                                badgeLabel = `פרויקט: ${projectName}`;
+                                badgeLabel = 'סטיילינג';
                             } else {
                                 badgeBg = '#E0F2FE';
                                 badgeColor = '#0369A1';
-                                badgeLabel = `פרויקט: ${projectName}`;
+                                badgeLabel = projectName;
                             }
                         }
 
                         return `
-                        <div class="list-item ${t.is_completed ? 'completed' : ''}" style="opacity: ${t.is_completed ? '0.6' : '1'}; cursor: pointer;" onclick="app.viewTask('${t.id}')">
-                            <div style="display:flex; align-items:center; gap:16px; flex:1;">
-                                <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="event.stopPropagation(); app.toggleChecklistItem('${t.id}', this.checked)" style="width:20px; height:20px;">
-                                <div class="item-info">
-                                    <span class="item-name" style="${t.is_completed ? 'text-decoration:line-through' : ''}; font-size:1rem;">${t.content}</span>
-                                    <div style="display:flex; gap:8px; align-items:center;">
-                                        <span class="item-sub" style="background: ${badgeBg}; color: ${badgeColor}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
-                                            ${badgeLabel}
-                                        </span>
-                                        ${dueDate ? `
-                                            <span style="font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
-                                                <i data-lucide="calendar" style="width:12px;"></i>
-                                                ${dueDate}
-                                            </span>
-                                        ` : ''}
+                            <div class="list-item" style="opacity: ${t.is_completed ? '0.6' : '1'}; transition: all 0.2s;">
+                                <div style="display:flex; align-items:flex-start; gap:12px; flex:1;">
+                                    <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="app.toggleChecklistItem('${t.id}', this.checked, '${t.project_id || ''}')" style="width:20px; height:20px; margin-top:2px;">
+                                    <div style="flex:1;">
+                                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap: wrap;">
+                                            <span style="font-weight:600; font-size:1rem; cursor:pointer; ${t.is_completed ? 'text-decoration:line-through; color:var(--text-muted)' : 'color:var(--text-main)'}" onclick="app.viewTask('${t.id}')">${t.content}</span>
+                                            <span style="font-size: 0.7rem; background:${badgeBg}; color:${badgeColor}; padding:2px 8px; border-radius:999px; font-weight:700;">${badgeLabel}</span>
+                                            ${remindersCount > 0 ? `<span style="font-size: 0.7rem; background:#FFFBEB; color:#92400E; padding:2px 8px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px;"><i data-lucide="bell" style="width:10px;"></i> ${remindersCount}</span>` : ''}
+                                        </div>
+                                        <div style="display:flex; gap:12px; align-items:center; font-size:0.8rem; color:var(--text-muted);">
+                                            ${dueDate ? `<span style="display:flex; align-items:center; gap:4px;"><i data-lucide="calendar" style="width:14px;"></i> תאריך יעד: ${dueDate}</span>` : ''}
+                                            <span style="display:flex; align-items:center; gap:4px;"><i data-lucide="plus" style="width:14px;"></i> נוסף ב: ${new Date(t.created_at).toLocaleDateString('he-IL')}</span>
+                                        </div>
                                     </div>
                                 </div>
+                                <div class="item-actions">
+                                    <button class="btn btn-secondary btn-sm" onclick="app.viewTask('${t.id}')">
+                                        <i data-lucide="edit-2"></i>
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm delete-btn" onclick="app.deleteChecklistItem('${t.id}', '${t.project_id || ''}')">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </div>
                             </div>
-                            <div style="display:flex; gap:8px;">
-                                ${!isGlobal ? `
-                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); app.viewProject('${t.project_id}')">
-                                    <i data-lucide="eye" style="width:14px;"></i>
-                                    צפייה
-                                </button>
-                                ` : ''}
-                                <button class="btn btn-secondary btn-sm" style="color:#EF4444;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
-                                    <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `}).join('')}
+                        `;
+                    }).join('')
+                }
             </div>
         `;
 
@@ -1854,35 +1919,55 @@ async renderDashboard() {
 
     async renderChecklist(projectId) {
         let items = [];
-        if (projectId) {
+        const hasRealId = projectId && projectId !== 'null' && projectId !== 'undefined';
+        
+        if (hasRealId) {
             items = await Store.getChecklistItems(projectId);
         } else {
             items = app._pendingChecklistItems || [];
         }
         
         const displayMode = Store.getChecklistDisplayMode();
-        const shootItems = items.filter(i => i.category === 'shoot' || i.category === 'styling');
+        const shootItems = items.filter(i => i.category === 'shoot');
         const equipmentItems = items.filter(i => i.category === 'equipment');
+        const workflowItems = items.filter(i => i.category === 'workflow' || i.category === 'task');
 
         const renderItems = (itemList, category) => {
-            if (itemList.length === 0) return '<div class="empty-list">אין פריטים ברשימה</div>';
+            if (itemList.length === 0) return '<div class="empty-list" style="padding: 12px; font-size: 0.8rem; color: var(--text-muted); text-align: center; border: 1px dashed var(--border); border-radius: 8px;">אין פריטים ברשימה</div>';
             return itemList.map(item => {
                 const isPending = !item.id;
                 const itemId = item.id || item.tempId;
                 const deleteAction = isPending ? 
                     `app.removePendingItem(${item.tempId})` : 
                     `app.deleteChecklistItem('${item.id}', '${projectId}')`;
+                
+                const hasReminders = (item.reminders && item.reminders.length > 0);
 
                 return `
-                    <div class="checklist-item ${item.is_completed ? 'completed' : ''} mode-${displayMode}" data-id="${itemId}">
-                        ${displayMode === 'checkbox' ? 
-                            `<input type="checkbox" ${item.is_completed ? 'checked' : ''} ${isPending ? 'disabled' : ''} onclick="app.toggleChecklistItem('${item.id}', this.checked, '${projectId}')">` : 
-                            `<i data-lucide="circle" style="width:8px; height:8px; fill:var(--primary); color:var(--primary);"></i>`
-                        }
-                        <span class="checklist-text" ${!isPending ? `onclick="app.viewTask('${item.id}')"` : ''}>${item.content}</span>
-                        <button type="button" class="btn-icon delete-btn" style="color:#EF4444;" onclick="event.stopPropagation(); ${deleteAction}">
-                            <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
-                        </button>
+                    <div class="checklist-item ${item.is_completed ? 'completed' : ''} mode-${displayMode}" data-id="${itemId}" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: white; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 4px;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                            ${displayMode === 'checkbox' ? 
+                                `<input type="checkbox" ${item.is_completed ? 'checked' : ''} ${isPending ? 'disabled' : ''} onclick="app.toggleChecklistItem('${item.id}', this.checked, '${projectId}')" style="width: 16px; height: 16px;">` : 
+                                `<i data-lucide="circle" style="width:8px; height:8px; fill:var(--primary); color:var(--primary);"></i>`
+                            }
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="checklist-text" style="font-size: 0.9rem; font-weight: 500; cursor: pointer;" ${!isPending ? `onclick="app.viewTask('${item.id}')"` : ''}>${item.content}</span>
+                                    ${item.due_date ? `
+                                        <span style="font-size: 0.7rem; color: var(--text-muted); background: var(--bg-main); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); font-weight: 600;">
+                                            ${item.due_date.split('-').reverse().join('/')}
+                                        </span>
+                                    ` : ''}
+                                </div>
+                                ${hasReminders ? `<span style="font-size: 0.65rem; color: #D97706; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i data-lucide="bell" style="width: 10px;"></i> ${item.reminders.length} תזכורות</span>` : ''}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 4px;">
+                             ${!isPending ? `<button type="button" class="btn-icon" style="color:var(--text-muted);" onclick="app.viewTask('${item.id}')"><i data-lucide="edit-2" style="width:14px;"></i></button>` : ''}
+                             <button type="button" class="btn-icon delete-btn" style="color:#EF4444;" onclick="event.stopPropagation(); ${deleteAction}">
+                                <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
+                             </button>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -1890,9 +1975,11 @@ async renderDashboard() {
 
         const shootContainer = document.getElementById('checklist-shoot');
         const equipmentContainer = document.getElementById('checklist-equipment');
+        const workflowContainer = document.getElementById('checklist-workflow');
 
         if (shootContainer) shootContainer.innerHTML = renderItems(shootItems, 'shoot');
         if (equipmentContainer) equipmentContainer.innerHTML = renderItems(equipmentItems, 'equipment');
+        if (workflowContainer) workflowContainer.innerHTML = renderItems(workflowItems, 'workflow');
 
         // Add a "Load Defaults" button if both lists are empty (Pro only)
         const checklistSection = document.getElementById('project-checklists-container') || document.querySelector('.project-checklists');
@@ -1902,7 +1989,7 @@ async renderDashboard() {
                 const profile = await Store.getUserProfile();
                 if (!loadBtn && profile?.plan !== 'starter') {
                     const cleanProjectId = (projectId && projectId !== 'null') ? `'${projectId}'` : 'null';
-                    const btnHtml = `<button id="load-defaults-btn" type="button" class="btn btn-secondary btn-sm" style="width:100%; margin-top:10px;" onclick="app.loadProjectDefaults(${cleanProjectId})">טעינת רשימות ברירת מחדל</button>`;
+                    const btnHtml = `<button id="load-defaults-btn" type="button" class="btn btn-secondary btn-sm" style="width:100%; margin-bottom: 12px;" onclick="app.loadProjectDefaults(${cleanProjectId})">טעינת רשימות ברירת מחדל</button>`;
                     checklistSection.insertAdjacentHTML('beforeend', btnHtml);
                 }
             } else if (loadBtn) {

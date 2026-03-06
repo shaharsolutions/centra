@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Centra - ניהול עסק לצילום</title>
+    <title>Centra | ניהול עסק לצילום</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-title" content="Centra">
     <meta name="theme-color" content="#7C3AED">
     <link rel="manifest" href="manifest.json">
-    <meta name="description" content="Centra - מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לעסק לצילום.">
+    <meta name="description" content="Centra, מערכת פשוטה וחכמה לניהול לקוחות ופרויקטים לעסק לצילום.">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -247,7 +247,7 @@
                     <div class="form-group">
                         <label for="client-phone">טלפון</label>
                         <div class="view-group">
-                            <input type="tel" id="client-phone" required placeholder="050-0000000" readonly>
+                            <input type="tel" id="client-phone" required placeholder="050 0000000" readonly>
                             <span id="client-phone-view" class="view-text hidden"></span>
                         </div>
                     </div>
@@ -441,7 +441,7 @@
                     <div class="form-group">
                         <label for="project-date">תאריך צילום</label>
                         <div class="view-group">
-                            <input type="date" id="project-date" onchange="app.fetchWeatherForProject()">
+                            <input type="date" id="project-date" onchange="app.fetchWeatherForProject()" placeholder="בחירת תאריך">
                             <span id="project-date-view" class="view-text hidden"></span>
                         </div>
                     </div>
@@ -596,6 +596,7 @@
                             <i data-lucide="download" style="width:14px;"></i> ייבוא רשימת ברירת המחדל
                         </button>
                     </div>
+
                 </div>
 
                 <div class="documents-section" style="margin-top:24px; padding-top:24px; border-top:1px solid var(--border);">
@@ -783,7 +784,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="task-due-date">תאריך יעד</label>
-                        <input type="date" id="task-due-date">
+                        <input type="date" id="task-due-date" placeholder="בחירת תאריך">
                     </div>
                     <div class="form-group">
                         <label>סטטוס</label>
@@ -794,17 +795,37 @@
                     </div>
                 </div>
 
-                <div class="form-group" style="background: var(--bg-main); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 0;">
-                            <input type="checkbox" id="task-reminder-enabled" style="width: 18px; height: 18px;">
-                            <span style="font-weight: 600;">הפעלת תזכורת במייל</span>
+                <div id="task-reminders-container" class="form-group" style="background: var(--bg-main); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 0; font-weight: 700;">
+                            <i data-lucide="bell" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                            תזכורות למשימה זו (במייל)
                         </label>
-                        <div id="task-reminder-days-container" style="display: flex; align-items: center; gap: 8px; transition: opacity 0.2s; flex-wrap: wrap;">
-                            <span style="font-size: 0.85rem;">שלח תזכורת</span>
-                            <input type="number" id="task-reminder-days" value="1" min="0" max="30" style="width: 45px; padding: 4px; border-radius: 4px; border: 1px solid var(--border); text-align: center;">
-                            <span style="font-size: 0.85rem;">ימים לפני בשעה:</span>
-                            <input type="time" id="task-reminder-hour" value="08:00" style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.85rem; width: 100px;">
+                        <span style="background: #F0F9FF; color: #0369A1; padding: 2px 8px; border-radius: 999px; font-size: 0.65rem; font-weight: 800; border: 1px solid #BAE6FD; display: flex; align-items: center; gap: 4px; cursor: pointer;" onclick="app.openUpgradeModal()">
+                            <i data-lucide="zap" style="width: 10px; height: 10px;"></i>
+                            PRO
+                        </span>
+                    </div>
+                    <div id="task-reminders-content">
+                        <div id="task-reminders-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+                            <!-- Reminders will be added here -->
+                        </div>
+                        <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">הוספת תזכורת חדשה:</div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button id="quick-reminder-0" type="button" class="btn btn-secondary btn-sm" onclick="app.setTaskReminderQuickDate(0, this)">באותו יום</button>
+                                <button id="quick-reminder-1" type="button" class="btn btn-secondary btn-sm" onclick="app.setTaskReminderQuickDate(1, this)">יום לפני</button>
+                                <button id="quick-reminder-2" type="button" class="btn btn-secondary btn-sm" onclick="app.setTaskReminderQuickDate(2, this)">יומיים לפני</button>
+                                <button id="quick-reminder-7" type="button" class="btn btn-secondary btn-sm" onclick="app.setTaskReminderQuickDate(7, this)">שבוע לפני</button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <input type="date" id="new-task-reminder-date" style="flex: 2; padding: 8px 12px; font-size: 0.9rem; min-width: 140px;" placeholder="בחירת תאריך" oninput="app._updateQuickRemindersUI()">
+                                <input type="time" id="new-task-reminder-hour" value="08:00" style="flex: 1; padding: 8px 12px; font-size: 0.9rem; min-width: 100px;">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="app.registerTaskReminder()" style="height: 40px; padding: 0 16px;">
+                                    <i data-lucide="plus" style="width: 16px;"></i>
+                                    הוספה
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -8,6 +8,7 @@ const app = {
     dashboardWeekOffset: 0, 
     isStatsExpanded: false,
     _pendingChecklistItems: [],
+    _currentTaskReminders: [],
 
     initialized: false,
 
@@ -573,6 +574,42 @@ const app = {
         this.bringModalToFront(modal);
     },
 
+    openNewTaskModal() {
+        this.editingTaskId = null;
+        this.editingProjectId = null;
+        document.getElementById('task-modal-title').innerText = 'משימה חדשה';
+        document.getElementById('task-form').reset();
+        
+        this._currentTaskReminders = [];
+        this.renderTaskReminders();
+
+        // Control reminders access by plan
+        Store.getUserProfile().then(profile => {
+            const isStarter = profile?.plan === 'starter';
+            const remindersContent = document.getElementById('task-reminders-content');
+            if (remindersContent) {
+                if (isStarter) {
+                    remindersContent.style.filter = 'blur(4px)';
+                    remindersContent.style.pointerEvents = 'none';
+                    remindersContent.style.opacity = '0.7';
+                } else {
+                    remindersContent.style.filter = 'none';
+                    remindersContent.style.pointerEvents = 'auto';
+                    remindersContent.style.opacity = '1';
+                }
+            }
+        });
+        
+        document.getElementById('task-project-info').innerHTML = 'משימה כללית (לא משויכת לפרויקט)';
+        document.getElementById('delete-task-btn').style.display = 'none';
+        document.getElementById('task-modal').classList.remove('hidden');
+        this.bringModalToFront(document.getElementById('task-modal'));
+        
+        // Reset new reminder inputs
+        document.getElementById('new-task-reminder-date').value = '';
+        document.getElementById('new-task-reminder-hour').value = '08:00';
+    },
+
     async handleLocationSubmit() {
         const location = {
             id: this.editingLocationId,
@@ -779,6 +816,20 @@ const app = {
             document.querySelectorAll('.import-defaults-btn').forEach(btn => {
                 btn.style.display = isStarter ? 'none' : 'flex';
             });
+
+            // Blur/Disable Workflow for Starter
+            const workflowContent = document.getElementById('checklist-workflow-content');
+            if (workflowContent) {
+                if (isStarter) {
+                    workflowContent.style.filter = 'blur(4px)';
+                    workflowContent.style.pointerEvents = 'none';
+                    workflowContent.style.opacity = '0.7';
+                } else {
+                    workflowContent.style.filter = 'none';
+                    workflowContent.style.pointerEvents = 'auto';
+                    workflowContent.style.opacity = '1';
+                }
+            }
         });
 
         const deleteBtn = document.getElementById('delete-project-btn');
@@ -793,12 +844,7 @@ const app = {
             this.editingProjectPaymentStatus = p.payment_status || 'not_paid';
             document.getElementById('project-client').value = p.client_id;
             document.getElementById('project-name').value = p.name;
-            const projectDateEl = document.getElementById('project-date');
-            if (projectDateEl._flatpickr) {
-                projectDateEl._flatpickr.setDate(p.shoot_date || '');
-            } else {
-                projectDateEl.value = p.shoot_date || '';
-            }
+            this._setElementDate('project-date', p.shoot_date);
             document.getElementById('project-time').value = p.shoot_time || '';
             document.getElementById('project-location').value = p.location || '';
             document.getElementById('project-subjects-count').value = p.subjects_count || '';
@@ -1962,12 +2008,29 @@ const app = {
         if (!content) return;
 
         try {
-            await Store.saveChecklistItem({
-                projectId,
-                content,
-                category,
-                isCompleted: false
-            });
+            const hasRealId = projectId && projectId !== 'null' && projectId !== 'undefined';
+            
+            if (hasRealId) {
+                // Existing project - save directly to Store/DB
+                await Store.saveChecklistItem({
+                    projectId,
+                    content,
+                    category,
+                    isCompleted: false
+                });
+            } else {
+                // New project - add to pending items for the modal UI
+                const tempId = Date.now() + Math.random();
+                this._pendingChecklistItems.push({ 
+                    tempId, 
+                    id: null, 
+                    content, 
+                    category, 
+                    is_completed: false,
+                    project_id: null 
+                });
+            }
+            
             input.value = '';
             UI.renderChecklist(projectId);
         } catch (error) {
@@ -2011,150 +2074,253 @@ const app = {
     },
 
     async openTaskModal(task) {
+        // Show modal or update if already open
         this.editingTaskId = task.id;
-        document.getElementById('task-content').value = task.content;
-        const taskDateEl = document.getElementById('task-due-date');
-        const taskDateVal = task.due_date ? task.due_date.split('T')[0] : '';
-        if (taskDateEl._flatpickr) {
-            taskDateEl._flatpickr.setDate(taskDateVal);
-        } else {
-            taskDateEl.value = taskDateVal;
-        }
-        document.getElementById('task-completed-checkbox').checked = task.is_completed;
+        this.editingProjectId = task.project_id;
+        
+        // Reset and show modal basic fields
+        document.getElementById('task-modal-title').innerText = 'עריכת משימה';
+        document.getElementById('task-content').value = task.content || '';
+        this._setElementDate('task-due-date', task.due_date || '');
+        document.getElementById('task-completed-checkbox').checked = task.is_completed || false;
         document.getElementById('task-notes').value = task.notes || '';
         
-        // Reminder settings
-        const reminderEnabled = !!task.reminder_enabled;
-        const taskRemEnabledEl = document.getElementById('task-reminder-enabled');
-        if (taskRemEnabledEl) {
-            taskRemEnabledEl.checked = reminderEnabled;
-        }
-        const taskRemDaysEl = document.getElementById('task-reminder-days');
-        if (taskRemDaysEl) {
-            taskRemDaysEl.value = task.reminder_days || 1;
-        }
-        const taskRemHourEl = document.getElementById('task-reminder-hour');
-        if (taskRemHourEl) {
-            taskRemHourEl.value = task.reminder_hour || '08:00';
-        }
-        const reminderDaysContainer = document.getElementById('task-reminder-days-container');
-        if (reminderDaysContainer) {
-            reminderDaysContainer.style.opacity = reminderEnabled ? '1' : '0.4';
-            reminderDaysContainer.style.pointerEvents = reminderEnabled ? 'auto' : 'none';
-        }
+        // Reset new reminder inputs EARLY to avoid overwriting calculated values
+        this._setElementDate('new-task-reminder-date', '');
+        document.getElementById('new-task-reminder-hour').value = '08:00';
         
-        const projectInfo = document.getElementById('task-project-info');
-        let projectName = '';
-        let clientName = '';
-        const pid = task.project_id || task.projectId;
-        if (pid) {
+        this._currentTaskReminders = task.reminders || [];
+        this.renderTaskReminders();
+
+        // 1. Resolve project shoot date if missing from join
+        let projectShootDate = task.projects?.shoot_date;
+        if (!projectShootDate && this.editingProjectId) {
             try {
                 const projects = await Store.getProjects();
-                const proj = projects.find(p => String(p.id) === String(pid));
-                if (proj) {
-                    projectName = proj.name;
-                    clientName = proj.clients?.name || '';
-                }
+                const project = projects.find(p => String(p.id) === String(this.editingProjectId));
+                projectShootDate = project?.shoot_date;
             } catch (e) {
-                console.error(e);
+                console.warn('Could not resolve project for modal defaults');
             }
-        }
-        
-        if (!projectName && task.projects) {
-            projectName = task.projects.name;
-            clientName = task.projects.clients?.name || '';
         }
 
-        if (projectName) {
-            if (clientName) {
-                projectInfo.innerText = `משויך לפרויקט: ${projectName} (${clientName})`;
-            } else {
-                projectInfo.innerText = `משויך לפרויקט: ${projectName}`;
+        // 2. Set default reminder selection logic
+        let calculatedDate = task.due_date;
+
+        // Special case for "שליחת תזכורת יום לפני" task
+        if (!calculatedDate && task.content && task.content.includes('שליחת תזכורת יום לפני')) {
+            if (projectShootDate) {
+                const parts = projectShootDate.split('-');
+                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                d.setDate(d.getDate() - 1);
+                
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                calculatedDate = `${y}-${m}-${day}`;
+                
+                // If the task field was actually empty, auto-fill it
+                const taskDueEl = document.getElementById('task-due-date');
+                if (!taskDueEl.value) {
+                    this._setElementDate('task-due-date', calculatedDate);
+                }
             }
-            projectInfo.style.display = 'block';
+        }
+
+        // Apply to input
+        const defaultDate = calculatedDate || new Date().toISOString().split('T')[0];
+        this._setElementDate('new-task-reminder-date', defaultDate);
+        this._updateQuickRemindersUI();
+
+        // Control reminders access by plan
+        Store.getUserProfile().then(profile => {
+            const isStarter = profile?.plan === 'starter';
+            const remindersContent = document.getElementById('task-reminders-content');
+            if (remindersContent) {
+                if (isStarter) {
+                    remindersContent.style.filter = 'blur(4px)';
+                    remindersContent.style.pointerEvents = 'none';
+                    remindersContent.style.opacity = '0.7';
+                } else {
+                    remindersContent.style.filter = 'none';
+                    remindersContent.style.pointerEvents = 'auto';
+                    remindersContent.style.opacity = '1';
+                }
+            }
+        });
+
+        const projectInfo = document.getElementById('task-project-info');
+        if (task.projects) {
+            projectInfo.innerHTML = `משויך לפרויקט: <strong>${task.projects.name}</strong>`;
         } else {
-            projectInfo.style.display = 'none';
+            projectInfo.innerHTML = 'משימה כללית (לא משויכת לפרויקט)';
         }
 
-        const deleteBtn = document.getElementById('delete-task-btn');
-        if (deleteBtn) deleteBtn.style.display = 'block';
-
-        const modal = document.getElementById('task-modal');
-        modal.classList.remove('hidden');
-        document.querySelector('#task-modal .modal').scrollTop = 0;
-        this.bringModalToFront(modal);
+        document.getElementById('delete-task-btn').style.display = 'block';
+        document.getElementById('task-modal').classList.remove('hidden');
+        this.bringModalToFront(document.getElementById('task-modal'));
     },
 
-    openNewTaskModal() {
-        this.editingTaskId = null;
-        document.getElementById('task-content').value = '';
-        const taskDateEl = document.getElementById('task-due-date');
-        if (taskDateEl._flatpickr) {
-            taskDateEl._flatpickr.clear();
+    _setElementDate(id, dateStr) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        
+        if (el._flatpickr) {
+            el._flatpickr.setDate(dateStr || '', true);
         } else {
-            taskDateEl.value = '';
+            el.value = dateStr || '';
         }
-        document.getElementById('task-completed-checkbox').checked = false;
-        document.getElementById('task-notes').value = '';
+    },
+
+    registerTaskReminder() {
+        const date = document.getElementById('new-task-reminder-date').value;
+        const hour = document.getElementById('new-task-reminder-hour').value;
         
-        const taskRemEnabledEl = document.getElementById('task-reminder-enabled');
-        if (taskRemEnabledEl) taskRemEnabledEl.checked = false;
-        const taskRemDaysEl = document.getElementById('task-reminder-days');
-        if (taskRemDaysEl) taskRemDaysEl.value = 1;
-        const taskRemHourEl = document.getElementById('task-reminder-hour');
-        if (taskRemHourEl) taskRemHourEl.value = '08:00';
-        const reminderDaysContainer = document.getElementById('task-reminder-days-container');
-        if (reminderDaysContainer) {
-            reminderDaysContainer.style.opacity = '0.4';
-            reminderDaysContainer.style.pointerEvents = 'none';
+        if (!date) {
+            this.confirmAction('שים לב', 'נא לבחור תאריך לתזכורת.', null, true);
+            return;
+        }
+
+        const reminder = {
+            id: Date.now().toString(),
+            date: date,
+            hour: hour,
+            sent: false
+        };
+
+        this._currentTaskReminders.push(reminder);
+        this.renderTaskReminders();
+        
+        // Reset
+        document.getElementById('new-task-reminder-date').value = '';
+        this._updateQuickRemindersUI();
+    },
+
+    removeTaskReminder(id) {
+        this._currentTaskReminders = this._currentTaskReminders.filter(r => r.id !== id);
+        this.renderTaskReminders();
+    },
+
+    setTaskReminderQuickDate(daysBefore) {
+        const dueDateStr = document.getElementById('task-due-date').value;
+        if (!dueDateStr) {
+            this.confirmAction('שים לב', 'נא להגדיר תאריך יעד למשימה לפני שימוש בקיצור דרך.', null, true);
+            return;
         }
         
-        const projectInfo = document.getElementById('task-project-info');
-        if (projectInfo) projectInfo.style.display = 'none';
+        // Parse components manually to avoid timezone/UTC shifts
+        const parts = dueDateStr.split('-');
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1;
+        const day = parseInt(parts[2]);
+        
+        const baseDate = new Date(year, month, day);
+        const reminderDate = new Date(baseDate);
+        reminderDate.setDate(reminderDate.getDate() - daysBefore);
+        
+        // Format back to YYYY-MM-DD manually
+        const y = reminderDate.getFullYear();
+        const m = String(reminderDate.getMonth() + 1).padStart(2, '0');
+        const d = String(reminderDate.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+        
+        const input = document.getElementById('new-task-reminder-date');
+        if (input) {
+            this._setElementDate('new-task-reminder-date', dateStr);
+            this._updateQuickRemindersUI();
+        }
+    },
 
-        const deleteBtn = document.getElementById('delete-task-btn');
-        if (deleteBtn) deleteBtn.style.display = 'none';
+    renderTaskReminders() {
+        const list = document.getElementById('task-reminders-list');
+        if (this._currentTaskReminders.length === 0) {
+            list.innerHTML = '<div style="font-size: 0.85rem; color: var(--text-muted); padding: 8px; text-align: center; border: 1px dashed var(--border); border-radius: 8px;">אין תזכורות מוגדרות</div>';
+            return;
+        }
 
-        const modal = document.getElementById('task-modal');
-        modal.classList.remove('hidden');
-        document.querySelector('#task-modal .modal').scrollTop = 0;
-        this.bringModalToFront(modal);
+        list.innerHTML = this._currentTaskReminders.map(r => `
+            <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);"></i>
+                    <span>${new Date(r.date).toLocaleDateString('he-IL')} בשעה ${r.hour}</span>
+                    ${r.sent ? '<span style="color: #10B981; font-weight: 600;">(נשלח)</span>' : ''}
+                </div>
+                <button type="button" class="btn-icon" style="color: #EF4444;" onclick="app.removeTaskReminder('${r.id}')">
+                    <i data-lucide="x" style="width: 14px;"></i>
+                </button>
+            </div>
+        `).join('');
+
+        this._updateQuickRemindersUI();
+        if (window.lucide) lucide.createIcons({ root: list });
+    },
+
+    _updateQuickRemindersUI() {
+        const dueDateStr = document.getElementById('task-due-date').value;
+        const currentInputDate = document.getElementById('new-task-reminder-date').value;
+        if (!dueDateStr) return;
+
+        const parts = dueDateStr.split('-');
+        const baseYear = parseInt(parts[0]);
+        const baseMonth = parseInt(parts[1]) - 1;
+        const baseDay = parseInt(parts[2]);
+
+        const offsets = [0, 1, 2, 7];
+
+        offsets.forEach(offset => {
+            const btn = document.getElementById(`quick-reminder-${offset}`);
+            if (!btn) return;
+
+            const targetDate = new Date(baseYear, baseMonth, baseDay);
+            targetDate.setDate(targetDate.getDate() - offset);
+            
+            const ty = targetDate.getFullYear();
+            const tm = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const td = String(targetDate.getDate()).padStart(2, '0');
+            const targetStr = `${ty}-${tm}-${td}`;
+
+            const isActive = currentInputDate === targetStr;
+            if (isActive) {
+                btn.classList.add('btn-quick-active');
+            } else {
+                btn.classList.remove('btn-quick-active');
+            }
+        });
     },
 
     async handleTaskSubmit() {
-        let task = this.editingTaskId ? await Store.getTaskById(this.editingTaskId) : null;
-        
-        const isNew = !task;
-        const taskId = isNew ? 'local_' + Date.now() : task.id;
-        const projectId = isNew ? null : task.project_id;
-        const category = isNew ? 'task' : task.category;
-        
-        const updatedTask = {
-            ...(task || {}),
-            id: taskId,
-            projectId,
-            category,
-            content: document.getElementById('task-content').value,
-            dueDate: document.getElementById('task-due-date').value,
-            isCompleted: document.getElementById('task-completed-checkbox').checked,
-            reminder_enabled: document.getElementById('task-reminder-enabled')?.checked || false,
-            reminder_days: parseInt(document.getElementById('task-reminder-days')?.value || 1),
-            reminder_hour: document.getElementById('task-reminder-hour')?.value || '08:00',
-            notes: document.getElementById('task-notes').value
+        const content = document.getElementById('task-content').value;
+        const dueDate = document.getElementById('task-due-date').value;
+        const isCompleted = document.getElementById('task-completed-checkbox').checked;
+        const notes = document.getElementById('task-notes').value;
+
+        const taskData = {
+            id: this.editingTaskId,
+            project_id: this.editingProjectId,
+            content: content,
+            due_date: dueDate || null,
+            is_completed: isCompleted,
+            notes: notes,
+            reminders: this._currentTaskReminders,
+            category: 'general'
         };
 
-        try {
-            await Store.saveChecklistItem(updatedTask);
-            if (isNew) {
-                await Store.logAction('משימה חדשה', `משימה כללית חדשה נוספה: ${updatedTask.content}`, 'task', taskId);
+        const result = await Store.saveChecklistItem(taskData);
+        if (result.success) {
+            this.closeSpecificModal('task-modal');
+            if (this.currentView === 'tasks') {
+                UI.renderTasks();
+            } else if (this.editingProjectId) {
+                // If we were inside a project modal, we might need to refresh it if it was open
+                // but usually tasks are edited via global tasks view or specific project checklists
+                const projectModal = document.getElementById('project-modal');
+                if (!projectModal.classList.contains('hidden')) {
+                    this.viewProject(this.editingProjectId);
+                }
             }
-            this.closeModal();
-            if (this.currentView === 'tasks') await UI.renderTasks();
-            else if (this.currentView === 'dashboard') await UI.renderDashboard();
-            if (updatedTask.projectId) UI.renderChecklist(updatedTask.projectId);
-        } catch (error) {
-            console.error('Save task error:', error);
-            this.confirmAction('שגיאה', 'חלה שגיאה בשמירת המשימה.', null, true);
+            UI.showToast('המשימה נשמרה בהצלחה');
+        } else {
+            this.confirmAction('שגיאה', 'לא ניתן לשמור את המשימה: ' + result.error, null, true);
         }
     },
 
