@@ -1,7 +1,9 @@
 const UI = {
 async renderDashboard() {
-    const projects = await Store.getProjects();
-    const tasks = await Store.getAllTasks();
+    const [projects, tasks] = await Promise.all([
+        Store.getProjects(),
+        Store.getAllTasks()
+    ]);
     
     const openProjectsList = projects.filter(p => ['closed', 'shooting', 'editing'].includes(p.status));
     const waitingPaymentList = projects.filter(p => (p.payments?.total || 0) > (p.payments?.deposit || 0) && p.status !== 'delivered');
@@ -30,8 +32,9 @@ async renderDashboard() {
     // Filter tasks for the week
     const displayMode = Store.getChecklistDisplayMode();
     const weekTasks = tasks.filter(t => {
-        // If bullet mode, don't show project tasks in the weekly summary
-        if (displayMode === 'bullet' && (t.project_id || t.projectId)) return false;
+        const hasDueDate = !!(t.due_date || t.dueDate);
+        // If bullet mode, only show if it has a due date or it's a global task
+        if (displayMode === 'bullet' && (t.project_id || t.projectId) && !hasDueDate) return false;
         
         const d = new Date(t.due_date || t.dueDate);
         return d >= weekDays[0] && d <= new Date(weekDays[6].getTime() + 86400000);
@@ -354,14 +357,16 @@ async renderDashboard() {
     document.getElementById('view-subtitle').innerText = 'הנה מה שקורה בעסק שלך היום.';
     if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
 
     async renderClients(searchQuery = '', filterSource = 'all', sortBy = 'name-asc', filterCity = 'all') {
-        const clients = await Store.getClients();
-        const projects = await Store.getProjects();
+        const [clients, projects] = await Promise.all([
+            Store.getClients(),
+            Store.getProjects()
+        ]);
         
         // Get unique cities for filter
         const cities = [...new Set(clients.map(c => c.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
@@ -619,12 +624,12 @@ async renderDashboard() {
                     <input type="text" id="client-search" placeholder="חיפוש לפי שם או טלפון..." 
                         value="${searchQuery}"
                         style="width: 100%; padding: 6px 32px 6px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.9rem;"
-                        oninput="UI.renderClients(this.value, document.getElementById('client-filter-source').value, document.getElementById('client-sort').value, document.getElementById('client-filter-city').value)"
+                        oninput="app.debouncedRenderClients(this.value, document.getElementById('client-filter-source').value, document.getElementById('client-sort').value, document.getElementById('client-filter-city').value)"
                     >
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <select id="client-filter-source" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 120px; font-size: 0.85rem; cursor: pointer;"
-                        onchange="UI.renderClients(document.getElementById('client-search').value, this.value, document.getElementById('client-sort').value, document.getElementById('client-filter-city').value)"
+                        onchange="app.debouncedRenderClients(document.getElementById('client-search').value, this.value, document.getElementById('client-sort').value, document.getElementById('client-filter-city').value)"
                     >
                         <option value="all">כל המקורות</option>
                         <option value="whatsapp" ${filterSource === 'whatsapp' ? 'selected' : ''}>וואטסאפ</option>
@@ -635,14 +640,14 @@ async renderDashboard() {
                     </select>
 
                     <select id="client-filter-city" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 120px; font-size: 0.85rem; cursor: pointer;"
-                        onchange="UI.renderClients(document.getElementById('client-search').value, document.getElementById('client-filter-source').value, document.getElementById('client-sort').value, this.value)"
+                        onchange="app.debouncedRenderClients(document.getElementById('client-search').value, document.getElementById('client-filter-source').value, document.getElementById('client-sort').value, this.value)"
                     >
                         <option value="all">כל הערים</option>
                         ${cities.map(city => `<option value="${city}" ${filterCity === city ? 'selected' : ''}>${city}</option>`).join('')}
                     </select>
 
                     <select id="client-sort" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 120px; font-size: 0.85rem; cursor: pointer;"
-                        onchange="UI.renderClients(document.getElementById('client-search').value, document.getElementById('client-filter-source').value, this.value, document.getElementById('client-filter-city').value)"
+                        onchange="app.debouncedRenderClients(document.getElementById('client-search').value, document.getElementById('client-filter-source').value, this.value, document.getElementById('client-filter-city').value)"
                     >
                         <option value="name-asc" ${sortBy === 'name-asc' ? 'selected' : ''}>שם (א-ת)</option>
                         <option value="name-desc" ${sortBy === 'name-desc' ? 'selected' : ''}>שם (ת-א)</option>
@@ -717,7 +722,7 @@ async renderDashboard() {
 
         if (window.lucide) {
             lucide.createIcons({
-                root: document.getElementById('app')
+                root: document.getElementById('view-container')
             });
         }
     },
@@ -790,7 +795,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'מעקב אחרי זרימת העבודה שלך.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -835,22 +840,31 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'פרויקטים שהסתיימו ועברו לארכיון.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
 
     async renderTasks(searchQuery = '', filterStatus = 'all', filterProject = 'all', sortBy = '') {
-        const allItems = await Store.getAllTasks();
-        const projects = await Store.getProjects();
+        const [allItems, projects] = await Promise.all([
+            Store.getAllTasks(),
+            Store.getProjects()
+        ]);
         const displayMode = Store.getChecklistDisplayMode();
         
-        // Filter out 'shoot' and 'equipment' categories - user requested, but include reminders
-        let filteredTasks = allItems.filter(item => (item.category !== 'shoot' && item.category !== 'equipment') || (item.content || '').includes('תזכורת'));
+        // Filter tasks: include if it has a due date, or if it's not a filtered category
+        let filteredTasks = allItems.filter(item => {
+            const hasDueDate = !!(item.due_date || item.dueDate);
+            if (hasDueDate) return true;
+            return (item.category !== 'shoot' && item.category !== 'equipment') || (item.content || '').includes('תזכורת');
+        });
         
-        // If bullet mode, don't show project tasks in the tasks list
+        // If bullet mode, hide project tasks UNLESS they have a due date
         if (displayMode === 'bullet') {
-            filteredTasks = filteredTasks.filter(item => !(item.project_id || item.projectId));
+            filteredTasks = filteredTasks.filter(item => {
+                const hasDueDate = !!(item.due_date || item.dueDate);
+                return hasDueDate || !(item.project_id || item.projectId);
+            });
         }
         
         // Apply search and filters
@@ -1032,7 +1046,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'משימות כלליות ומשימות מפרויקטים במקום אחד.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -1052,9 +1066,11 @@ async renderDashboard() {
     },
 
     async renderCalendar() {
-        const projects = await Store.getProjects();
-        const tasks = await Store.getAllTasks();
-        const profile = await Store.getUserProfile();
+        const [projects, tasks, profile] = await Promise.all([
+            Store.getProjects(),
+            Store.getAllTasks(),
+            Store.getUserProfile()
+        ]);
         const isProfessional = profile?.plan === 'professional';
         
         const currentMonth = app.currentCalendarDate.getMonth();
@@ -1129,12 +1145,8 @@ async renderDashboard() {
                             return projectDate === dateStr && p.status !== 'archived';
                         });
                         
-                        // De-duplicate tasks for this specific day
-                        const displayMode = Store.getChecklistDisplayMode();
+                        // Tasks for this date: include checklist items with due dates
                         const allDayTasks = tasks.filter(t => {
-                            // If bullet mode, don't show project tasks in the calendar tab
-                            if (displayMode === 'bullet' && (t.project_id || t.projectId)) return false;
-                            
                             const taskDate = String(t.due_date || t.dueDate || '').split('T')[0];
                             return taskDate === dateStr;
                         });
@@ -1254,7 +1266,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'כל הפרויקטים והמשימות שלך במקום אחד.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -1301,7 +1313,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'רשימת כל ימי הצילום הקרובים.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -1403,7 +1415,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'מעקב אחר סטטוס תשלומים של פרויקטים.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -1825,7 +1837,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'התאמת המערכת.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -1910,7 +1922,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = gender === 'male' ? 'גלה לוקיישנים מומלצים לצילומים לפי אזורים בארץ.' : 'גלי לוקיישנים מומלצים לצילומים לפי אזורים בארץ.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -1992,17 +2004,18 @@ async renderDashboard() {
         `).join('');
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
 
     async renderReports() {
-        const profile = await Store.getUserProfile();
+        const [profile, projects, clients] = await Promise.all([
+            Store.getUserProfile(),
+            Store.getProjects(),
+            Store.getClients()
+        ]);
         const isProfessional = profile?.plan === 'professional';
-        
-        const projects = await Store.getProjects();
-        const clients = await Store.getClients();
         
         // Metrics calculation
         const totalProjects = projects.length;
@@ -2200,7 +2213,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'מבט על הביצועים העסקיים שלך.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -2242,7 +2255,7 @@ async renderDashboard() {
 
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -2434,7 +2447,7 @@ async renderDashboard() {
         document.getElementById('view-subtitle').innerText = 'מעקב אחרי 100 הפעולות האחרונות שבוצעו במערכת.';
         if (window.lucide) {
         lucide.createIcons({
-            root: document.getElementById('app')
+            root: document.getElementById('view-container')
         });
     }
     },
@@ -2528,7 +2541,7 @@ async renderDashboard() {
         }).join('');
 
         if (window.lucide) {
-            lucide.createIcons({ root: container });
+            lucide.createIcons({ root: document.getElementById('view-container') });
         }
     },
 

@@ -169,6 +169,7 @@ const Store = {
         packages: null,
         userProfile: null
     },
+    _pending: {},
 
     invalidateCache(type) {
         if (type) {
@@ -186,7 +187,9 @@ const Store = {
     async getClients(forceRefresh = false) {
         if (!Auth.getUserId()) return [];
         if (!forceRefresh && this._cache.clients) return this._cache.clients;
+        if (this._pending.clients) return this._pending.clients;
 
+        this._pending.clients = (async () => {
         let dbClients = [];
         let localClients = JSON.parse(localStorage.getItem('local_clients') || '[]');
 
@@ -249,7 +252,10 @@ const Store = {
         });
 
         this._cache.clients = results;
+        this._pending.clients = null;
         return results;
+        })();
+        return this._pending.clients;
     },
 
     async saveClient(client) {
@@ -357,88 +363,80 @@ const Store = {
     async getProjects(clientId = null, forceRefresh = false) {
         if (!Auth.getUserId()) return [];
         if (!clientId && !forceRefresh && this._cache.projects) return this._cache.projects;
+        if (!clientId && this._pending.projects) return this._pending.projects;
 
-        let dbProjects = [];
-        let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
+        const fetchProjectsAction = async () => {
+            let dbProjects = [];
+            let localProjects = JSON.parse(localStorage.getItem('local_projects') || '[]');
 
-        try {
-            let query = sb.from('projects').select('*, clients(name, organization, email, phone)').eq('user_id', Auth.getUserId());
-            if (clientId) {
-                query = query.eq('client_id', clientId);
-            }
-            const { data, error } = await query.order('created_at', { ascending: false });
-            if (error) throw error;
-            dbProjects = data || [];
+            try {
+                let query = sb.from('projects').select('*, clients(name, organization, email, phone)').eq('user_id', Auth.getUserId());
+                if (clientId) {
+                    query = query.eq('client_id', clientId);
+                }
+                const { data, error } = await query.order('created_at', { ascending: false });
+                if (error) throw error;
+                dbProjects = data || [];
 
-            // Hydrate local storage with synced projects
-            if (dbProjects.length > 0 && !clientId) {
-                const newLocal = [...localProjects.filter(p => !p.id || String(p.id).startsWith('local_'))];
-                dbProjects.forEach(dp => {
-                    if (!newLocal.some(lp => String(lp.id) === String(dp.id))) {
-                        newLocal.push(dp);
-                    }
-                });
-                // Fix: update localStorage to match DB state for synced items
-                localStorage.setItem('local_projects', JSON.stringify(newLocal));
-            }
-        } catch (e) {
-            console.warn('Error fetching projects from Supabase:', e.message);
-        }
-        
-        // Merge DB and Local projects with strict de-duplication
-        const allProjectsMap = new Map();
-        const currentUserId = Auth.getUserId();
-        
-        // 1. Process DB projects first (they take precedence)
-        dbProjects.forEach(dp => {
-            const pid = String(dp.id);
-            allProjectsMap.set(pid, dp);
-            
-            // Also register by name+client to catch local duplicates even if they have weird IDs
-            if (dp.client_id && dp.name) {
-                const nameKey = `name-${String(dp.client_id)}-${String(dp.name).trim().toLowerCase()}`;
-                if (!allProjectsMap.has(nameKey)) allProjectsMap.set(nameKey, dp);
-            }
-        });
-
-        // 2. Process Local projects
-        localProjects.forEach(lp => {
-            const lid = String(lp.id || '');
-            const isLocal = !lid || lid.startsWith('local_');
-            const nameKey = lp.client_id && lp.name ? `name-${String(lp.client_id)}-${String(lp.name).trim().toLowerCase()}` : null;
-            
-            // Filters
-            if (clientId && String(lp.client_id) !== String(clientId)) return;
-            if (lp.user_id && lp.user_id !== currentUserId) return;
-
-            // If already exists by ID or by Name+Client, skip it
-            if (allProjectsMap.has(lid) || (nameKey && allProjectsMap.has(nameKey))) {
-                return;
+                // Hydrate local storage with synced projects
+                if (dbProjects.length > 0 && !clientId) {
+                    const newLocal = [...localProjects.filter(p => !p.id || String(p.id).startsWith('local_'))];
+                    dbProjects.forEach(dp => {
+                        if (!newLocal.some(lp => String(lp.id) === String(dp.id))) {
+                            newLocal.push(dp);
+                        }
+                    });
+                    localStorage.setItem('local_projects', JSON.stringify(newLocal));
+                }
+            } catch (e) {
+                console.warn('Error fetching projects from Supabase:', e.message);
             }
             
-            allProjectsMap.set(lid, lp);
-        });
+            const allProjectsMap = new Map();
+            const currentUserId = Auth.getUserId();
+            dbProjects.forEach(dp => {
+                const pid = String(dp.id);
+                allProjectsMap.set(pid, dp);
+                if (dp.client_id && dp.name) {
+                    const nameKey = `name-${String(dp.client_id)}-${String(dp.name).trim().toLowerCase()}`;
+                    if (!allProjectsMap.has(nameKey)) allProjectsMap.set(nameKey, dp);
+                }
+            });
+            localProjects.forEach(lp => {
+                const lid = String(lp.id || '');
+                const nameKey = lp.client_id && lp.name ? `name-${String(lp.client_id)}-${String(lp.name).trim().toLowerCase()}` : null;
+                if (clientId && String(lp.client_id) !== String(clientId)) return;
+                if (lp.user_id && lp.user_id !== currentUserId) return;
+                if (allProjectsMap.has(lid) || (nameKey && allProjectsMap.has(nameKey))) return;
+                allProjectsMap.set(lid, lp);
+            });
 
-        // Convert Map back to array, filter out the name-keys
-        const allProjects = Array.from(allProjectsMap.entries())
-            .filter(([key]) => !key.startsWith('name-'))
-            .map(([_, p]) => p);
-        
-        const clients = await this.getClients(false);
-        const localData = {
-            locations: JSON.parse(localStorage.getItem('local_project_locations') || '{}'),
-            paymentStatuses: JSON.parse(localStorage.getItem('local_project_payment_statuses') || '{}'),
-            reasons: JSON.parse(localStorage.getItem('local_project_reasons') || '{}'),
-            subjects: JSON.parse(localStorage.getItem('local_project_subjects') || '{}'),
-            times: JSON.parse(localStorage.getItem('local_project_times') || '{}'),
-            styling: JSON.parse(localStorage.getItem('local_project_styling') || '{}'),
-            pubApproval: JSON.parse(localStorage.getItem('local_project_pub_approval') || '{}')
+            const allProjects = Array.from(allProjectsMap.entries())
+                .filter(([key]) => !key.startsWith('name-'))
+                .map(([_, p]) => p);
+            
+            const clients = await this.getClients(false);
+            const localData = {
+                locations: JSON.parse(localStorage.getItem('local_project_locations') || '{}'),
+                paymentStatuses: JSON.parse(localStorage.getItem('local_project_payment_statuses') || '{}'),
+                reasons: JSON.parse(localStorage.getItem('local_project_reasons') || '{}'),
+                subjects: JSON.parse(localStorage.getItem('local_project_subjects') || '{}'),
+                times: JSON.parse(localStorage.getItem('local_project_times') || '{}'),
+                styling: JSON.parse(localStorage.getItem('local_project_styling') || '{}'),
+                pubApproval: JSON.parse(localStorage.getItem('local_project_pub_approval') || '{}')
+            };
+            
+            const results = allProjects.map(p => this._normalizeProject(p, clients, localData));
+            if (!clientId) {
+                this._cache.projects = results;
+                this._pending.projects = null;
+            }
+            return results;
         };
-        
-        const results = allProjects.map(p => this._normalizeProject(p, clients, localData));
 
-        if (!clientId) this._cache.projects = results;
-        return results;
+        if (clientId) return fetchProjectsAction();
+        this._pending.projects = fetchProjectsAction();
+        return this._pending.projects;
     },
 
     _normalizeProject(p, clients, localData) {
@@ -923,24 +921,34 @@ const Store = {
     },
 
     async getUserProfile(forceRefresh = false) {
+        if (!Auth.getUserId()) return null;
         if (!forceRefresh && this._cache.userProfile) return this._cache.userProfile;
-        const userId = Auth.getUserId();
-        if (!userId) return null;
-        try {
-            const { data, error } = await sb.from('user_profiles').select('*').eq('user_id', userId).single();
-            if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows found"
-            
-            // Set defaults for reminders if missing
-            if (data && data.reminders_enabled === undefined) data.reminders_enabled = false;
-            if (data && !data.reminders_email) data.reminders_email = data.email || Auth.getEmail() || '';
-            if (data && !data.reminders_config) data.reminders_config = { before_shoot_days: 2, after_shoot_days: 1 };
-            
-            this._cache.userProfile = data;
-            return data;
-        } catch (e) {
-            console.warn('Error fetching user profile:', e.message);
-            return null;
-        }
+        if (this._pending.userProfile) return this._pending.userProfile;
+
+        this._pending.userProfile = (async () => {
+            try {
+                const userId = Auth.getUserId();
+                if (!userId) {
+                    this._pending.userProfile = null;
+                    return null;
+                }
+                const { data, error } = await sb.from('user_profiles').select('*').eq('user_id', userId).single();
+                if (error && error.code !== 'PGRST116') throw error;
+                if (data) {
+                    if (data.reminders_enabled === undefined) data.reminders_enabled = false;
+                    if (!data.reminders_email) data.reminders_email = data.email || Auth.getEmail() || '';
+                    if (!data.reminders_config) data.reminders_config = { before_shoot_days: 2, after_shoot_days: 1 };
+                    this._cache.userProfile = data;
+                }
+                this._pending.userProfile = null;
+                return data;
+            } catch (e) {
+                console.warn('Error fetching user profile:', e.message);
+                this._pending.userProfile = null;
+                return null;
+            }
+        })();
+        return this._pending.userProfile;
     },
 
     async updateReminderSettings(enabled, email, config) {
@@ -1252,76 +1260,83 @@ const Store = {
     async getAllTasks(forceRefresh = false) {
         if (!Auth.getUserId()) return [];
         if (!forceRefresh && this._cache.tasks) return this._cache.tasks;
+        if (this._pending.tasks) return this._pending.tasks;
 
-        let dbTasks = [];
-        let localTasks = JSON.parse(localStorage.getItem('local_checklists') || '[]');
+        this._pending.tasks = (async () => {
+            let dbTasks = [];
+            let localTasks = JSON.parse(localStorage.getItem('local_checklists') || '[]');
 
-        if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
-            try {
-                const { data, error } = await sb
-                    .from('project_checklists')
-                    .select('*, projects(name, shoot_date)')
-                    .eq('user_id', Auth.getUserId())
-                    .order('created_at', { ascending: false });
-                
-                if (error) {
-                    if (error.code === '42P01') this._checklistTableExists = false;
-                    throw error;
-                }
-                dbTasks = data || [];
-
-                // Hydrate local storage with synced tasks
-                if (dbTasks.length > 0) {
-                    const newLocal = [...localTasks.filter(t => String(t.id).startsWith('local_'))];
-                    dbTasks.forEach(dt => {
-                        if (!newLocal.some(lt => String(lt.id) === String(dt.id))) {
-                            newLocal.push(dt);
-                        }
-                    });
-                    if (newLocal.length > localTasks.length) {
-                        localStorage.setItem('local_checklists', JSON.stringify(newLocal));
+            if (this._checklistTableExists !== false && this._rlsChecklistEnabled !== false) {
+                try {
+                    const { data, error } = await sb
+                        .from('project_checklists')
+                        .select('*, projects(name, shoot_date)')
+                        .eq('user_id', Auth.getUserId())
+                        .order('created_at', { ascending: false });
+                    
+                    if (error) {
+                        if (error.code === '42P01') this._checklistTableExists = false;
+                        throw error;
                     }
+                    dbTasks = data || [];
+
+                    // Hydrate local storage with synced tasks
+                    if (dbTasks.length > 0) {
+                        const newLocal = [...localTasks.filter(t => String(t.id).startsWith('local_'))];
+                        dbTasks.forEach(dt => {
+                            if (!newLocal.some(lt => String(lt.id) === String(dt.id))) {
+                                newLocal.push(dt);
+                            }
+                        });
+                        if (newLocal.length > localTasks.length) {
+                            localStorage.setItem('local_checklists', JSON.stringify(newLocal));
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Supabase fetch failed, using only local:', e.message);
                 }
-            } catch (e) {
-                console.warn('Supabase fetch failed, using only local:', e.message);
             }
-        }
 
-        // Merge and de-duplicate by ID
-        const allTasks = [...dbTasks];
-        localTasks.forEach(localTask => {
-            if (!allTasks.some(dbTask => String(dbTask.id) === String(localTask.id))) {
-                allTasks.push(localTask);
-            }
-        });
+            // Merge and de-duplicate by ID
+            const allTasks = [...dbTasks];
+            localTasks.forEach(localTask => {
+                if (!allTasks.some(dbTask => String(dbTask.id) === String(localTask.id))) {
+                    allTasks.push(localTask);
+                }
+            });
 
-        // Filter out orphaned project tasks (tasks with a project_id but the project is gone)
-        const projectIds = new Set((await this.getProjects()).map(p => String(p.id)));
-        const filteredTasks = allTasks.filter(t => {
-            const pid = t.project_id || t.projectId;
-            if (!pid) return true; // Global tasks are fine
-            return projectIds.has(String(pid));
-        });
+            // Filter out orphaned project tasks
+            const projects = await this.getProjects();
+            const projectIds = new Set(projects.map(p => String(p.id)));
+            const filteredTasks = allTasks.filter(t => {
+                const pid = t.project_id || t.projectId;
+                if (!pid) return true;
+                return projectIds.has(String(pid));
+            });
 
-        // Deduplicate by content + project + due_date (keep first occurrence, typically from DB)
-        const seenTasks = new Set();
-        const finalTasks = filteredTasks.filter(t => {
-            const pid = String(t.project_id || t.projectId || 'no-proj');
-            const content = String(t.content || '').trim();
-            const dueDate = String(t.due_date || t.dueDate || '').split('T')[0].trim();
-            const key = `${pid}-${content}-${dueDate}`;
-            if (seenTasks.has(key)) return false;
-            seenTasks.add(key);
-            return true;
-        });
+            // Deduplicate by content + project + due_date
+            const seenTasks = new Set();
+            const finalTasks = filteredTasks.filter(t => {
+                const pid = String(t.project_id || t.projectId || 'no-proj');
+                const content = String(t.content || '').trim();
+                const dueDate = String(t.due_date || t.dueDate || '').split('T')[0].trim();
+                const key = `${pid}-${content}-${dueDate}`;
+                if (seenTasks.has(key)) return false;
+                seenTasks.add(key);
+                return true;
+            });
 
-        this._cache.tasks = finalTasks.map(item => {
-            if (typeof item.reminders === 'string') {
-                try { item.reminders = JSON.parse(item.reminders); } catch(e) { item.reminders = []; }
-            }
-            return item;
-        });
-        return this._cache.tasks;
+            const results = finalTasks.map(item => {
+                if (typeof item.reminders === 'string') {
+                    try { item.reminders = JSON.parse(item.reminders); } catch(e) { item.reminders = []; }
+                }
+                return item;
+            });
+            this._cache.tasks = results;
+            this._pending.tasks = null;
+            return results;
+        })();
+        return this._pending.tasks;
     },
 
     cleanupDuplicates() {

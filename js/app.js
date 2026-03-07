@@ -11,6 +11,15 @@ const app = {
     _currentTaskReminders: [],
 
     initialized: false,
+    _debounceTimers: {},
+
+    debounce(fn, delay, key = 'default') {
+        const self = this;
+        return function(...args) {
+            clearTimeout(self._debounceTimers[key]);
+            self._debounceTimers[key] = setTimeout(() => fn.apply(this, args), delay);
+        };
+    },
 
     async init() {
         if (!Auth.session || this.initialized) return;
@@ -21,6 +30,11 @@ const app = {
         
         // Handle global user notifications (Upgrade, Trial)
         await this.handleUserMessaging().catch(e => console.error('User messaging failed:', e));
+        
+        // Performance optimization: debounced render for clients
+        this.debouncedRenderClients = this.debounce((...args) => {
+            UI.renderClients(...args);
+        }, 300, 'render-clients');
         
         // Initialize Flatpickr for date inputs
         if (window.flatpickr) {
