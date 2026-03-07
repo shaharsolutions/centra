@@ -20,7 +20,7 @@
                     <span>Centra</span>
                 </a>
             </div>
-            <nav style="display: flex; gap: 24px; align-items: center;">
+            <nav>
                 <a href="landing.html" class="btn-secondary">דף הבית</a>
                 <a href="login.html" class="btn-secondary">כניסת מערכת</a>
             </nav>
@@ -35,36 +35,19 @@
                     <p style="color:var(--text-muted); font-size:1.15rem; max-width:600px; margin:0 auto;">בחרו את המסלול המדויק עבורכם והתחילו לעשות סדר בעסק כבר היום.</p>
                 </div>
 
-                <div class="billing-toggle-container" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 40px; font-weight: 600;">
-                    <span id="yearly-label" style="color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
-                        שנתי
-                        <span style="background: #ECFDF5; color: #059669; font-size: 0.75rem; padding: 2px 8px; border-radius: 20px; font-weight: 700;">חיסכון של ₪178</span>
-                    </span>
-                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px;">
-                        <input type="checkbox" id="billing-toggle" style="opacity: 0; width: 0; height: 0;">
-                        <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #E2E8F0; transition: .4s; border-radius: 34px;"></span>
-                    </label>
-                    <span id="monthly-label" style="color: var(--primary);">חודשי</span>
-                </div>
-
-                <style>
-                    .switch .slider:before {
-                        position: absolute;
-                        content: "";
-                        height: 18px;
-                        width: 18px;
-                        left: 4px;
-                        bottom: 4px;
-                        background-color: white;
-                        transition: .4s;
-                        border-radius: 50%;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    }
-                    input:checked + .slider { background-color: var(--primary); }
-                    input:checked + .slider:before { transform: translateX(24px); }
-                </style>
-
                 <div class="pricing-grid">
+                    <div class="billing-toggle-container">
+                        <span id="yearly-label" style="color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+                            שנתי
+                            <span style="background: #ECFDF5; color: #059669; font-size: 0.75rem; padding: 2px 8px; border-radius: 20px; font-weight: 700;">חיסכון של ₪178</span>
+                        </span>
+                        <label class="switch">
+                            <input type="checkbox" id="billing-toggle">
+                            <span class="slider round"></span>
+                        </label>
+                        <span id="monthly-label" style="color: var(--primary);">חודשי</span>
+                    </div>
+
                     <!-- Starter Plan -->
                     <div class="p-card">
                         <div class="p-header">
