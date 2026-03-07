@@ -1068,12 +1068,20 @@ input:focus, select:focus, textarea:focus {
 }
 
 @media (max-width: 480px) {
+    .header-actions .btn {
+        padding: 10px;
+        width: 42px;
+        height: 42px;
+        justify-content: center;
+        flex: none;
+    }
     .header-actions .btn span {
         display: none;
     }
     .header-actions .btn i {
         width: 20px;
         height: 20px;
+        margin: 0;
     }
     
     /* Adjust mobile nav items for smaller screens */

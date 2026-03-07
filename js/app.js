@@ -1631,7 +1631,7 @@ const app = {
 
             // Generate file name with current date
             const dateStr = new Date().toISOString().split('T')[0];
-            const fileName = `Centra_Export_${dateStr}.xlsx`;
+            const fileName = `centra_Export_${dateStr}.xlsx`;
 
             // Download file
             XLSX.writeFile(wb, fileName);

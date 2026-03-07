@@ -210,8 +210,9 @@ const Auth = {
             // Redirect from login to index if session exists
             if (isLoginPage) {
                 const indexUrl = new URL('index.html', window.location.href);
-                // Ensure we don't accidentally drop the project subdirectory
-                if (window.location.pathname.includes('/Centra') && !indexUrl.pathname.includes('/Centra')) {
+                // Ensure we don't accidentally drop the project subdirectory (case-insensitive check)
+                const currentPath = window.location.pathname.toLowerCase();
+                if (currentPath.includes('/centra') && !indexUrl.pathname.toLowerCase().includes('/centra')) {
                     indexUrl.pathname = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) + 'index.html';
                 }
                 window.location.href = indexUrl.href;
