@@ -19,8 +19,8 @@ const app = {
         this.applyGender();
         this.addEventListeners();
         
-        // Show upgrade notification if pending
-        await this.checkUpgradeNotification().catch(e => console.error('Upgrade notification check failed:', e));
+        // Handle global user notifications (Upgrade, Trial)
+        await this.handleUserMessaging().catch(e => console.error('User messaging failed:', e));
         
         // Initialize Flatpickr for date inputs
         if (window.flatpickr) {
@@ -521,11 +521,42 @@ const app = {
         }, 10);
     },
 
-    async checkUpgradeNotification() {
+    async handleUserMessaging() {
         const profile = await Store.getUserProfile();
-        const banner = document.getElementById('upgrade-notification-banner');
-        if (profile && profile.show_upgrade_notification && banner) {
-            banner.classList.remove('hidden');
+        if (!profile) return;
+
+        const bannerCountdown = document.getElementById('trial-countdown-banner');
+        const bannerUpgrade = document.getElementById('upgrade-notification-banner');
+
+        // Priority 1: Trial Status (Pro & Trial flag)
+        if (profile.plan === 'professional' && profile.is_trial && profile.plan_updated_at) {
+            const upgradeDate = new Date(profile.plan_updated_at);
+            const today = new Date();
+            const diffTime = Math.abs(today - upgradeDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 14) {
+                // Trial expired - Downgrade SILENTLY (as per request: "אל תציג שום הודעה")
+                console.log(`Trial expired. Day: ${diffDays}. Downgrading user ${profile.user_id}`);
+                await Store.updateUserPlan(profile.user_id, 'starter', { is_trial: false, has_used_trial: true });
+                await this.navigate(this.currentView);
+                return; 
+            } else {
+                // Trial active - Show Countdown
+                const daysLeft = 14 - (diffDays - 1);
+                if (bannerCountdown) {
+                    const textEl = document.getElementById('trial-days-left-text');
+                    if (textEl) textEl.innerText = daysLeft === 1 ? 'זה היום האחרון לניסיון!' : `נותרו עוד ${daysLeft} ימים`;
+                    bannerCountdown.classList.remove('hidden');
+                    if (window.lucide) lucide.createIcons();
+                }
+                return; // Priority: If trial banner is shown, don't show upgrade banner
+            }
+        }
+
+        // Priority 2: Admin Upgrade Notification (Only if not in trial)
+        if (profile.show_upgrade_notification && bannerUpgrade) {
+            bannerUpgrade.classList.remove('hidden');
             if (window.lucide) lucide.createIcons();
         }
     },
@@ -3317,52 +3348,6 @@ ${projectDisplay ? `📂 שיוך לפרויקט: ${projectDisplay}` : ''}
 
     viewAdmin() {
         this.navigate('admin');
-    },
-
-    async checkTrialStatus() {
-        const profile = await Store.getUserProfile();
-        
-        // Only check if they are currently Pro AND it's a trial
-        if (!profile || profile.plan !== 'professional' || !profile.is_trial || !profile.plan_updated_at) {
-            return;
-        }
-
-        const upgradeDate = new Date(profile.plan_updated_at);
-        const today = new Date();
-        const diffTime = Math.abs(today - upgradeDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays > 14) {
-            console.log(`Trial expired. Day: ${diffDays}. Downgrading user ${profile.user_id}`);
-            
-            // Downgrade to starter, mark trial as used, and set as NOT currently in trial
-            await Store.updateUserPlan(profile.user_id, 'starter', { 
-                is_trial: false, 
-                has_used_trial: true 
-            });
-
-            // Inform the user
-            this.confirmAction(
-                'תקופת הניסיון הסתיימה',
-                '14 ימי הניסיון שלך בחבילת Pro הסתיימו. הפיצ׳רים המתקדמים ננעלים, אך כל המידע ששמרת עדיין מחכה לך.<br><br><b>רוצה להמשיך לנהל את העסק כמו מקצוענית?</b>',
-                () => { this.openUpgradeModal(); },
-                true
-            );
-            
-            // Re-render current view if already on something that depends on plan
-            await this.navigate(this.currentView);
-        } else {
-            // Show trial countdown banner
-            const daysLeft = 14 - (diffDays - 1);
-            const banner = document.getElementById('trial-countdown-banner');
-            const textEl = document.getElementById('trial-days-left-text');
-            
-            if (banner && textEl) {
-                textEl.innerText = daysLeft === 1 ? 'זה היום האחרון לניסיון!' : `נותרו עוד ${daysLeft} ימים`;
-                banner.classList.remove('hidden');
-                if (window.lucide) lucide.createIcons();
-            }
-        }
     },
 
     handleDragStart(event, type, id) {
