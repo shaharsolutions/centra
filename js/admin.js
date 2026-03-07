@@ -389,7 +389,7 @@ const Admin = {
         }
     },
 
-    startImpersonating(userId, userEmail) {
+    async startImpersonating(userId, userEmail) {
         if (!this.isAdmin()) return;
         this._impersonatingUserId = userId;
         this._impersonatingEmail = userEmail;
@@ -405,10 +405,11 @@ const Admin = {
 
         // Navigate to dashboard as the impersonated user
         app.initialized = false;
-        app.init();
+        await app.init();
+        app.navigate('dashboard');
     },
 
-    stopImpersonating() {
+    async stopImpersonating() {
         this._impersonatingUserId = null;
         this._impersonatingEmail = null;
 
@@ -421,7 +422,8 @@ const Admin = {
 
         // Reinitialize as admin
         app.initialized = false;
-        app.init();
+        await app.init();
+        app.navigate('admin');
     },
 
     exportToExcel() {

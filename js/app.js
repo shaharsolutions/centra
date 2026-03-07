@@ -74,8 +74,8 @@ const app = {
         // Auto-archive projects that were delivered/published more than a week ago
         await Store.autoArchiveProjects().catch(e => console.error('Auto-archived failed:', e));
         
-        // Check if the 14-day trial for Pro has expired
-        await this.checkTrialStatus().catch(e => console.error('Trial check failed:', e));
+        // Handle global user notifications (Upgrade, Trial) - Already handled above
+        // this.checkTrialStatus() has been replaced by handleUserMessaging()
         
         // Start periodic reminders check
         this.startReminderInterval();
