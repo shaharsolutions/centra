@@ -19,6 +19,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     
+    <style>
+        body.user-is-pro .upgrade-pro-ui { display: none !important; }
+    </style>
+    
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
@@ -103,7 +107,7 @@
             <span style="color: var(--text-muted); font-size: 0.75rem; display: block;">תקופת ניסיון Pro</span>
             <span id="trial-days-left-text">נותרו עוד 14 ימים</span>
         </div>
-        <button onclick="app.openUpgradeModal()" style="
+        <button class="upgrade-pro-ui" onclick="app.openUpgradeModal()" style="
             background: var(--primary); color: white; border: none; 
             padding: 4px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.75rem;
             margin-right: 8px;
@@ -411,7 +415,7 @@
                     </div>
                     <div id="client-upload-upgrade-msg" class="hidden" style="margin-top:12px; padding:16px; border:1px solid var(--primary-light); border-radius:var(--radius-md); background:var(--bg-main); text-align:center;">
                         <div style="font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">העלאת קבצים זמינה בחבילת <strong>Pro</strong></div>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="app.openUpgradeModal()" style="width:100%;">שדרוג לחבילת Pro</button>
+                        <button type="button" class="btn btn-primary btn-sm upgrade-pro-ui" onclick="app.openUpgradeModal()" style="width:100%;">שדרוג לחבילת Pro</button>
                     </div>
                     <div id="client-upload-box" class="upload-document-box" style="margin-top:12px; padding:16px; border:2px dashed var(--border); border-radius:var(--radius-md); background:var(--bg-main); transition:all 0.2s;">
                         <div style="display:flex; flex-direction:column; gap:10px;">
@@ -691,7 +695,7 @@
                     </div>
                     <div id="project-upload-upgrade-msg" class="hidden" style="margin-top:12px; padding:16px; border:1px solid var(--primary-light); border-radius:var(--radius-md); background:var(--bg-main); text-align:center;">
                         <div style="font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">העלאת קבצים זמינה בחבילת <strong>Pro</strong></div>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="app.openUpgradeModal()" style="width:100%;">שדרוג לחבילת Pro</button>
+                        <button type="button" class="btn btn-primary btn-sm upgrade-pro-ui" onclick="app.openUpgradeModal()" style="width:100%;">שדרוג לחבילת Pro</button>
                     </div>
                     <div id="project-upload-box" class="upload-document-box" style="margin-top:12px; padding:16px; border:2px dashed var(--border); border-radius:var(--radius-md); background:var(--bg-main); transition:all 0.2s;">
                         <div style="display:flex; flex-direction:column; gap:10px;">
@@ -887,7 +891,7 @@
                             <i data-lucide="bell" style="width: 18px; height: 18px; color: var(--primary);"></i>
                             תזכורות למשימה זו (במייל)
                         </label>
-                        <span style="background: #F0F9FF; color: #0369A1; padding: 2px 8px; border-radius: 999px; font-size: 0.65rem; font-weight: 800; border: 1px solid #BAE6FD; display: flex; align-items: center; gap: 4px; cursor: pointer;" onclick="app.openUpgradeModal()">
+                        <span class="upgrade-pro-ui" style="background: #F0F9FF; color: #0369A1; padding: 2px 8px; border-radius: 999px; font-size: 0.65rem; font-weight: 800; border: 1px solid #BAE6FD; display: flex; align-items: center; gap: 4px; cursor: pointer;" onclick="app.openUpgradeModal()">
                             <i data-lucide="zap" style="width: 10px; height: 10px;"></i>
                             PRO
                         </span>

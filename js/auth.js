@@ -207,6 +207,13 @@ const Auth = {
         if (this.session) {
             if (overlay) overlay.classList.add('hidden');
             
+            const profile = window.Store ? await Store.getUserProfile() : null;
+            const isProfessional = profile?.plan === 'professional';
+            
+            // Toggle body class for conditional CSS
+            if (isProfessional) document.body.classList.add('user-is-pro');
+            else document.body.classList.remove('user-is-pro');
+
             // Redirect from login to index if session exists
             if (isLoginPage) {
                 const indexUrl = new URL('index.html', window.location.href);
