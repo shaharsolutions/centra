@@ -19,6 +19,9 @@ const app = {
         this.applyGender();
         this.addEventListeners();
         
+        // Show upgrade notification if pending
+        await this.checkUpgradeNotification().catch(e => console.error('Upgrade notification check failed:', e));
+        
         // Initialize Flatpickr for date inputs
         if (window.flatpickr) {
             flatpickr("input[type='date']", {
@@ -516,6 +519,24 @@ const app = {
             modal.classList.remove('hidden');
             input.focus();
         }, 10);
+    },
+
+    async checkUpgradeNotification() {
+        const profile = await Store.getUserProfile();
+        const banner = document.getElementById('upgrade-notification-banner');
+        if (profile && profile.show_upgrade_notification && banner) {
+            banner.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+    },
+
+    async dismissUpgradeNotification() {
+        const banner = document.getElementById('upgrade-notification-banner');
+        if (banner) {
+            banner.style.animation = 'slideDown 0.4s reverse forwards';
+            setTimeout(() => banner.classList.add('hidden'), 400);
+        }
+        await Store.dismissUpgradeNotification();
     },
 
     async changeDashboardWeek(offset) {
@@ -1087,13 +1108,21 @@ const app = {
         // Check user trial status
         const profile = await Store.getUserProfile();
         const hasUsedTrial = profile && profile.has_used_trial;
+        const isTrial = profile && profile.is_trial;
+
         const trialSection = document.getElementById('upgrade-trial-section');
         const paidSection = document.getElementById('upgrade-paid-section');
+        const trialUsedAlert = document.getElementById('trial-used-alert');
 
         if (trialSection && paidSection) {
-            if (hasUsedTrial) {
+            if (hasUsedTrial || isTrial) {
                 trialSection.style.display = 'none';
                 paidSection.style.display = 'block';
+                
+                // If they are CURRENTLY in trial, hide the "Trial already used" alert
+                if (trialUsedAlert) {
+                    trialUsedAlert.style.display = isTrial ? 'none' : 'block';
+                }
             } else {
                 trialSection.style.display = 'block';
                 paidSection.style.display = 'none';
@@ -3322,6 +3351,17 @@ ${projectDisplay ? `📂 שיוך לפרויקט: ${projectDisplay}` : ''}
             
             // Re-render current view if already on something that depends on plan
             await this.navigate(this.currentView);
+        } else {
+            // Show trial countdown banner
+            const daysLeft = 14 - (diffDays - 1);
+            const banner = document.getElementById('trial-countdown-banner');
+            const textEl = document.getElementById('trial-days-left-text');
+            
+            if (banner && textEl) {
+                textEl.innerText = daysLeft === 1 ? 'זה היום האחרון לניסיון!' : `נותרו עוד ${daysLeft} ימים`;
+                banner.classList.remove('hidden');
+                if (window.lucide) lucide.createIcons();
+            }
         }
     },
 

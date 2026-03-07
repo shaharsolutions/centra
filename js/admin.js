@@ -478,7 +478,7 @@ const Admin = {
             console.error('Error updating plan:', e);
             app.confirmAction(
                 'שגיאה בעדכון החבילה', 
-                'חלה שגיאה בבסיס הנתונים. ייתכן שיש להוסיף את עמודת החבילה.<br><br><b>פתרון:</b> יש להריץ את הקובץ <code>db/update_profiles_plan.sql</code> ב-SQL Editor של Supabase.',
+                'חלה שגיאה בבסיס הנתונים. ייתכן שיש להוסיף את העמודות הדרושות.<br><br><b>פתרון:</b> יש להריץ את הקבצים <code>db/update_profiles_plan.sql</code> ו-<code>db/upgrade_notification_setup.sql</code> ב-SQL Editor של Supabase.',
                 null, 
                 true
             );

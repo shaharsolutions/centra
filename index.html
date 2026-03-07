@@ -50,9 +50,88 @@
             padding: 4px 12px; border-radius: 999px; font-weight: 700; cursor: pointer; font-size: 0.75rem;
             transition: all 0.2s;
         " onmouseover="this.style.background='white'; this.style.color='#D97706'" onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.color='white'">
-            חזרה למנהל
+            </button>
+    </div>
+
+    <!-- Upgrade Notification Banner -->
+    <div id="upgrade-notification-banner" class="hidden" style="
+        position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1000;
+        background: linear-gradient(135deg, #7C3AED, #4F46E5); color: white;
+        padding: 10px 24px; display: flex; align-items: center; justify-content: center; gap: 16px;
+        font-size: 0.95rem; font-weight: 600; box-shadow: 0 10px 25px rgba(124, 58, 237, 0.3);
+        border-radius: 999px;
+        white-space: nowrap;
+        pointer-events: auto;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        animation: slideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    ">
+        <div style="background: rgba(255,255,255,0.2); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+            <i data-lucide="zap" style="width: 18px; height: 18px; fill: white;"></i>
+        </div>
+        <span>מזל טוב! מנהל המערכת שדרג אותך לחבילת <strong>Pro</strong> המלאה! 🚀</span>
+        <button onclick="app.dismissUpgradeNotification()" style="
+            background: white; color: #7C3AED; border: none; 
+            padding: 6px 16px; border-radius: 999px; font-weight: 800; cursor: pointer; font-size: 0.85rem;
+            transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'">
+            איזה כיף, תודה!
         </button>
     </div>
+
+    <style>
+        @keyframes slideDown {
+            from { transform: translate(-50%, -100px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+    </style>
+
+    <!-- Trial Countdown Banner -->
+    <div id="trial-countdown-banner" class="hidden" style="
+        position: fixed; top: 12px; right: 24px; z-index: 1000;
+        background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); color: #1F2937;
+        padding: 8px 16px; display: flex; align-items: center; gap: 12px;
+        font-size: 0.85rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-radius: 12px;
+        border: 1px solid rgba(124, 58, 237, 0.2);
+        animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    ">
+        <div style="background: #F59E0B; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+            <i data-lucide="clock" style="width: 16px; height: 16px;"></i>
+        </div>
+        <div>
+            <span style="color: var(--text-muted); font-size: 0.75rem; display: block;">תקופת ניסיון Pro</span>
+            <span id="trial-days-left-text">נותרו עוד 14 ימים</span>
+        </div>
+        <button onclick="app.openUpgradeModal()" style="
+            background: var(--primary); color: white; border: none; 
+            padding: 4px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.75rem;
+            margin-right: 8px;
+        ">לשדרוג קבוע</button>
+        <button onclick="this.parentElement.classList.add('hidden')" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;">
+            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+        </button>
+    </div>
+
+    <style>
+        @keyframes slideInRight {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @media (max-width: 768px) {
+            #trial-countdown-banner {
+                top: auto;
+                bottom: 80px; /* Above mobile nav */
+                right: 12px;
+                left: 12px;
+                animation: slideUp 0.5s ease-out;
+            }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+
     <div id="app">
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
@@ -745,7 +824,7 @@
                 </div>
                 <!-- Upgrade button: shown when user HAS used trial -->
                 <div id="upgrade-paid-section" style="display:none;">
-                    <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; text-align: center;">
+                    <div id="trial-used-alert" style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; text-align: center;">
                         <span style="font-size: 0.9rem; color: #991B1B; font-weight: 600;">⏰ תקופת הניסיון של 14 יום כבר נוצלה</span>
                     </div>
                     <button class="btn btn-primary" style="width: 100%; padding: 18px; font-size: 1.2rem; font-weight: 800; border-radius: 16px; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);" onclick="window.open('https://wa.me/972528366744?text=' + encodeURIComponent('היי, אשמח לשדרג את החבילה שלי ב-Centra ל-Pro'), '_blank')">

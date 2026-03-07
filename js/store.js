@@ -1041,6 +1041,11 @@ const Store = {
             if (options.hasOwnProperty('is_trial')) updateData.is_trial = options.is_trial;
             if (options.hasOwnProperty('has_used_trial')) updateData.has_used_trial = options.has_used_trial;
 
+            // If upgrading to professional, flag for notification next login
+            if (plan === 'professional' && !options.is_trial) {
+                updateData.show_upgrade_notification = true;
+            }
+
             const { error } = await sb.from('user_profiles').update(updateData).eq('user_id', userId);
             if (error) throw error;
 
@@ -1051,6 +1056,20 @@ const Store = {
         } catch (e) {
             console.error('Error updating user plan:', e);
             throw e;
+        }
+    },
+
+    async dismissUpgradeNotification() {
+        const userId = Auth.getUserId();
+        if (!userId) return;
+        try {
+            const { error } = await sb.from('user_profiles').update({ show_upgrade_notification: false }).eq('user_id', userId);
+            if (error) throw error;
+            if (this._cache.userProfile) this._cache.userProfile.show_upgrade_notification = false;
+            return { success: true };
+        } catch (e) {
+            console.error('Error dismissing upgrade notification:', e);
+            return { success: false, error: e.message };
         }
     },
 
