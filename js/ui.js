@@ -40,6 +40,19 @@ async renderDashboard() {
         return d >= weekDays[0] && d <= new Date(weekDays[6].getTime() + 86400000);
     }).sort((a,b) => (a.is_completed === b.is_completed) ? 0 : (a.is_completed ? 1 : -1));
 
+    // Filter overdue tasks
+    const todayAtMidnight = new Date();
+    todayAtMidnight.setHours(0,0,0,0);
+    
+    const overdueTasks = tasks.filter(t => {
+        if (t.is_completed) return false;
+        const dueDate = t.due_date || t.dueDate;
+        if (!dueDate) return false;
+        const d = new Date(dueDate);
+        d.setHours(0,0,0,0);
+        return d < todayAtMidnight;
+    }).sort((a, b) => new Date(a.due_date || a.dueDate) - new Date(b.due_date || b.dueDate));
+
     const renderStatProjects = (list, isPaymentList = false) => {
         if (list.length === 0) return '<div style="padding:10px; font-size:0.85rem; color:var(--text-muted); text-align:center;">אין פרויקטים</div>';
         return list.map(p => {
@@ -166,6 +179,34 @@ async renderDashboard() {
                 </div>
             `;
         }
+    }
+
+    let overdueTasksHtml = '';
+    if (overdueTasks.length > 0) {
+        overdueTasksHtml = `
+            <div style="margin-bottom: 32px;">
+                <h3 class="section-title" style="font-size:1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px; color: #EF4444;">
+                    <i data-lucide="alert-circle" style="width:18px;"></i> משימות באיחור
+                </h3>
+                <div style="background:white; border-radius:var(--radius-lg); border:1px solid #FEE2E2; box-shadow:var(--shadow-sm); overflow:hidden;">
+                    ${overdueTasks.map(t => `
+                        <div class="dashboard-task-item" style="padding:12px 16px; border-bottom:1px solid #FEE2E2; display:flex; align-items:center; gap:12px;">
+                            <input type="checkbox" onclick="app.toggleChecklistItem('${t.id}', this.checked, null, true)" style="width:16px; height:16px; flex-shrink:0;">
+                            <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                                <span style="font-size:0.9rem; font-weight:600; cursor:pointer;" onclick="app.viewTask('${t.id}')">${t.content}</span>
+                                ${t.projects?.name ? `<span style="font-size:0.75rem; color:var(--text-muted);">פרויקט: ${t.projects.name}</span>` : ''}
+                            </div>
+                            <span style="font-size:0.75rem; color:#EF4444; font-weight:700; flex-shrink:0;">
+                                ${new Date(t.due_date || t.dueDate).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'})}
+                            </span>
+                            <button class="btn-icon" style="color:#EF4444; flex-shrink:0;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
+                                <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
     }
 
     let html = `
@@ -322,6 +363,7 @@ async renderDashboard() {
         </div>
 
         <div style="margin-top: 32px;">
+            ${overdueTasksHtml}
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px;">
                 <!-- Weekly Tasks -->
                 <div>
@@ -334,7 +376,10 @@ async renderDashboard() {
                             weekTasks.map(t => `
                                 <div class="dashboard-task-item" style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; opacity: ${t.is_completed ? '0.6' : '1'};">
                                     <input type="checkbox" ${t.is_completed ? 'checked' : ''} onclick="app.toggleChecklistItem('${t.id}', this.checked, null, true)" style="width:16px; height:16px; flex-shrink:0;">
-                                    <span style="font-size:0.9rem; ${t.is_completed ? 'text-decoration:line-through' : ''}; flex:1; cursor:pointer;" onclick="app.viewTask('${t.id}')">${t.content}</span>
+                                    <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                                        <span style="font-size:0.9rem; ${t.is_completed ? 'text-decoration:line-through' : ''}; cursor:pointer;" onclick="app.viewTask('${t.id}')">${t.content}</span>
+                                        ${t.projects?.name ? `<span style="font-size:0.75rem; color:var(--text-muted);">פרויקט: ${t.projects.name}</span>` : ''}
+                                    </div>
                                     <span style="font-size:0.75rem; color:var(--text-muted); flex-shrink:0;">${new Date(t.due_date || t.dueDate).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'})}</span>
                                     <button class="btn-icon" style="color:#EF4444; flex-shrink:0;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
                                         <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
