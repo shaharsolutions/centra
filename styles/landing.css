@@ -39,7 +39,7 @@ body {
 
 /* Navigation */
 header {
-    height: 70px;
+    height: 90px;
     display: flex;
     align-items: center;
     position: fixed;
@@ -59,9 +59,9 @@ header {
     width: 100%;
 }
 
-nav {
+header nav {
     display: flex;
-    gap: 8px;
+    gap: 24px;
     align-items: center;
 }
 
@@ -80,13 +80,13 @@ nav {
 }
 
 .btn-secondary {
-    padding: 8px 16px;
+    padding: 10px 24px;
     font-weight: 600;
     color: var(--text-main);
     text-decoration: none;
     border-radius: var(--radius-md);
     transition: all 0.2s;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
 }
 
 .btn-secondary:hover {
@@ -95,8 +95,8 @@ nav {
 
 /* Hero */
 .hero {
-    padding-top: 140px;
-    padding-bottom: 60px;
+    padding-top: 180px;
+    padding-bottom: 100px;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -151,7 +151,7 @@ nav {
     font-size: 1.25rem;
     color: var(--text-muted);
     max-width: 680px;
-    margin: 0 auto 32px;
+    margin: 0 auto 48px;
     font-weight: 400;
 }
 
@@ -177,7 +177,7 @@ nav {
 }
 
 .hero-dashboard {
-    margin-top: 40px;
+    margin-top: 80px;
     border-radius: var(--radius-lg);
     border: 8px solid white;
     box-shadow: 0 40px 100px rgba(0,0,0,0.08);
@@ -199,7 +199,7 @@ nav {
 
 /* Stats */
 .stats {
-    padding: 40px 0;
+    padding: 80px 0;
     border-bottom: 1px solid var(--border);
 }
 
@@ -225,13 +225,13 @@ nav {
 
 /* Features */
 .features {
-    padding: 60px 0;
+    padding: 120px 0;
     background: var(--bg-subtle);
 }
 
 .section-title {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 70px;
 }
 
 .section-title h2 {
@@ -286,7 +286,7 @@ nav {
 
 /* Final CTA */
 .cta-block {
-    padding: 60px 0;
+    padding: 120px 0;
     text-align: center;
 }
 
@@ -349,12 +349,40 @@ footer {
 
 /* Mobile */
 @media (max-width: 768px) {
-    .hero h1 { font-size: 2.5rem; }
-    .hero h2 { font-size: 2rem; }
-    .hero h3 { font-size: 1.6rem; }
-    .stats-grid { grid-template-columns: 1fr; gap: 30px; }
-    .hero { padding-top: 140px; }
-    .cta-box h2 { font-size: 2.2rem; }
+    header { height: 70px; }
+    .nav-content { padding: 0 16px; }
+    header .nav-content nav { display: contents; }
+    
+    .logo { font-size: 1.25rem; gap: 8px; }
+    .logo img { width: 28px !important; height: 28px !important; }
+    .btn-secondary { padding: 6px 10px; font-size: 0.85rem; border-radius: 12px; }
+
+    .hero { padding-top: 110px; padding-bottom: 50px; }
+    .hero h1 { font-size: 2.2rem; }
+    .hero h2 { font-size: 1.8rem; }
+    .hero h3 { font-size: 1.5rem; }
+    .hero p { font-size: 1.1rem; margin-bottom: 30px; }
+    .hero-dashboard { margin-top: 40px; }
+
+    .stats { padding: 40px 0; }
+    .stats-grid { grid-template-columns: 1fr; gap: 24px; }
+    .stat-val { font-size: 2rem; }
+
+    .features { padding: 40px 0; }
+    .section-title { margin-bottom: 40px; }
+    .section-title h2 { font-size: 1.8rem; }
+    .features-grid { gap: 16px; }
+    .f-card { padding: 30px 24px; }
+
+    .pricing { padding: 40px 0; }
+    .p-card { padding: 32px 20px; border-radius: 24px; }
+    .p-price { font-size: 2.5rem; }
+
+    .cta-block { padding: 40px 0; }
+    .cta-box { padding: 50px 24px; border-radius: 24px; }
+    .cta-box h2 { font-size: 1.8rem; }
+    
+    footer { padding: 40px 0; }
 }
 
 /* Modal Styles */
@@ -488,7 +516,7 @@ footer {
 
 /* Pricing Section Styles */
 .pricing {
-    padding: 60px 0;
+    padding: 120px 0;
     background: var(--bg-base);
 }
 
@@ -503,7 +531,7 @@ footer {
 
 .p-card {
     background: white;
-    padding: 32px 24px;
+    padding: 48px 32px;
     border-radius: 40px;
     border: 1px solid var(--border);
     display: flex;
