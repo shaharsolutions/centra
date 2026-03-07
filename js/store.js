@@ -228,7 +228,7 @@ const Store = {
 
         const localExtras = JSON.parse(localStorage.getItem('local_client_extras') || '{}');
         
-        const results = allClients.map(c => ({
+        const enriched = allClients.map(c => ({
             ...c,
             city: localExtras[c.id]?.city || c.city,
             email: localExtras[c.id]?.email || c.email,
@@ -236,6 +236,15 @@ const Store = {
             facebook: localExtras[c.id]?.facebook || c.facebook,
             website: localExtras[c.id]?.website || c.website
         }));
+
+        // Deduplicate by name+phone (keep the first occurrence, which is typically from DB)
+        const seen = new Set();
+        const results = enriched.filter(c => {
+            const key = `${(c.name || '').trim().toLowerCase()}|${(c.phone || '').trim()}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
 
         this._cache.clients = results;
         return results;
@@ -265,15 +274,30 @@ const Store = {
             console.warn('Supabase client save failed, attempting fallback:', e.message);
             if (e.message?.includes('column') || e.status === 400) {
                 try {
-                    const fallbackClient = { ...dbClient };
-                    delete fallbackClient.organization;
-                    
-                    if (client.id && !String(client.id).startsWith('local_')) {
-                        const { data, error } = await sb.from('clients').update(fallbackClient).eq('id', client.id).select();
-                        if (error) throw error;
-                        savedClientData = data[0];
+                    // Before fallback insert, check if the first insert already created the row
+                    // to avoid creating duplicate entries
+                    if (!client.id || String(client.id).startsWith('local_')) {
+                        const { data: existing } = await sb.from('clients')
+                            .select('*')
+                            .eq('user_id', Auth.getUserId())
+                            .eq('name', dbClient.name)
+                            .eq('phone', dbClient.phone)
+                            .limit(1);
+                        if (existing && existing.length > 0) {
+                            // First insert actually succeeded, use that data
+                            savedClientData = existing[0];
+                            console.log('Client already existed from first insert, skipping fallback insert');
+                        } else {
+                            const fallbackClient = { ...dbClient };
+                            delete fallbackClient.organization;
+                            const { data, error } = await sb.from('clients').insert([fallbackClient]).select();
+                            if (error) throw error;
+                            savedClientData = data[0];
+                        }
                     } else {
-                        const { data, error } = await sb.from('clients').insert([fallbackClient]).select();
+                        const fallbackClient = { ...dbClient };
+                        delete fallbackClient.organization;
+                        const { data, error } = await sb.from('clients').update(fallbackClient).eq('id', client.id).select();
                         if (error) throw error;
                         savedClientData = data[0];
                     }
@@ -1250,10 +1274,22 @@ const Store = {
 
         // Filter out orphaned project tasks (tasks with a project_id but the project is gone)
         const projectIds = new Set((await this.getProjects()).map(p => String(p.id)));
-        const finalTasks = allTasks.filter(t => {
+        const filteredTasks = allTasks.filter(t => {
             const pid = t.project_id || t.projectId;
             if (!pid) return true; // Global tasks are fine
             return projectIds.has(String(pid));
+        });
+
+        // Deduplicate by content + project + due_date (keep first occurrence, typically from DB)
+        const seenTasks = new Set();
+        const finalTasks = filteredTasks.filter(t => {
+            const pid = String(t.project_id || t.projectId || 'no-proj');
+            const content = String(t.content || '').trim();
+            const dueDate = String(t.due_date || t.dueDate || '').split('T')[0].trim();
+            const key = `${pid}-${content}-${dueDate}`;
+            if (seenTasks.has(key)) return false;
+            seenTasks.add(key);
+            return true;
         });
 
         this._cache.tasks = finalTasks.map(item => {
@@ -1565,7 +1601,19 @@ const Store = {
                         if (item.id && !String(item.id).startsWith('local_')) {
                             res = await sb.from('project_checklists').update(fallbackData).eq('id', item.id).select();
                         } else {
-                            res = await sb.from('project_checklists').insert([fallbackData]).select();
+                            // Before fallback insert, check if the first insert already created the row
+                            const { data: existing } = await sb.from('project_checklists')
+                                .select('*')
+                                .eq('user_id', Auth.getUserId())
+                                .eq('content', dataToSave.content)
+                                .eq('category', dataToSave.category)
+                                .limit(1);
+                            if (existing && existing.length > 0 && String(existing[0].project_id) === String(dataToSave.project_id)) {
+                                res = { data: existing, error: null };
+                                console.log('Task already existed from first insert, skipping fallback insert');
+                            } else {
+                                res = await sb.from('project_checklists').insert([fallbackData]).select();
+                            }
                         }
                     }
                 }
@@ -1629,11 +1677,24 @@ const Store = {
                         if (this._rlsChecklistEnabled !== false) {
                             const fallbackData = { ...dataToSave };
                             delete fallbackData.notes;
+                            delete fallbackData.reminders; // Also remove reminders if it was already removed
                             
                             if (item.id && !String(item.id).startsWith('local_')) {
                                 res = await sb.from('project_checklists').update(fallbackData).eq('id', item.id).select();
                             } else {
-                                res = await sb.from('project_checklists').insert([fallbackData]).select();
+                                // Before fallback insert, check if the row was already created
+                                const { data: existing } = await sb.from('project_checklists')
+                                    .select('*')
+                                    .eq('user_id', Auth.getUserId())
+                                    .eq('content', dataToSave.content)
+                                    .eq('category', dataToSave.category)
+                                    .limit(1);
+                                if (existing && existing.length > 0 && String(existing[0].project_id) === String(dataToSave.project_id)) {
+                                    res = { data: existing, error: null };
+                                    console.log('Task already existed, skipping notes fallback insert');
+                                } else {
+                                    res = await sb.from('project_checklists').insert([fallbackData]).select();
+                                }
                             }
                             if (res.error) throw res.error;
                         } else {

@@ -1146,6 +1146,10 @@ const app = {
     },
 
     async handleClientSubmit() {
+        // Guard against double-submit
+        if (this._savingClient) return;
+        this._savingClient = true;
+
         const client = {
             id: this.editingClientId,
             name: document.getElementById('client-name').value,
@@ -1186,6 +1190,7 @@ const app = {
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerText = originalText;
+            this._savingClient = false;
         }
     },
 
@@ -2168,7 +2173,13 @@ const app = {
         if (!calculatedDate && this.editingProjectId && projectShootDate) {
             const parts = projectShootDate.split('-');
             const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            d.setDate(d.getDate() - 1);
+            
+            // For pre-shoot call, use 7 days before. For others, 1 day before.
+            if (displayContent.includes('שיחה מקדימה')) {
+                d.setDate(d.getDate() - 7);
+            } else {
+                d.setDate(d.getDate() - 1);
+            }
             
             const y = d.getFullYear();
             const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -2183,8 +2194,10 @@ const app = {
         }
 
         // Apply to input
-        const defaultDate = calculatedDate || new Date().toISOString().split('T')[0];
-        this._setElementDate('new-task-reminder-date', defaultDate);
+        let defaultReminderDate = calculatedDate || new Date().toISOString().split('T')[0];
+        
+        // No additional subtraction needed here as calculatedDate is already the desired target for "שיחה מקדימה"
+        this._setElementDate('new-task-reminder-date', defaultReminderDate);
         this._updateQuickRemindersUI();
 
         // Control reminders access by plan
@@ -3143,18 +3156,19 @@ const app = {
 
         const dateStr = new Date(project.shoot_date).toLocaleDateString('he-IL');
         const clientName = project.clients?.name || 'לקוח';
+        const projectDisplay = project.name + (clientName !== 'לקוח' ? ` (${clientName})` : '');
         
         let subject = '';
         let body = '';
 
         if (type === 'before') {
-            subject = `תזכורת: יום צילום בעוד ${days} ימים - ${project.name}`;
+            subject = `תזכורת: יום צילום בעוד ${days} ימים - ${projectDisplay}`;
             body = `שלום ${myName},
 
 זוהי תזכורת אוטומטית ממערכת Centra:
 
 ━━━━━━━━━━━━━━━━━━━━━━
-📸 בעוד ${days} ימים יתקיים יום הצילומים עבור הפרויקט "${project.name}"
+📸 בעוד ${days} ימים יתקיים יום הצילומים עבור הפרויקט "${projectDisplay}"
 👤 לקוח/ה: ${clientName}
 📅 תאריך: ${dateStr}
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -3164,13 +3178,13 @@ const app = {
 בברכה,
 מערכת Centra`;
         } else {
-            subject = `תזכורת: סיכום פרויקט - ${project.name}`;
+            subject = `תזכורת: סיכום פרויקט - ${projectDisplay}`;
             body = `שלום ${myName},
 
 זוהי תזכורת אוטומטית ממערכת Centra:
 
 ━━━━━━━━━━━━━━━━━━━━━━
-✅ עברו ${days} ימים מאז יום הצילומים עבור הפרויקט "${project.name}"
+✅ עברו ${days} ימים מאז יום הצילומים עבור הפרויקט "${projectDisplay}"
 👤 לקוח/ה: ${clientName}
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -3201,7 +3215,7 @@ const app = {
 
         // Mark as sent in DB
         await Store.updateProjectReminderStatus(project.id, type);
-        await Store.logAction('שליחת תזכורת', `הוכנה תזכורת מייל עבור ${project.name} (${type})`, 'project', project.id);
+        await Store.logAction('שליחת תזכורת', `הוכנה תזכורת מייל עבור ${projectDisplay} (${type})`, 'project', project.id);
     },
 
     async prepareTaskReminderEmail(task, isAuto = false) {
@@ -3303,6 +3317,54 @@ ${projectDisplay ? `📂 שיוך לפרויקט: ${projectDisplay}` : ''}
             
             // Re-render current view if already on something that depends on plan
             await this.navigate(this.currentView);
+        }
+    },
+
+    handleDragStart(event, type, id) {
+        event.dataTransfer.setData('type', type);
+        event.dataTransfer.setData('id', id);
+        event.dataTransfer.effectAllowed = 'move';
+        
+        // Add a slight transparency to the dragging element
+        setTimeout(() => {
+            event.target.style.opacity = '0.5';
+        }, 0);
+    },
+
+    async handleDrop(event, newDate) {
+        event.preventDefault();
+        const type = event.dataTransfer.getData('type');
+        const id = event.dataTransfer.getData('id');
+
+        if (!type || !id) return;
+
+        try {
+            if (type === 'project') {
+                const projects = await Store.getProjects();
+                const project = projects.find(p => String(p.id) === String(id));
+                if (project) {
+                    project.shoot_date = newDate;
+                    await Store.saveProject(project);
+                    await Store.logAction('העברת פרויקט', `הפרויקט "${project.name}" הועבר לתאריך ${newDate}`, 'project', id);
+                }
+            } else if (type === 'task') {
+                const tasks = await Store.getAllTasks();
+                const task = tasks.find(t => String(t.id) === String(id));
+                if (task) {
+                    task.due_date = newDate;
+                    await Store.saveChecklistItem(task);
+                    await Store.logAction('העברת משימה', `המשימה "${task.content}" הועברה לתאריך ${newDate}`, 'task', id);
+                }
+            }
+
+            // Refresh the dashboard
+            await this.navigate('dashboard');
+            
+            // Show a small toast or confirmation
+            this.confirmAction('עודכן!', 'האירוע הועבר בהצלחה.', null, true);
+        } catch (error) {
+            console.error('Error handling drop:', error);
+            this.confirmAction('שגיאה', 'לא ניתן היה להעביר את האירוע.', null, true);
         }
     }
 };

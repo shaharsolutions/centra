@@ -28,7 +28,11 @@ async renderDashboard() {
     const endOfWeekStr = weekDays[6].toLocaleDateString('he-IL', {day:'numeric', month:'numeric'});
 
     // Filter tasks for the week
+    const displayMode = Store.getChecklistDisplayMode();
     const weekTasks = tasks.filter(t => {
+        // If bullet mode, don't show project tasks in the weekly summary
+        if (displayMode === 'bullet' && (t.project_id || t.projectId)) return false;
+        
         const d = new Date(t.due_date || t.dueDate);
         return d >= weekDays[0] && d <= new Date(weekDays[6].getTime() + 86400000);
     }).sort((a,b) => (a.is_completed === b.is_completed) ? 0 : (a.is_completed ? 1 : -1));
@@ -76,6 +80,9 @@ async renderDashboard() {
     // Also find projects that have TASKS due this week
     const weekTaskProjectIds = new Set();
     const weekFilteredTasks = tasks.filter(t => {
+        // If bullet mode, don't count project tasks for "Weekly Clients" logic
+        if (displayMode === 'bullet' && (t.project_id || t.projectId)) return false;
+        
         const tDate = String(t.due_date || t.dueDate || '').split('T')[0];
         return weekDateStrings.includes(tDate);
     });
@@ -249,12 +256,22 @@ async renderDashboard() {
                     
                     const dayProjects = projects.filter(p => p.shoot_date && p.shoot_date.split('T')[0] === dateStr && p.status !== 'archived');
                     const dayTasks = tasks.filter(t => {
+                        // If bullet mode, don't show project tasks in the calendar grid
+                        if (displayMode === 'bullet' && (t.project_id || t.projectId)) return false;
+                        
                         const tDate = String(t.due_date || t.dueDate || '').split('T')[0];
                         return tDate === dateStr;
                     });
+
+                    const dragOverStyle = "this.style.borderColor='var(--primary)'; this.style.background='#F5F3FF';";
+                    const dragLeaveStyle = "this.style.borderColor='" + (isToday ? 'var(--primary)' : 'var(--border)') + "'; this.style.background='" + (isToday ? '#F5F3FF' : 'white') + "';";
                     
                     return `
-                        <div class="weekly-day ${isToday ? 'today' : ''}" style="background: ${isToday ? '#F5F3FF' : 'white'}; border-radius:12px; padding:10px; border:1px solid ${isToday ? 'var(--primary)' : 'var(--border)'}; text-align:right; min-height:110px; display:flex; flex-direction:column; gap:6px; box-shadow: var(--shadow-sm);">
+                        <div class="weekly-day ${isToday ? 'today' : ''}" 
+                            ondragover="event.preventDefault(); ${dragOverStyle}"
+                            ondragleave="${dragLeaveStyle}"
+                            ondrop="app.handleDrop(event, '${dateStr}')"
+                            style="background: ${isToday ? '#F5F3FF' : 'white'}; border-radius:12px; padding:10px; border:1px solid ${isToday ? 'var(--primary)' : 'var(--border)'}; text-align:right; min-height:110px; display:flex; flex-direction:column; gap:6px; box-shadow: var(--shadow-sm); transition: all 0.2s;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted)">${dayName}</div>
                                 <div style="font-size:1rem; font-weight:800; color:var(--text-main)">${day.getDate()}</div>
@@ -267,7 +284,11 @@ async renderDashboard() {
                                     return `
                                     <div style="margin-top:2px;">
                                         ${shootTime}
-                                        <div onclick="app.viewProject('${p.id}')" style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #BAE6FD;">
+                                        <div onclick="app.viewProject('${p.id}')" 
+                                            draggable="true"
+                                            ondragstart="app.handleDragStart(event, 'project', '${p.id}')"
+                                            ondragend="this.style.opacity='1'"
+                                            style="background:#E0F2FE; color:#0369A1; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:grab; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #BAE6FD;">
                                             <i data-lucide="camera" style="width:10px; height:10px; flex-shrink:0;"></i>
                                             <span style="overflow:hidden; text-overflow:ellipsis;">${p.name}${clientName}</span>
                                         </div>
@@ -277,7 +298,11 @@ async renderDashboard() {
                                 ${dayTasks.map(t => {
                                     return `
                                     <div style="display: flex; align-items: stretch; gap: 4px; margin-top: 2px;">
-                                        <div onclick="app.viewTask('${t.id}')" style="background:#F3E8FF; color:#7E22CE; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:pointer; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #E9D5FF; opacity: ${t.is_completed ? '0.6' : '1'}; flex: 1; min-width: 0;">
+                                        <div onclick="app.viewTask('${t.id}')" 
+                                            draggable="true"
+                                            ondragstart="app.handleDragStart(event, 'task', '${t.id}')"
+                                            ondragend="this.style.opacity='1'"
+                                            style="background:#F3E8FF; color:#7E22CE; font-size:0.7rem; padding:4px 6px; border-radius:6px; font-weight:600; cursor:grab; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display: flex; align-items:center; gap:4px; border: 1px solid #E9D5FF; opacity: ${t.is_completed ? '0.6' : '1'}; flex: 1; min-width: 0;">
                                             <i data-lucide="check-circle-2" style="width:10px; height:10px; flex-shrink:0;"></i>
                                             <span style="overflow:hidden; text-overflow:ellipsis; ${t.is_completed ? 'text-decoration:line-through' : ''}">${t.content}</span>
                                         </div>
@@ -818,9 +843,15 @@ async renderDashboard() {
     async renderTasks(searchQuery = '', filterStatus = 'all', filterProject = 'all', sortBy = '') {
         const allItems = await Store.getAllTasks();
         const projects = await Store.getProjects();
+        const displayMode = Store.getChecklistDisplayMode();
         
         // Filter out 'shoot' and 'equipment' categories - user requested, but include reminders
         let filteredTasks = allItems.filter(item => (item.category !== 'shoot' && item.category !== 'equipment') || (item.content || '').includes('תזכורת'));
+        
+        // If bullet mode, don't show project tasks in the tasks list
+        if (displayMode === 'bullet') {
+            filteredTasks = filteredTasks.filter(item => !(item.project_id || item.projectId));
+        }
         
         // Apply search and filters
         filteredTasks = filteredTasks.filter(t => {
@@ -1099,7 +1130,11 @@ async renderDashboard() {
                         });
                         
                         // De-duplicate tasks for this specific day
+                        const displayMode = Store.getChecklistDisplayMode();
                         const allDayTasks = tasks.filter(t => {
+                            // If bullet mode, don't show project tasks in the calendar tab
+                            if (displayMode === 'bullet' && (t.project_id || t.projectId)) return false;
+                            
                             const taskDate = String(t.due_date || t.dueDate || '').split('T')[0];
                             return taskDate === dateStr;
                         });

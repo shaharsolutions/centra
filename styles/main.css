@@ -1942,7 +1942,7 @@ span.flatpickr-weekday {
 
 .reminders-tooltip {
     position: absolute;
-    bottom: 110%;
+    top: 110%;
     left: 10px;
     background: #1E293B;
     color: white;
@@ -1962,16 +1962,16 @@ span.flatpickr-weekday {
 .reminders-tooltip::after {
     content: '';
     position: absolute;
-    top: 100%;
+    bottom: 100%;
     left: 15px;
     border-width: 6px;
     border-style: solid;
-    border-color: #1E293B transparent transparent transparent;
+    border-color: transparent transparent #1E293B transparent;
 }
 
 .reminders-tooltip-container:hover .reminders-tooltip {
     opacity: 1;
-    transform: translateY(-5px);
+    transform: translateY(5px);
     pointer-events: auto;
 }
 

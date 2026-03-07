@@ -150,7 +150,7 @@ const Auth = {
             const { error } = await sb.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: 'https://shaharsolutions.github.io/Centra/index.html'
+                    redirectTo: new URL('index.html', window.location.href).href
                 }
             });
             if (error) throw error;
@@ -200,8 +200,9 @@ const Auth = {
     async updateUI() {
         const overlay = document.getElementById('auth-overlay');
         const userProfile = document.getElementById('user-profile-info');
-        const isLoginPage = window.location.pathname.includes('login.html');
-        const isIndexPage = window.location.pathname.includes('index.html') || window.location.pathname.endsWith('/');
+        const path = window.location.pathname;
+        const isLoginPage = path.endsWith('login.html');
+        const isIndexPage = path.endsWith('index.html') || path.endsWith('/') || path.split('/').pop() === '';
 
         if (this.session) {
             if (overlay) overlay.classList.add('hidden');
@@ -253,7 +254,10 @@ const Auth = {
                 overlay.classList.remove('hidden');
             } else if (isIndexPage) {
                 // If on index and no session and no overlay (meaning it's separated), redirect to login
-                window.location.href = 'login.html';
+                // Safely redirect to login while preserving any marketing params (like fbclid)
+                const loginUrl = new URL('login.html', window.location.href);
+                loginUrl.search = window.location.search;
+                window.location.href = loginUrl.href;
             }
         }
     },

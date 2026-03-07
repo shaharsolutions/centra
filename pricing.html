@@ -261,6 +261,28 @@
                 document.body.style.overflow = '';
             }
         }
+
+        // Preserve tracking parameters (like fbclid) when navigating internal links
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentSearch = window.location.search;
+            if (currentSearch) {
+                document.querySelectorAll('a').forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto') && !href.startsWith('tel')) {
+                        try {
+                            const params = new URLSearchParams(currentSearch);
+                            const linkUrl = new URL(href, window.location.origin + window.location.pathname);
+                            
+                            params.forEach((value, key) => {
+                                linkUrl.searchParams.set(key, value);
+                            });
+                            
+                            link.href = linkUrl.toString();
+                        } catch (e) {}
+                    }
+                });
+            }
+        });
     </script>
     <script>
         const billingToggle = document.getElementById('billing-toggle');
