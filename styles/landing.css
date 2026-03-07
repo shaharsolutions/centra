@@ -39,7 +39,7 @@ body {
 
 /* Navigation */
 header {
-    height: 90px;
+    height: 70px;
     display: flex;
     align-items: center;
     position: fixed;
@@ -59,6 +59,12 @@ header {
     width: 100%;
 }
 
+nav {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
 .logo {
     display: flex;
     align-items: center;
@@ -74,13 +80,13 @@ header {
 }
 
 .btn-secondary {
-    padding: 10px 24px;
+    padding: 8px 16px;
     font-weight: 600;
     color: var(--text-main);
     text-decoration: none;
     border-radius: var(--radius-md);
     transition: all 0.2s;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
 }
 
 .btn-secondary:hover {
@@ -89,8 +95,8 @@ header {
 
 /* Hero */
 .hero {
-    padding-top: 180px;
-    padding-bottom: 100px;
+    padding-top: 140px;
+    padding-bottom: 60px;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -145,7 +151,7 @@ header {
     font-size: 1.25rem;
     color: var(--text-muted);
     max-width: 680px;
-    margin: 0 auto 48px;
+    margin: 0 auto 32px;
     font-weight: 400;
 }
 
@@ -171,7 +177,7 @@ header {
 }
 
 .hero-dashboard {
-    margin-top: 80px;
+    margin-top: 40px;
     border-radius: var(--radius-lg);
     border: 8px solid white;
     box-shadow: 0 40px 100px rgba(0,0,0,0.08);
@@ -193,7 +199,7 @@ header {
 
 /* Stats */
 .stats {
-    padding: 80px 0;
+    padding: 40px 0;
     border-bottom: 1px solid var(--border);
 }
 
@@ -219,13 +225,13 @@ header {
 
 /* Features */
 .features {
-    padding: 120px 0;
+    padding: 60px 0;
     background: var(--bg-subtle);
 }
 
 .section-title {
     text-align: center;
-    margin-bottom: 70px;
+    margin-bottom: 40px;
 }
 
 .section-title h2 {
@@ -280,7 +286,7 @@ header {
 
 /* Final CTA */
 .cta-block {
-    padding: 120px 0;
+    padding: 60px 0;
     text-align: center;
 }
 
@@ -482,7 +488,7 @@ footer {
 
 /* Pricing Section Styles */
 .pricing {
-    padding: 120px 0;
+    padding: 60px 0;
     background: var(--bg-base);
 }
 
@@ -497,7 +503,7 @@ footer {
 
 .p-card {
     background: white;
-    padding: 48px 32px;
+    padding: 32px 24px;
     border-radius: 40px;
     border: 1px solid var(--border);
     display: flex;

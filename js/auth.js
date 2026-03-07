@@ -209,7 +209,12 @@ const Auth = {
             
             // Redirect from login to index if session exists
             if (isLoginPage) {
-                window.location.href = 'index.html';
+                const indexUrl = new URL('index.html', window.location.href);
+                // Ensure we don't accidentally drop the project subdirectory
+                if (window.location.pathname.includes('/Centra') && !indexUrl.pathname.includes('/Centra')) {
+                    indexUrl.pathname = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) + 'index.html';
+                }
+                window.location.href = indexUrl.href;
                 return;
             }
 
@@ -255,7 +260,11 @@ const Auth = {
             } else if (isIndexPage) {
                 // If on index and no session and no overlay (meaning it's separated), redirect to login
                 // Safely redirect to login while preserving any marketing params (like fbclid)
-                const loginUrl = new URL('login.html', window.location.href);
+                // Use a relative string for the filename components to let the browser handle common path resolution,
+                // but prepend the current path to ensure we don't escape the project folder.
+                const pathParts = window.location.pathname.split('/');
+                pathParts[pathParts.length - 1] = 'login.html';
+                const loginUrl = new URL(pathParts.join('/'), window.location.origin);
                 loginUrl.search = window.location.search;
                 window.location.href = loginUrl.href;
             }
