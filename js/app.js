@@ -536,6 +536,11 @@ const app = {
     async navigate(view) {
         this.currentView = view;
         
+        // Refresh profile UI on every navigation to ensure consistency
+        if (window.Auth && Auth.updateUI) {
+            await Auth.updateUI();
+        }
+        
         // Update Desktop Nav
         document.querySelectorAll('.nav-links li').forEach(item => {
             item.classList.toggle('active', item.getAttribute('data-view') === view);

@@ -166,7 +166,8 @@ const Store = {
         projects: null,
         clients: null,
         tasks: null,
-        packages: null
+        packages: null,
+        userProfile: null
     },
 
     invalidateCache(type) {
@@ -177,6 +178,7 @@ const Store = {
             this._cache.clients = null;
             this._cache.tasks = null;
             this._cache.packages = null;
+            this._cache.userProfile = null;
         }
     },
 
@@ -920,7 +922,8 @@ const Store = {
         if (error) throw error;
     },
 
-    async getUserProfile() {
+    async getUserProfile(forceRefresh = false) {
+        if (!forceRefresh && this._cache.userProfile) return this._cache.userProfile;
         const userId = Auth.getUserId();
         if (!userId) return null;
         try {
@@ -929,9 +932,10 @@ const Store = {
             
             // Set defaults for reminders if missing
             if (data && data.reminders_enabled === undefined) data.reminders_enabled = false;
-            if (data && !data.reminders_email) data.reminders_email = 'shaharsolutions@gmail.com';
+            if (data && !data.reminders_email) data.reminders_email = data.email || Auth.getEmail() || '';
             if (data && !data.reminders_config) data.reminders_config = { before_shoot_days: 2, after_shoot_days: 1 };
             
+            this._cache.userProfile = data;
             return data;
         } catch (e) {
             console.warn('Error fetching user profile:', e.message);
