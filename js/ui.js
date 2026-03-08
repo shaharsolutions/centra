@@ -199,9 +199,14 @@ async renderDashboard() {
                             <span style="font-size:0.75rem; color:#EF4444; font-weight:700; flex-shrink:0;">
                                 ${new Date(t.due_date || t.dueDate).toLocaleDateString('he-IL', {day:'numeric', month:'numeric'})}
                             </span>
-                            <button class="btn-icon" style="color:#EF4444; flex-shrink:0;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
-                                <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
-                            </button>
+                            <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                                <button class="btn-icon" style="color:var(--primary); padding: 4px;" onclick="event.stopPropagation(); app.openPostponeTaskModal('${t.id}')" title="דחיית משימה למועד אחר">
+                                    <i data-lucide="calendar-clock" style="width:16px; height:16px;"></i>
+                                </button>
+                                <button class="btn-icon" style="color:#EF4444; padding: 4px;" onclick="event.stopPropagation(); app.deleteChecklistItem('${t.id}')">
+                                    <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+                                </button>
+                            </div>
                         </div>
                     `).join('')}
                 </div>
@@ -210,13 +215,18 @@ async renderDashboard() {
     }
 
     let html = `
-        <!-- Stats Summary -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <h2 class="section-title" style="margin:0;">סיכום נתונים</h2>
-            <button class="btn btn-secondary btn-sm" onclick="app.toggleStatExpansion()" style="display:flex; align-items:center; gap:6px; border-radius:30px; padding: 6px 14px;">
-                <i data-lucide="${app.isStatsExpanded ? 'chevron-up' : 'chevron-down'}" style="width:14px; height:14px;"></i>
-                <span style="font-weight:600; font-size:0.8rem;">${app.isStatsExpanded ? 'הסתר פירוט' : 'הצג פירוט'}</span>
-            </button>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-secondary btn-sm" onclick="app.checkSystemAnnouncements(true)" style="display:flex; align-items:center; gap:6px; border-radius:30px; padding: 6px 14px; background: white; border: 1px solid var(--border);">
+                    <i data-lucide="sparkles" style="width:14px; height:14px; color: #7C3AED;"></i>
+                    <span style="font-weight:600; font-size:0.8rem; color: var(--text-main);">מה חדש?</span>
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="app.toggleStatExpansion()" style="display:flex; align-items:center; gap:6px; border-radius:30px; padding: 6px 14px;">
+                    <i data-lucide="${app.isStatsExpanded ? 'chevron-up' : 'chevron-down'}" style="width:14px; height:14px;"></i>
+                    <span style="font-weight:600; font-size:0.8rem;">${app.isStatsExpanded ? 'הסתר פירוט' : 'הצג פירוט'}</span>
+                </button>
+            </div>
         </div>
         <div class="stats-grid">
             <div class="stat-card ${app.isStatsExpanded ? 'expanded' : ''}" onclick="app.toggleStatExpansion()" style="cursor:pointer;">

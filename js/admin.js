@@ -52,6 +52,18 @@ const Admin = {
                 profiles = data || [];
             } catch (pE) {}
 
+            let announcements = [];
+            try {
+                const { data } = await sb.from('system_announcements').select('*').order('created_at', { ascending: false });
+                announcements = data || [];
+            } catch (e) { console.warn('system_announcements missing'); }
+
+            let feedbacks = [];
+            try {
+                const { data } = await sb.from('system_feedback').select('*, system_announcements(content)').order('created_at', { ascending: false });
+                feedbacks = data || [];
+            } catch (e) { console.warn('system_feedback missing'); }
+
             // Build user map
             const userMap = {};
             
@@ -65,10 +77,12 @@ const Admin = {
                     last_login: null,
                     total_clients: 0,
                     total_projects: 0,
+                    plan_updated_at: p.plan_updated_at,
+                    last_seen_announcement_id: p.last_seen_announcement_id,
+                    seen_announcement_at: p.seen_announcement_at,
                     plan: p.plan || 'starter',
                     is_trial: !!p.is_trial,
-                    has_used_trial: !!p.has_used_trial,
-                    plan_updated_at: p.plan_updated_at
+                    has_used_trial: !!p.has_used_trial
                 };
             });
             
@@ -83,8 +97,9 @@ const Admin = {
                         total_time_minutes: 0,
                         last_login: null,
                         total_clients: 0,
-                        total_projects: 0,
-                        plan: 'starter'
+                        plan: 'starter',
+                        is_trial: false,
+                        has_used_trial: false
                     };
                 }
             };
@@ -117,7 +132,7 @@ const Admin = {
             });
 
             // Store data for filtering
-            this._adminData = { users, allProjects: allProjects || [], allClients: allClients || [], sessions, allLogs: allLogs || [] };
+            this._adminData = { users, allProjects: allProjects || [], allClients: allClients || [], sessions, allLogs: allLogs || [], announcements, feedbacks };
 
             // Summary cards
             const totalUsers = users.length;
@@ -178,6 +193,7 @@ const Admin = {
                                 <th style="padding: 10px 16px; text-align: center;">כניסות</th>
                                 <th style="padding: 10px 16px; text-align: center;">זמן כולל</th>
                                 <th style="padding: 10px 16px;">כניסה אחרונה</th>
+                                <th style="padding: 10px 16px;">עדכון אחרון</th>
                                 <th style="padding: 10px 16px; text-align: center;">פעולות</th>
                             </tr>
                         </thead>
@@ -221,6 +237,14 @@ const Admin = {
                         <td style="padding: 14px 16px; text-align: center;">${stat.total_logins}</td>
                         <td style="padding: 14px 16px; text-align: center;">${timeDisplay}</td>
                         <td style="padding: 14px 16px; color: var(--text-muted); font-size: 0.9rem;">${lastLogin}</td>
+                        <td style="padding: 14px 16px; color: var(--text-muted); font-size: 0.8rem;">
+                            ${stat.last_seen_announcement_id ? `
+                                <div style="display:flex; flex-direction:column; gap:2px;">
+                                    <span style="color:var(--primary);font-weight:600;">נראה 👋</span>
+                                    <span>${new Date(stat.seen_announcement_at).toLocaleString('he-IL')}</span>
+                                </div>
+                            ` : '-'}
+                        </td>
                         <td style="padding: 14px 16px; text-align: center;">
                             ${!isAdminUser ? `<button onclick="Admin.startImpersonating('${stat.user_id}', '${stat.user_email}')" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;">👁️ צפייה</button>` : '<span style="color: var(--text-muted); font-size: 0.8rem;">מנהל</span>'}
                         </td>
@@ -293,6 +317,109 @@ const Admin = {
             }
 
             html += `</tbody></table></div>`;
+            
+            // --- System Announcements ---
+            html += `
+                <div id="announcement-section" style="background: white; border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); margin-bottom: 24px;">
+                    <h3 style="margin-bottom: 16px; font-size: 1.1rem; color: var(--primary);">📢 ניהול עדכוני מערכת</h3>
+                    
+                    <form id="ann_form" onsubmit="Admin.saveAnnouncement(event)" style="background: var(--bg-main); padding: 16px; border-radius: var(--radius-md); margin-bottom: 24px; border: 1px solid var(--border);">
+                        <h4 id="ann_form_title" style="margin-bottom: 12px; font-size: 1rem;">יצירת עדכון חדש</h4>
+                        <input type="hidden" id="ann_id" value="">
+                        
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">תוכן העדכון (תומך HTML):</label>
+                            <textarea id="ann_content" rows="4" style="width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border); padding: 10px; font-size: 0.9rem; resize: vertical;" required placeholder="הזן את העדכון..."></textarea>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                            <input type="checkbox" id="ann_is_active" style="width: 16px; height: 16px;">
+                            <label for="ann_is_active" style="font-size: 0.9rem; margin: 0; cursor: pointer;">הגדר כפעיל (יוצג למשתמשים במערכת)</label>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                            <button type="button" onclick="Admin.previewAnnouncement()" class="btn btn-secondary" style="background: white;">תצוגה מקדימה</button>
+                            <button type="button" onclick="document.getElementById('ann_form').reset(); document.getElementById('ann_id').value=''; document.getElementById('ann_form_title').innerText='יצירת עדכון חדש';" class="btn btn-secondary" style="background: white;">נקה</button>
+                            <button type="submit" class="btn btn-primary">שמור ופרסם</button>
+                        </div>
+                    </form>
+                    
+                    <h4 style="margin-bottom: 12px; font-size: 1rem;">היסטוריית עדכונים</h4>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: right; min-width: 600px;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.85rem;">
+                                    <th style="padding: 10px 16px;">תאריך</th>
+                                    <th style="padding: 10px 16px;">תוכן קצר</th>
+                                    <th style="padding: 10px 16px; text-align: center;">סטטוס</th>
+                                    <th style="padding: 10px 16px; text-align: center;">צפיות</th>
+                                    <th style="padding: 10px 16px; text-align: center;">פעולות</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            if (announcements.length > 0) {
+                announcements.forEach(a => {
+                    const date = new Date(a.created_at).toLocaleDateString('he-IL');
+                    const snippet = a.content.replace(/<[^>]+>/g, '').substring(0, 50) + '...';
+                    html += `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 10px 16px; font-size: 0.9rem; white-space: nowrap;">${date}</td>
+                            <td style="padding: 10px 16px; font-size: 0.9rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${a.content.replace(/"/g, '&quot;')}">${snippet}</td>
+                            <td style="padding: 10px 16px; text-align: center;">
+                                ${a.is_active ? `<span style="display:inline-block; padding: 4px 10px; border-radius: 20px; background:#10B981; color:white; font-size:0.75rem; font-weight:700;">פעיל</span>` : `<span style="display:inline-block; padding: 4px 10px; border-radius: 20px; background:#E2E8F0; color:#1E293B; font-size:0.75rem; font-weight:700;">לא פעיל</span>`}
+                            </td>
+                            <td style="padding: 10px 16px; text-align: center; font-weight: 700; color: var(--primary);">
+                                ${users.filter(u => u.last_seen_announcement_id === a.id).length}
+                            </td>
+                            <td style="padding: 10px 16px; text-align: center;">
+                                <div style="display: flex; gap: 8px; justify-content: center;">
+                                    <button onclick="Admin.viewAnnouncement('${a.id}')" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.75rem; color: var(--primary); border-color: #DDD6FE;">צפה</button>
+                                    <button onclick="Admin.editAnnouncement('${a.id}')" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.75rem;">ערוך</button>
+                                    <button onclick="Admin.deleteAnnouncement('${a.id}')" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.75rem; color: var(--danger); border-color: #FECACA;">מחק</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html += `<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-muted);">אין עדכונים מסד הנתונים</td></tr>`;
+            }
+            
+            html += `</tbody></table></div>`;
+            
+            // --- Feedback Section ---
+            html += `
+                    <h4 style="margin-top: 32px; margin-bottom: 12px; font-size: 1rem;">💬 משוב ממשתמשים</h4>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: right; min-width: 600px;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.85rem;">
+                                    <th style="padding: 10px 16px;">תאריך</th>
+                                    <th style="padding: 10px 16px;">משתמש</th>
+                                    <th style="padding: 10px 16px;">משוב</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            if (feedbacks.length > 0) {
+                feedbacks.forEach(f => {
+                    const date = new Date(f.created_at).toLocaleString('he-IL');
+                    html += `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 10px 16px; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;">${date}</td>
+                            <td style="padding: 10px 16px; font-size: 0.9rem;">${f.user_email || 'לא ידוע'}</td>
+                            <td style="padding: 10px 16px; font-size: 0.9rem; max-width: 300px;">${f.content}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html += `<tr><td colspan="3" style="padding: 20px; text-align: center; color: var(--text-muted);">אין משובים עדיין</td></tr>`;
+            }
+            
+            html += `</tbody></table></div></div>`;
             
             container.innerHTML = html;
             if (window.lucide) lucide.createIcons();
@@ -495,6 +622,79 @@ const Admin = {
         } catch (e) {
             console.error('Error toggling trial:', e);
             app.confirmAction('שגיאה', 'חלה שגיאה בעדכון מצב הניסיון.', null, true);
+        }
+    },
+
+    async saveAnnouncement(event) {
+        event.preventDefault();
+        const id = document.getElementById('ann_id').value;
+        const content = document.getElementById('ann_content').value;
+        const isActive = document.getElementById('ann_is_active').checked;
+        
+        if (!content.trim()) return app.confirmAction('שגיאה', 'תוכן העדכון לא יכול להיות ריק.', null, true);
+
+        try {
+            if (id) {
+                // UPDATE without updated_at
+                const { error } = await sb.from('system_announcements').update({ content, is_active: isActive }).eq('id', id);
+                if (error) throw error;
+            } else {
+                // INSERT
+                const { error } = await sb.from('system_announcements').insert([{ content, is_active: isActive, created_by: Admin._impersonatingEmail || Auth.getEmail() || 'admin' }]);
+                if (error) throw error;
+            }
+            
+            app.confirmAction('הצלחה', 'העדכון נשמר בהצלחה!', null, true);
+            this.renderAdminPage(); // Refresh
+        } catch (e) {
+            console.error('Save announcement error:', e);
+            app.confirmAction('שגיאה', 'תקלה בשמירת העדכון.', null, true);
+        }
+    },
+
+    deleteAnnouncement(id) {
+        app.confirmAction('מחיקת עדכון', 'האם אתה בטוח שברצונך למחוק עדכון זה לצמיתות?', async () => {
+            try {
+                const { error } = await sb.from('system_announcements').delete().eq('id', id);
+                if (error) throw error;
+                app.confirmAction('הצלחה', 'העדכון נמחק.', null, true);
+                this.renderAdminPage(); // Refresh
+            } catch (e) {
+                console.error('Delete announcement error:', e);
+                app.confirmAction('שגיאה', 'תקלה במחיקת העדכון.', null, true);
+            }
+        });
+    },
+
+    editAnnouncement(id) {
+        const ann = this._adminData.announcements.find(a => a.id === id);
+        if (!ann) return;
+        document.getElementById('ann_id').value = ann.id;
+        document.getElementById('ann_content').value = ann.content;
+        document.getElementById('ann_is_active').checked = ann.is_active;
+        document.getElementById('ann_form_title').innerText = 'עריכת עדכון מערכת';
+        window.scrollTo({ top: document.getElementById('announcement-section').offsetTop - 50, behavior: 'smooth' });
+    },
+
+    previewAnnouncement() {
+        const content = document.getElementById('ann_content').value;
+        if (!content.trim()) return app.confirmAction('תצוגה מקדימה', 'אין תוכן להצגה.', null, true);
+        
+        if (typeof app !== 'undefined' && app.showAnnouncementModal) {
+            app.showAnnouncementModal({ content }, true); 
+        } else {
+            app.confirmAction('תצוגה מקדימה - עדכון', content, null, true);
+        }
+    },
+
+    viewAnnouncement(id) {
+        const ann = this._adminData.announcements.find(a => a.id === id);
+        if (!ann) return;
+        
+        if (typeof app !== 'undefined' && app.showAnnouncementModal) {
+            app.showAnnouncementModal(ann, true); 
+        } else {
+            app.confirmAction('צפייה בעדכון', ann.content, null, true);
         }
     }
 };

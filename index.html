@@ -112,7 +112,7 @@
             padding: 4px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.75rem;
             margin-right: 8px;
         ">לשדרוג קבוע</button>
-        <button onclick="this.parentElement.classList.add('hidden')" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;">
+        <button class="close-trial-btn" onclick="this.parentElement.classList.add('hidden')" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;">
             <i data-lucide="x" style="width: 14px; height: 14px;"></i>
         </button>
     </div>
@@ -124,11 +124,21 @@
         }
         @media (max-width: 768px) {
             #trial-countdown-banner {
-                top: auto;
-                bottom: 80px; /* Above mobile nav */
-                right: 12px;
-                left: 12px;
+                top: auto !important;
+                bottom: 80px !important; /* Above mobile nav */
+                right: 50% !important;
+                left: auto !important;
+                transform: translateX(50%) !important;
+                width: 90%;
+                max-width: 360px;
                 animation: slideUp 0.5s ease-out;
+            }
+            #trial-countdown-banner button.close-trial-btn {
+                padding: 10px !important;
+            }
+            #trial-countdown-banner button.close-trial-btn i {
+                width: 18px !important;
+                height: 18px !important;
             }
         }
         @keyframes slideUp {
@@ -857,6 +867,32 @@
             </div>
         </div>
     </div>
+    <!-- Postpone Task Modal -->
+    <div id="postpone-task-modal" class="modal-overlay hidden" style="z-index: 9999;">
+        <div class="modal" style="max-width: 480px; border-radius: 24px; padding: 12px;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 8px; position: relative; display: flex; justify-content: flex-end; align-items: center;">
+                <h3 style="font-size: 1.4rem; font-weight: 800; color: #1E293B; position: absolute; left: 50%; transform: translateX(-50%); margin: 0; font-family: 'Outfit', sans-serif;">דחיית משימה</h3>
+                <button class="close-modal" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; z-index: 1;"><i data-lucide="x" style="width: 20px; height: 20px;"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 16px 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="app.changePostponeWeek(-1)" style="padding: 6px 14px; border-radius: 30px; display: flex; align-items: center; gap: 8px; font-weight: 700; background: white; border: 1px solid var(--border); box-shadow: none;">
+                        <i data-lucide="chevron-right" style="width: 16px;"></i> <span style="font-size: 0.95rem;">הקודם</span>
+                    </button>
+                    <span id="postpone-week-label" style="font-weight: 800; font-size: 1.15rem; color: var(--text-main);"></span>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="app.changePostponeWeek(1)" style="padding: 6px 14px; border-radius: 30px; display: flex; align-items: center; gap: 8px; font-weight: 700; background: white; border: 1px solid var(--border); box-shadow: none;">
+                        <span style="font-size: 0.95rem;">הבא</span> <i data-lucide="chevron-left" style="width: 16px;"></i>
+                    </button>
+                </div>
+                <div id="postpone-days-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; direction: rtl;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: none; padding-top: 8px;">
+                <button type="button" class="btn btn-secondary close-modal" style="width: 100%; border-radius: 14px; padding: 14px; font-weight: 800; font-family: 'Outfit', sans-serif; font-size: 1.05rem; background: white; border: 1px solid var(--border); color: #1E293B;">ביטול</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Task Detail Modal -->
     <div id="task-modal" class="modal-overlay hidden">
@@ -1061,6 +1097,40 @@
             </div>
         </div>
     </div>
+    <!-- System Announcement Modal -->
+    <div id="system-announcement-modal" class="modal-overlay hidden" style="z-index: 4000; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background: rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s ease;">
+        <div class="modal" id="announcement-modal-inner" style="max-width: 550px; text-align: right; padding: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3); transform: translateY(20px); transition: transform 0.3s ease;">
+            <div style="background: linear-gradient(135deg, #7C3AED, #6D28D9); padding: 24px; color: white; position: relative;">
+                <button class="close-modal" id="announcement-close-top" style="position: absolute; top: 16px; left: 16px; background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;">
+                    &times;
+                </button>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 12px;">
+                        <i data-lucide="bell-ring" style="width: 24px; height: 24px; color: white;"></i>
+                    </div>
+                    <h3 style="margin: 0; font-size: 1.5rem; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">מה חדש במערכת?</h3>
+                </div>
+            </div>
+            
+            <div style="padding: 24px; background: white;">
+                <div id="announcement-content" style="line-height: 1.6; color: #374151; font-size: 1rem; margin-bottom: 24px;">
+                    <!-- Content injected here -->
+                </div>
+                
+                <div style="background: #F9FAFB; padding: 16px; border-radius: 12px; border: 1px solid #F3F4F6; margin-bottom: 24px;">
+                    <label style="display: block; font-weight: 700; color: #1F2937; margin-bottom: 8px; font-size: 0.95rem;">יש לך הערות או הצעות לשיפור?</label>
+                    <textarea id="announcement-feedback" placeholder="נשמח לשמוע ממך... (אופציונלי)" style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid #E5E7EB; border-radius: 8px; font-family: inherit; font-size: 0.9rem; resize: vertical;"></textarea>
+                </div>
+                
+                <div style="text-align: center;">
+                    <button id="announcement-approve-btn" class="btn btn-primary" style="padding: 14px 40px; font-size: 1.1rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">
+                        הבנתי, תודה!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- iOS Install Prompt -->
     <div id="ios-install-prompt" style="
         display: none;

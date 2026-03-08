@@ -8,6 +8,8 @@
     --text-main: #1E293B;
     --text-muted: #64748B;
     --border: #E2E8F0;
+    --success: #10B981;
+    --danger: #EF4444;
     --radius-lg: 16px;
     --radius-md: 12px;
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);

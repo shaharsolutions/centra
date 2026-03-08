@@ -31,6 +31,9 @@ const app = {
         // Handle global user notifications (Upgrade, Trial)
         await this.handleUserMessaging().catch(e => console.error('User messaging failed:', e));
         
+        // System Announcements
+        await this.checkSystemAnnouncements().catch(e => console.error('Announcements check failed:', e));
+        
         // Performance optimization: debounced render for clients
         this.debouncedRenderClients = this.debounce((...args) => {
             UI.renderClients(...args);
@@ -582,6 +585,92 @@ const app = {
             setTimeout(() => banner.classList.add('hidden'), 400);
         }
         await Store.dismissUpgradeNotification();
+    },
+
+    async checkSystemAnnouncements(force = false) {
+        try {
+            const profile = await Store.getUserProfile();
+            if (!profile && !force) return;
+            
+            const { data: announcements, error } = await sb
+                .from('system_announcements')
+                .select('*')
+                .eq('is_active', true)
+                .order('created_at', { ascending: false })
+                .limit(1);
+                
+            if (error) throw error;
+            
+            if (announcements && announcements.length > 0) {
+                const latest = announcements[0];
+                if (force || (profile && profile.last_seen_announcement_id !== latest.id)) {
+                    this.showAnnouncementModal(latest, force);
+                }
+            } else if (force) {
+                this.confirmAction('מה חדש?', 'אין עדכונים חדשים כרגע.', null, true);
+            }
+        } catch (e) {
+            console.warn('System announcements check failed:', e);
+            if (force) this.confirmAction('שגיאה', 'לא ניתן היה לטעון עדכונים.', null, true);
+        }
+    },
+
+    showAnnouncementModal(announcement, isPreview = false) {
+        const modal = document.getElementById('system-announcement-modal');
+        const inner = document.getElementById('announcement-modal-inner');
+        if (!modal) return;
+        
+        document.getElementById('announcement-content').innerHTML = announcement.content;
+        document.getElementById('announcement-feedback').value = '';
+        
+        modal.classList.remove('hidden');
+        
+        setTimeout(() => {
+            modal.style.opacity = '1';
+            inner.style.transform = 'translateY(0)';
+        }, 10);
+        
+        this.bringModalToFront(modal);
+        
+        const closeModals = async () => {
+            modal.style.opacity = '0';
+            inner.style.transform = 'translateY(20px)';
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            
+            if (isPreview) return;
+            
+            const feedbackText = document.getElementById('announcement-feedback').value.trim();
+            try {
+                sb.from('user_profiles')
+                  .update({ 
+                      last_seen_announcement_id: announcement.id,
+                      seen_announcement_at: new Date().toISOString()
+                  })
+                  .eq('user_id', Auth.getUserId())
+                  .then(() => Store.invalidateCache('userProfile'));
+
+                if (feedbackText) {
+                    await sb.from('system_feedback').insert([{
+                        user_id: Auth.getUserId(),
+                        user_email: Auth.getEmail(),
+                        content: feedbackText,
+                        announcement_id: announcement.id
+                    }]);
+                }
+            } catch (e) {
+                console.warn('Failed to update announcement view status:', e);
+            }
+        };
+        
+        const approveBtn = document.getElementById('announcement-approve-btn');
+        const newApproveBtn = approveBtn.cloneNode(true);
+        approveBtn.parentNode.replaceChild(newApproveBtn, approveBtn);
+        newApproveBtn.addEventListener('click', closeModals);
+        
+        const closeTopBtn = document.getElementById('announcement-close-top');
+        const newCloseTopBtn = closeTopBtn.cloneNode(true);
+        closeTopBtn.parentNode.replaceChild(newCloseTopBtn, closeTopBtn);
+        newCloseTopBtn.addEventListener('click', closeModals);
     },
 
     async changeDashboardWeek(offset) {
@@ -2116,6 +2205,108 @@ const app = {
             if (projectId && projectId !== 'undefined') await UI.renderChecklist(projectId);
             await this.navigate(this.currentView);
         });
+    },
+
+    async openPostponeTaskModal(taskId) {
+        this._postponeTaskId = taskId;
+        
+        // Default to current week (0), but if it's Friday or Saturday, default to next week (1)
+        const todayDay = new Date().getDay();
+        this._postponeWeekOffset = (todayDay === 5 || todayDay === 6) ? 1 : 0;
+        
+        this.renderPostponeDays();
+        
+        const modal = document.getElementById('postpone-task-modal');
+        modal.classList.remove('hidden');
+        this.bringModalToFront(modal);
+    },
+
+    changePostponeWeek(dir) {
+        this._postponeWeekOffset += dir;
+        this.renderPostponeDays();
+    },
+
+    renderPostponeDays() {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay() + (this._postponeWeekOffset * 7));
+        
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        
+        const startDay = startOfWeek.getDate();
+        const startMonth = startOfWeek.getMonth() + 1;
+        const endDay = endOfWeek.getDate();
+        const endMonth = endOfWeek.getMonth() + 1;
+        
+        const label = document.getElementById('postpone-week-label');
+        if (label) {
+            label.innerText = `${endDay}.${endMonth} - ${startDay}.${startMonth}`;
+        }
+        
+        const grid = document.getElementById('postpone-days-grid');
+        if (!grid) return;
+        
+        let html = '';
+        const dayNames = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'שבת'];
+        
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(startOfWeek);
+            d.setDate(startOfWeek.getDate() + i);
+            
+            const isPast = d < today;
+            
+            const disableAttr = isPast ? 'disabled' : '';
+            const bg = isPast ? '#F3F4F6' : '#8B5CF6'; // purple primary
+            const color = isPast ? 'var(--text-muted)' : 'white';
+            const cursor = isPast ? 'not-allowed' : 'pointer';
+            
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${day}`;
+            
+            html += `
+                <button type="button" ${disableAttr}
+                    onclick="app.postponeTaskToDate('${dateStr}')"
+                    style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px 8px; font-size:1.4rem; justify-content: space-between; gap:10px; height:auto; border-radius:18px; border:none; background:${bg}; color:${color}; cursor:${cursor}; transition:transform 0.1s ease, filter 0.1s ease;"
+                    onmouseover="if(!this.disabled) this.style.filter='brightness(1.1)'"
+                    onmouseout="if(!this.disabled) this.style.filter='none'"
+                    onmousedown="if(!this.disabled) this.style.transform='scale(0.96)'"
+                    onmouseup="if(!this.disabled) this.style.transform='scale(1)'">
+                    <span style="font-weight:800; line-height:1;">${dayNames[i]}</span>
+                    <span style="font-size:0.85rem; font-weight:normal; opacity:0.95; line-height:1;">${day}/${m}</span>
+                </button>
+            `;
+        }
+        
+        grid.innerHTML = html;
+        if (window.lucide) {
+            lucide.createIcons({ root: document.getElementById('postpone-task-modal') });
+        }
+    },
+
+    async postponeTaskToDate(dateStr) {
+        if (!this._postponeTaskId) return;
+        
+        try {
+            const task = await Store.getTaskById(this._postponeTaskId);
+            if (!task) {
+                this.closeSpecificModal('postpone-task-modal');
+                return;
+            }
+            
+            task.dueDate = dateStr;
+            task.due_date = dateStr;
+            await Store.saveChecklistItem(task);
+            
+            this.closeSpecificModal('postpone-task-modal');
+            await this.navigate(this.currentView);
+        } catch (error) {
+            console.error('Postpone task error:', error);
+            this.confirmAction('שגיאה', 'חלה שגיאה בדחיית המשימה.', null, true);
+        }
     },
 
     // Checklist Actions
